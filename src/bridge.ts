@@ -36,6 +36,14 @@ export async function command<T = void>(
   if (cmd === "temp_scan") return { bytes: 734003200, files: 5120 } as T;
   if (cmd === "temp_clean") return { bytes: 681574400, files: 4870 } as T;
   if (cmd === "weather") return null as T;
+  if (cmd === "trace_view")
+    return {
+      events: [],
+      load: { cpu: 12, gpu: 4, cpuBase: 9, gpuBase: 3, gpuAvailable: true, gpuTop: null },
+      enabled: true,
+    } as T;
+  if (cmd === "autorun_view") return { entries: [], quarantine: [], pending: [] } as T;
+  if (cmd === "monitors") return [] as T;
   if (cmd === "buy_item") {
     window.dispatchEvent(new CustomEvent("buy", { detail: args.id }));
     return undefined as T;

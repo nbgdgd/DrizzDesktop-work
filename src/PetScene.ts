@@ -363,7 +363,7 @@ export class PetScene extends Phaser.Scene {
         this.saveMemory(true);
       });
       // Panel -> pet, straight through the event bus.
-      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string }>("pet-command", (c) => this.onCommand(c));
+      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string; feed?: string }>("pet-command", (c) => this.onCommand(c));
       await this.subscribe<{ id: string }>("carry", (c) => {
         if (itemById(c.id)) {
           this.carrying = { id: c.id, since: Date.now(), down: false };
@@ -662,12 +662,22 @@ export class PetScene extends Phaser.Scene {
     this.game.loop.wake();
   }
   /** A command typed in the chat or a button in the panel. */
-  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string }) {
+  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string; feed?: string }) {
     if (!this.ready) return;
     const now = Date.now();
     const b = this.brain;
     const reply = () => void emitAll("pet-reply", { text: b.bubble?.text ?? "" });
     note(b.life, "command", now);
+    if (c.feed) {
+      // From the pantry: free, it was a gift or its own stash.
+      const pantry = b.life.pantry;
+      if ((pantry[c.feed] ?? 0) > 0 && itemById(c.feed)) {
+        pantry[c.feed]--;
+        if (!pantry[c.feed]) delete pantry[c.feed];
+        this.buy(c.feed, true);
+      }
+      return;
+    }
     if (c.game) {
       this.startGame(c.game);
       reply();
