@@ -148,7 +148,7 @@ export class Movement {
     if (this.initialized) return;
     const m = monitorAt(monitors, saved?.x ?? 0, saved?.y ?? 0, preferred);
     if (!m) return;
-    this.x = saved?.x ?? m.work.right - 120;
+    this.x = saved?.x ?? m.work.left + (m.work.right - m.work.left) * 0.66;
     this.y = saved?.y ?? m.work.bottom;
     this.initialized = true;
     this.recover(monitors, size, preferred);

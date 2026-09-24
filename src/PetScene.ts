@@ -116,6 +116,7 @@ export class PetScene extends Phaser.Scene {
   /** An animation forced for a while (cursor games, commands, antics). */
   private forced: { action: Action; until: number } | null = null;
   private buzz = new Buzz();
+  bodyBox: Rect | null = null;
   /** Food dragged out of the panel toward the pet. */
   private carrying: { id: string; since: number; down: boolean } | null = null;
   private carriedImage?: Phaser.GameObjects.Image;
@@ -1732,7 +1733,15 @@ export class PetScene extends Phaser.Scene {
           r > 0.55 - this.brain.curiosity * 0.3
         ) {
           this.idleAction = "idle";
+          // A stroll: away from the screen edges, bouncing off them instead
+          // of walking into the corner and standing there pressed to it.
+          const margin = Math.max(150 * k, (m.work.right - m.work.left) * 0.1);
+          const lo = m.work.left + margin,
+            hi = m.work.right - margin;
           let target = this.world.x + (Math.random() - 0.5) * 450 * k;
+          if (target > hi) target = hi - (target - hi);
+          if (target < lo) target = lo + (lo - target);
+          target = Math.max(lo, Math.min(hi, target));
           if (
             s.observeCursor &&
             Math.hypot(this.cursor.x - this.world.x, this.cursor.y - this.world.y) < 260 &&
@@ -1742,7 +1751,8 @@ export class PetScene extends Phaser.Scene {
           // Now and then: zoomies — sprint far, then a jump.
           if (r > 0.93 && this.brain.event("zoomies", now)) {
             const far = this.world.x < (m.work.left + m.work.right) / 2;
-            this.world.go(far ? m.work.right : m.work.left, false, 2.6 * (this.brain.temper.chase === "aggressive" ? 1.15 : 1));
+            const inset = (m.work.right - m.work.left) * 0.12;
+            this.world.go(far ? m.work.right - inset : m.work.left + inset, false, 2.6 * (this.brain.temper.chase === "aggressive" ? 1.15 : 1));
             this.zoomJump = now + 1600;
           } else this.world.go(target);
         }
@@ -1813,6 +1823,14 @@ export class PetScene extends Phaser.Scene {
       px = Math.max(10, Math.min(182, 96 + this.world.grab.x / (this.dpr * z)));
       py = Math.max(10, Math.min(200, floor + 1 + this.world.grab.y / (this.dpr * z)));
     }
+    // Tumbling after a throw: turn around the middle of the body. Around
+    // the feet the head swings below them when upside down — outside the
+    // overlay window, which has almost no room under the feet — and the
+    // pet seemed to vanish mid-air.
+    else if (this.world.air && Math.abs(this.world.swing) > 0.02 && !this.world.climb) {
+      const top = headTop(this.masks[frame] ?? [])?.y ?? 0;
+      py = Math.round((top + floor + 1) / 2);
+    }
     let angle = this.world.swing + (this.world.dragging ? 0 : this.buzz.sway(now));
     if (now < this.fx.starsUntil && !this.world.dragging) angle += Math.sin(now / 170) * 0.13;
     const shiver = this.antics.shivering || (action === "pained" && g.health < 50) ? (Math.random() - 0.5) * 1.6 : 0;
@@ -1828,6 +1846,13 @@ export class PetScene extends Phaser.Scene {
       cropLeft: crop?.[0],
       cropRight: crop?.[1],
     };
+    // Tumbling right next to the floor: the turned body may reach below the
+    // feet line, where the overlay window ends. Lift the pivot just enough.
+    if (this.world.air && Math.abs(angle) > 0.02 && !this.world.dragging) {
+      const low = Math.max(0, ...regionRects(p, this.masks[frame] ?? []).map((r) => r.bottom));
+      const limit = 338;
+      if (low > limit) p.y -= low - limit;
+    }
     this.placement = p;
     const absent = this.antics.absent;
     if (!this.assetError) {
@@ -1899,7 +1924,12 @@ export class PetScene extends Phaser.Scene {
     );
     this.fx.draw(now, k, this.world.x, this.world.y, this.toScene, headCanvas, z * 2.4);
     const rects: Rect[] = [];
-    if (!this.assetError && !absent) rects.push(...compact(regionRects(p, mask), 240));
+    const body = !this.assetError && !absent ? compact(regionRects(p, mask), 240) : [];
+    rects.push(...body);
+    // Bounding box of the body alone, canvas px (diagnostics and probes).
+    this.bodyBox = body.length
+      ? { left: Math.min(...body.map((r) => r.left)), top: Math.min(...body.map((r) => r.top)), right: Math.max(...body.map((r) => r.right)), bottom: Math.max(...body.map((r) => r.bottom)) }
+      : null;
     rects.push(...this.fx.rects(this.toScene, this.world.x, this.world.y, headCanvas, now, z * 2.4));
     rects.push(...propRects);
     if (carriedRect) rects.push(carriedRect);

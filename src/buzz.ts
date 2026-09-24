@@ -125,7 +125,7 @@ export class Buzz {
       // Edge to edge, overshooting the middle: a sprint, not a walk.
       this.side = -this.side;
       const span = i.right - i.left;
-      const x = this.side > 0 ? i.right - random() * span * 0.15 : i.left + random() * span * 0.15;
+      const x = this.side > 0 ? i.right - span * (0.06 + random() * 0.12) : i.left + span * (0.06 + random() * 0.12);
       // ~8x walking speed: a sprint the eye can barely follow.
       out.go = { x, hurry: this.strength < 1 ? 5 : 8 };
       this.nextMove = now + 1100 + random() * 1300;
