@@ -102,6 +102,14 @@ export class CursorPlay {
     this.enter("game", now, ms);
     this.swats = 0;
   }
+  /** No reason at all: walk up to the cursor and hit it once. */
+  tease(now: number) {
+    if (this.state !== "idle") return false;
+    this.enter("hunt", now, 9000);
+    this.swats = 0;
+    this.huntStart = now;
+    return true;
+  }
   /** Ignored too long: walk right under the cursor and stand in the way. */
   annoy(now: number) {
     if (this.state !== "idle") return;

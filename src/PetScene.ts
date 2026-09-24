@@ -1733,6 +1733,11 @@ export class PetScene extends Phaser.Scene {
           r > 0.55 - this.brain.curiosity * 0.3
         ) {
           this.idleAction = "idle";
+          // Sometimes, for no reason: "не дёргайся, стрелочка" — and a slap.
+          // Only when the cursor is within a jump: otherwise he would just stand and glare.
+          const rise = this.world.y - this.cursor.y;
+          const cursorNear = Math.abs(this.cursor.x - this.world.x) < 700 * k && rise > -12 * k && rise < this.sizePx() + 180 * k;
+          const teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < 0.18 && this.brain.event("tease", now) && this.play.tease(now);
           // A stroll: away from the screen edges, bouncing off them instead
           // of walking into the corner and standing there pressed to it.
           const margin = Math.max(150 * k, (m.work.right - m.work.left) * 0.1);
@@ -1749,12 +1754,12 @@ export class PetScene extends Phaser.Scene {
           )
             target = this.cursor.x;
           // Now and then: zoomies — sprint far, then a jump.
-          if (r > 0.93 && this.brain.event("zoomies", now)) {
+          if (!teased && r > 0.93 && this.brain.event("zoomies", now)) {
             const far = this.world.x < (m.work.left + m.work.right) / 2;
             const inset = (m.work.right - m.work.left) * 0.12;
             this.world.go(far ? m.work.right - inset : m.work.left + inset, false, 2.6 * (this.brain.temper.chase === "aggressive" ? 1.15 : 1));
             this.zoomJump = now + 1600;
-          } else this.world.go(target);
+          } else if (!teased) this.world.go(target);
         }
       }
       if (now < this.activityUntil) base = this.idleAction;

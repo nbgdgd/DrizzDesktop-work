@@ -209,7 +209,7 @@ export interface Store {
   hasKey: boolean;
 }
 export const defaults: Settings = {
-  pet: "drizz",
+  pet: "aqua-wisp",
   mode: "normal",
   size: 76,
   smooth: true,

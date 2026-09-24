@@ -9,6 +9,14 @@
 // remember (lines with them are skipped when there is none), plus the
 // per-event ones ({n}, {app}, {time}, {holiday}, {prize}, {size}, {item}…).
 export const more: Record<string, string[]> = {
+  tease: [
+    "Не дёргайся, стрелочка.",
+    "Стрелочка, стоять. Щас получишь.",
+    "Чё ты там дёргаешься, курсор? Иди сюда.",
+    "Просто так. Для профилактики, блядь.",
+    "Курсор, ты мне не нравишься. Ничего личного.",
+    "Эй, стрелка. Лови леща.",
+  ],
   // ------------------------------------------------ drinks (buzz.ts)
   energyStart: [
     "О-о-о, энергетик! Держись, блядь, щас начнётся!",

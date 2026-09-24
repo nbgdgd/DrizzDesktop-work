@@ -260,6 +260,7 @@ export const rules: Record<string, Rule> = {
   cursorCatch: rule("celebrate", 60, 15000, 1500),
   cursorLazy: rule("sigh", 60, 20000, 2000),
   cursorAnnoy: rule("wave", 44, 60000, 2500),
+  tease: rule("look", 46, 360000, 1500),
   // Commands, games, roles, notes.
   cmdSit: rule("sit", 96, 1000, 4000),
   cmdCome: rule("wave", 96, 1000, 2000),

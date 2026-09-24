@@ -52,7 +52,8 @@ describe("throw physics", () => {
 
 describe("mood and relationship", () => {
   it("throws build a grudge that turns the tone angry; petting and food repair it", () => {
-    const d = director();
+    // Drizz: a full-strength grudge (Aqua, the default, barely holds one).
+    const d = new Director({ ...defaults, pet: "drizz" }, { ...emptyMemory, lastGreeting: new Date(now).toLocaleDateString("sv") }, () => 0.99);
     for (let i = 0; i < 5; i++) d.threw(now + i * 5000);
     expect(d.game.grudge).toBeGreaterThanOrEqual(50);
     expect(d.game.throwsToday).toBe(5);

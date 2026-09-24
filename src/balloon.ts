@@ -106,15 +106,21 @@ export class Balloon {
       .setColor(mumble ? "#b9bcc4" : "#e9e9eb")
       .setWordWrapWidth(mumble ? 200 : 258)
       .setText(text);
+    // Size for the full line first, then show only what has been "typed".
+    const fullW = this.label.width,
+      fullH = this.label.height;
+    const perChar = Math.max(18, Math.min(45, 1800 / Math.max(1, text.length)));
+    const typed = Math.min(text.length, Math.floor((now - this.since) / perChar) + 1);
+    if (typed < text.length) this.label.setText(text.slice(0, typed));
     this.sub.setText(b?.sub ?? "");
     const subH = this.sub.visible ? this.sub.height + 4 : 0;
     const row = actions.length ? 32 : 0;
-    const width = mumble ? Math.min(226, this.label.width + 26) : 290;
-    const height = this.label.height + 26 + subH + row;
+    const width = mumble ? Math.min(226, fullW + 26) : 290;
+    const height = fullH + 26 + subH + row;
     const left = mumble ? Math.max(8, Math.min(352 - width, anchorX - width / 2)) : 35;
     const bottom = below ? anchorY + 18 + height : Math.max(height + 8, headY - 12);
     this.label.setPosition(left + 13, bottom - height + 13);
-    this.sub.setPosition(left + 13, bottom - height + 13 + this.label.height + 4);
+    this.sub.setPosition(left + 13, bottom - height + 13 + fullH + 4);
     let bx = left + 13;
     for (const btn of this.buttons) {
       if (!btn.visible) continue;
