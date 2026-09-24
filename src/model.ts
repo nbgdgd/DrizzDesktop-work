@@ -165,6 +165,10 @@ export interface Settings {
   cursorPlay: boolean;
   /** May actually move the cursor a little when it hits it. */
   cursorPush: boolean;
+  /** Drunk pet may shake, shove and minimise real windows. */
+  drunkWindows: boolean;
+  /** …and even ask one to close (WM_CLOSE). Off by default. */
+  drunkClose: boolean;
   /** Talks to itself when nothing happens. */
   mumble: boolean;
   /** Animal Crossing-like babble under every line. */
@@ -257,6 +261,8 @@ export const defaults: Settings = {
   diagnostics: false,
   cursorPlay: true,
   cursorPush: true,
+  drunkWindows: true,
+  drunkClose: false,
   mumble: true,
   voice: true,
   mischief: true,

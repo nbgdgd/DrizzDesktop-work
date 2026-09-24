@@ -332,6 +332,26 @@ fn nudge_cursor(window: tauri::Window, state: tauri::State<State>, dx: i32, dy: 
     }
     chores::nudge(dx, dy)
 }
+/// The drunk pet hits a real window. Off unless "drunkWindows" is on; closing
+/// needs its own "drunkClose" switch.
+#[tauri::command]
+fn window_act(window: tauri::Window, state: tauri::State<State>, id: isize, kind: String, dx: i32) -> Result<String, String> {
+    if window.label() != "pet" {
+        return Err("Overlay only".into());
+    }
+    let s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
+    if !storage::enabled(&s, "drunkWindows", true) {
+        return Err("disabled".into());
+    }
+    if kind == "close" && !storage::enabled(&s, "drunkClose", false) {
+        return Err("close disabled".into());
+    }
+    let r = chores::window_act(id, &kind, dx);
+    if storage::diag_enabled(&s) {
+        storage::diag("rs", &format!("window_act {id} {kind} -> {r:?}"));
+    }
+    r
+}
 #[tauri::command]
 async fn temp_scan() -> chores::TempSize {
     chores::temp(false)
@@ -569,6 +589,7 @@ fn main() {
             recenter_pet,
             exit_app,
             nudge_cursor,
+            window_act,
             temp_scan,
             temp_clean,
             weather,

@@ -5,6 +5,7 @@
 // receives physical desktop pixels; `dpr` (WebView devicePixelRatio) converts
 // between the two. Movement/physics use the monitor scale reported by Rust,
 // which equals `dpr` once the window sits on that monitor.
+import { Buzz } from "./buzz";
 import Phaser from "phaser";
 import { command, emitAll, on, native } from "./bridge";
 import { Sfx, Sound } from "./sound";
@@ -114,6 +115,7 @@ export class PetScene extends Phaser.Scene {
   private heart = 0;
   /** An animation forced for a while (cursor games, commands, antics). */
   private forced: { action: Action; until: number } | null = null;
+  private buzz = new Buzz();
   /** Food dragged out of the panel toward the pet. */
   private carrying: { id: string; since: number; down: boolean } | null = null;
   private carriedImage?: Phaser.GameObjects.Image;
@@ -574,7 +576,12 @@ export class PetScene extends Phaser.Scene {
     this.brain.fed(now);
     this.antics.returned(this.host());
     this.brain.reset("fed");
-    this.brain.event("fed", now, true, undefined, { item: item.name });
+    const buzzKind = id === "energy" || id === "coffee" ? "energy" : id === "beer" ? "beer" : null;
+    if (buzzKind) {
+      this.brain.event(buzzKind === "energy" ? "energyStart" : "beerStart", now, true, undefined, { item: item.name });
+      // Kicks in once the can/bottle is empty.
+      this.antics.later(now + 2600, () => this.buzz.start(buzzKind, Date.now(), id === "coffee" ? 0.5 : 1));
+    } else this.brain.event("fed", now, true, undefined, { item: item.name });
     this.antics.carry = "shop-" + id;
     this.antics.later(now + 2600, () => {
       if (this.antics.carry === "shop-" + id) this.antics.carry = "";
@@ -1487,6 +1494,71 @@ export class PetScene extends Phaser.Scene {
     }
     this.lastBubble = text;
   }
+  /** Energy drink zoomies and beer brawls (buzz.ts). */
+  private applyBuzz(now: number) {
+    if (!this.buzz.kind) return;
+    const s = this.store.settings;
+    const k = this.world.scale;
+    const size = this.sizePx();
+    const m = monitorAt(this.monitors, this.world.x, this.world.y, s.monitor);
+    if (!m) return;
+    const b = this.buzz.step({
+      now,
+      pet: { x: this.world.x, y: this.world.y, air: this.world.air, dragging: this.world.dragging },
+      left: (this.world.support?.rect.left ?? m.work.left) + size * 0.6,
+      right: (this.world.support?.rect.right ?? m.work.right) - size * 0.6,
+      k,
+      size,
+      random: Math.random,
+    });
+    if (b.go && !s.pinned && !(this.buzz.drunk && this.play.busy)) this.world.go(b.go.x, false, b.go.hurry);
+    if (b.jump && !s.pinned) this.world.jump();
+    if (b.glyph) this.fx.glyph(b.glyph[0], b.glyph[1], size, k, this.dpr, (Math.random() - 0.5) * 0.5, 1100);
+    if (b.say) this.brain.event(b.say, now, true);
+    if (b.stumble) {
+      this.fx.dust(this.world.x, this.world.y, k, 5, false);
+      this.squash = { t: now, kind: "floor", amt: 0.28 };
+      this.voice.act("land", 200);
+    }
+    if (b.action) this.forced = { action: b.action, until: b.until ?? now + 500 };
+    if (b.smash) this.smash(b.smash, now);
+  }
+  /**
+   * A drunk punch at whatever is in front: the "glass" cracks (drawn by the
+   * pet), and if a real window is there and the user allowed it, that window
+   * gets shaken, shoved, knocked down (minimised) or — separate opt-in —
+   * asked to close, escalating with every punch.
+   */
+  private smash(dir: number, now: number) {
+    const k = this.world.scale;
+    const size = this.sizePx();
+    const x = this.world.x + dir * size * 0.55;
+    const y = this.world.y - size * 0.55;
+    this.fx.crack(x, y);
+    this.voice.act("swat", 300);
+    this.squash = { t: now, kind: "wall", amt: 0.2 };
+    const s = this.store.settings;
+    const win =
+      this.snapshot?.windows.find(
+        (w) => x >= w.rect.left && x <= w.rect.right && y >= w.rect.top && y <= w.rect.bottom,
+      ) ?? null;
+    if (!win || !native || !s.drunkWindows) {
+      this.brain.event("beerScreen", now, true);
+      return;
+    }
+    const n = this.buzz.smashes;
+    const kind = n >= 5 && s.drunkClose ? "close" : n >= 4 ? "minimize" : n >= 3 ? "shove" : "shake";
+    void command<string>("window_act", { id: win.id, kind, dx: Math.round(dir * 120 * k) })
+      .then((done) => {
+        const say = done === "close" ? "beerClose" : done === "minimize" ? "beerKnockout" : done === "shove" ? "beerShove" : "beerSmash";
+        this.brain.event(say, Date.now(), true);
+        this.diag.log("smash", `${kind} -> ${done} window ${win.id}`);
+      })
+      .catch((e) => {
+        this.brain.event("beerScreen", Date.now(), true);
+        this.diag.log("smash", `${kind} refused: ${String(e)}`);
+      });
+  }
   /** Carries out what cursor play asked for this frame. */
   private applyPlay(p: PlayIntent, now: number) {
     const s = this.store.settings;
@@ -1503,8 +1575,20 @@ export class PetScene extends Phaser.Scene {
       this.squash = { t: now, kind: "floor", amt: 0.25 };
       this.voice.act("land", 200);
     }
-    if (p.nudge && s.cursorPush && native && !this.cursor.down)
-      void command("nudge_cursor", { dx: p.nudge.dx, dy: p.nudge.dy }).catch(() => {});
+    if (p.nudge && !this.cursor.down) {
+      // A landed hit: flash + "БАХ!" at the cursor, a thump, the body lunges.
+      const dir = Math.sign(p.nudge.dx) || 1;
+      this.fx.hit(this.cursor.x, this.cursor.y, dir, this.dpr);
+      this.voice.act("punch", 120);
+      this.squash = { t: now, kind: "wall", amt: 0.22 };
+      // Drunk punches land harder.
+      const kx = this.buzz.drunk && this.buzz.active(now) ? 1.6 : 1;
+      if (s.cursorPush && native)
+        void command("nudge_cursor", {
+          dx: Math.max(-220, Math.min(220, Math.round(p.nudge.dx * kx))),
+          dy: Math.max(-220, Math.min(220, Math.round(p.nudge.dy * kx))),
+        }).catch(() => {});
+    }
   }
   update(_time: number, delta: number) {
     if (!this.ready || this.disposed || !this.world.initialized) return;
@@ -1533,16 +1617,21 @@ export class PetScene extends Phaser.Scene {
     const size = this.sizePx();
     // Cursor games first: they may steer the walk and force an animation.
     const g = this.brain.game;
+    // Beer turns any temper into a bar brawler: hunts the cursor at once.
+    const drunk = this.buzz.drunk && this.buzz.active(now);
+    const temper = drunk
+      ? { ...this.brain.temper, chase: "aggressive" as const, huntAt: 0, swats: 8, miss: Math.max(this.brain.temper.miss, 0.35) }
+      : this.brain.temper;
     const intent = this.play.update({
       now,
       cursor: this.cursor,
       pet: { x: this.world.x, y: this.world.y, air: this.world.air, dragging: this.world.dragging, onWindow: !!this.world.support },
       size,
       k,
-      grudge: g.grudge,
-      wronged: Math.min(this.brain.since("throw", now), this.brain.since("poke", now)),
+      grudge: drunk ? 100 : g.grudge,
+      wronged: drunk ? 0 : Math.min(this.brain.since("throw", now), this.brain.since("poke", now)),
       stage: this.brain.stageNow(now),
-      temper: this.brain.temper,
+      temper,
       enabled:
         s.cursorPlay && s.mode === "normal" && s.walk && !s.pinned && !this.brain.hidden && !this.antics.absent && !this.world.climb,
       asleep: ["sleep", "rest"].includes(this.brain.base) && this.play.state !== "game",
@@ -1550,6 +1639,7 @@ export class PetScene extends Phaser.Scene {
       random: Math.random,
     });
     this.applyPlay(intent, now);
+    this.applyBuzz(now);
     this.antics.update(this.host());
     const near =
       s.observeCursor &&
@@ -1562,6 +1652,8 @@ export class PetScene extends Phaser.Scene {
       if (now - this.cursorNearSince > 900) this.brain.event("cursor", now);
     } else this.cursorNearSince = 0;
     let base = this.brain.action(now);
+    // Wired on energy: no sitting around.
+    if (this.buzz.active(now) && ["sleep", "rest", "sit"].includes(base)) base = "idle";
     const top = this.brain.reaction && this.brain.reaction.until > now && this.brain.reaction.rule.priority >= 95;
     if (this.forced && now < this.forced.until && !top) base = this.forced.action;
     else if (this.forced && now >= this.forced.until) this.forced = null;
@@ -1589,7 +1681,7 @@ export class PetScene extends Phaser.Scene {
         this.world.travelTo(there, goal, s.size);
       } else this.world.go(goal);
     }
-    const quietIdle = !this.brain.reaction && base === "idle" && !this.world.dragging && !this.play.busy && !this.forced && !this.antics.carry;
+    const quietIdle = !this.brain.reaction && base === "idle" && !this.world.dragging && !this.play.busy && !this.forced && !this.antics.carry && !this.buzz.active(now);
     if (quietIdle) {
       if (now > this.nextActivity) {
         const calm = s.activity === "calm";
@@ -1694,7 +1786,7 @@ export class PetScene extends Phaser.Scene {
     this.props.kick(this.world.x, this.world.vx, this.world.y, k);
     this.props.step(delta / 1000, k);
     // Running plays the walk cycle faster: the animation clock runs ahead.
-    this.animClock += delta * (this.world.running ? 2.2 : 1);
+    this.animClock += delta * (this.world.running ? 2.2 : 1) * this.buzz.animSpeed(now);
     this.bodyLanguage(now, action);
     const frame = this.animator.frame(action, this.animBase + this.animClock);
     // RequestAnimationFrame.delay is Phaser's documented timeout cadence.
@@ -1721,7 +1813,7 @@ export class PetScene extends Phaser.Scene {
       px = Math.max(10, Math.min(182, 96 + this.world.grab.x / (this.dpr * z)));
       py = Math.max(10, Math.min(200, floor + 1 + this.world.grab.y / (this.dpr * z)));
     }
-    let angle = this.world.swing;
+    let angle = this.world.swing + (this.world.dragging ? 0 : this.buzz.sway(now));
     if (now < this.fx.starsUntil && !this.world.dragging) angle += Math.sin(now / 170) * 0.13;
     const shiver = this.antics.shivering || (action === "pained" && g.health < 50) ? (Math.random() - 0.5) * 1.6 : 0;
     const crop = this.antics.crop();

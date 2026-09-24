@@ -48,9 +48,11 @@ pub fn nudge(dx: i32, dy: i32) -> Result<(), String> {
             return;
         }
         let (x0, y0) = (p.x, p.y);
-        for i in 1..=6 {
-            // Ease-out: most of the push in the first steps.
-            let t = 1. - (1. - i as f64 / 6.).powi(2);
+        // A punch: 80 % of the way in two quick frames, the rest, then a
+        // short recoil back (15 %) — the cursor visibly "takes" the hit.
+        const CURVE: [f64; 6] = [0.55, 0.85, 1.0, 1.0, 0.9, 0.85];
+        for (i, t) in CURVE.iter().copied().enumerate() {
+            let _ = i;
             let x = (x0 as f64 + dx as f64 * t).round() as i32;
             let y = (y0 as f64 + dy as f64 * t).round() as i32;
             // The user grabbed the mouse meanwhile: stop fighting them.
@@ -58,7 +60,7 @@ pub fn nudge(dx: i32, dy: i32) -> Result<(), String> {
                 return;
             }
             SetCursorPos(x.clamp(vx, vx + vw - 1), y.clamp(vy, vy + vh - 1));
-            std::thread::sleep(Duration::from_millis(15));
+            std::thread::sleep(Duration::from_millis(if t >= 1.0 { 30 } else { 12 }));
         }
     });
     Ok(())
@@ -150,4 +152,107 @@ pub async fn weather(place: &str) -> Result<Weather, String> {
         code: v.pointer("/current/weather_code").and_then(|x| x.as_i64()).unwrap_or(0),
         temp: v.pointer("/current/temperature_2m").and_then(|x| x.as_f64()).unwrap_or(15.),
     })
+}
+
+// ---------------------------------------------------------------- drunk pet
+// What the drunk pet does to a real window, only when the user allowed it
+// in the settings: shake it (it ends where it started), shove it a little
+// (stays on its monitor), minimise it, or — separate opt-in — ask it to close
+// (WM_CLOSE, so the program can still ask "save changes?").
+// Never the taskbar, the desktop, our own windows, tool windows, full-screen
+// windows (games) or anything not visible.
+pub fn window_act(id: isize, kind: &str, dx: i32) -> Result<String, String> {
+    use windows_sys::Win32::{
+        Foundation::{HWND, RECT},
+        Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST},
+        System::Threading::GetCurrentProcessId,
+        UI::WindowsAndMessaging::{
+            GetClassNameW, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic,
+            IsWindow, IsWindowVisible, IsZoomed, PostMessageW, SetWindowPos, ShowWindow, GWL_EXSTYLE,
+            SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SW_MINIMIZE, WM_CLOSE, WS_EX_TOOLWINDOW,
+        },
+    };
+    let hwnd = id as HWND;
+    unsafe {
+        if hwnd.is_null() || IsWindow(hwnd) == 0 || IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
+            return Err("no such window".into());
+        }
+        let mut pid = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        if pid == GetCurrentProcessId() {
+            return Err("own window".into());
+        }
+        if GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW as isize != 0 {
+            return Err("tool window".into());
+        }
+        let mut class = [0u16; 64];
+        let n = GetClassNameW(hwnd, class.as_mut_ptr(), 64);
+        let class = String::from_utf16_lossy(&class[..n.max(0) as usize]);
+        if ["Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow"].contains(&class.as_str()) {
+            return Err("shell window".into());
+        }
+        let mut r: RECT = std::mem::zeroed();
+        GetWindowRect(hwnd, &mut r);
+        let mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        let mut mi: MONITORINFO = std::mem::zeroed();
+        mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        GetMonitorInfoW(mon, &mut mi);
+        let m = mi.rcMonitor;
+        if r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom {
+            return Err("full screen".into());
+        }
+        let maximized = IsZoomed(hwnd) != 0;
+        let flags = SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE;
+        match kind {
+            "shake" if !maximized => {
+                let (x0, y0) = (r.left, r.top);
+                let h = hwnd as isize;
+                std::thread::spawn(move || {
+                    let hwnd = h as HWND;
+                    for i in 0..10 {
+                        let d = if i % 2 == 0 { 9 } else { -9 } * (10 - i) / 10;
+                        SetWindowPos(hwnd, std::ptr::null_mut(), x0 + d, y0 + d.abs() / 3, 0, 0, flags);
+                        std::thread::sleep(Duration::from_millis(35));
+                    }
+                    SetWindowPos(hwnd, std::ptr::null_mut(), x0, y0, 0, 0, flags);
+                });
+                Ok("shake".into())
+            }
+            "shove" if !maximized => {
+                let dx = dx.clamp(-160, 160);
+                let w = mi.rcWork;
+                // Keep at least a third of the window on the work area.
+                let min_x = w.left - (r.right - r.left) * 2 / 3;
+                let max_x = w.right - (r.right - r.left) / 3;
+                let target = (r.left + dx).clamp(min_x, max_x);
+                let (x0, y0) = (r.left, r.top);
+                let h = hwnd as isize;
+                std::thread::spawn(move || {
+                    let hwnd = h as HWND;
+                    for i in 1..=8 {
+                        let t = 1. - (1. - i as f64 / 8.).powi(2);
+                        let x = x0 + ((target - x0) as f64 * t).round() as i32;
+                        SetWindowPos(hwnd, std::ptr::null_mut(), x, y0, 0, 0, flags);
+                        std::thread::sleep(Duration::from_millis(16));
+                    }
+                });
+                Ok("shove".into())
+            }
+            "shake" | "shove" => {
+                // Maximised: cannot be moved without un-maximising it. Only
+                // the crack on the "glass" for now; a later punch may still
+                // knock it down (minimize).
+                Err("maximized".into())
+            }
+            "minimize" => {
+                ShowWindow(hwnd, SW_MINIMIZE);
+                Ok("minimize".into())
+            }
+            "close" => {
+                PostMessageW(hwnd, WM_CLOSE, 0, 0);
+                Ok("close".into())
+            }
+            _ => Err("unknown action".into()),
+        }
+    }
 }

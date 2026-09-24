@@ -21,6 +21,59 @@ export class Effects {
   private fx: Phaser.GameObjects.Graphics;
   /** Dizzy stars circle the head until this time. */
   starsUntil = 0;
+  /** Punches that landed on the cursor (desktop px). */
+  private hits: { x: number; y: number; born: number; word: string; dir: number }[] = [];
+  private hitText: Phaser.GameObjects.Text | null = null;
+  hit(x: number, y: number, dir: number, dpr: number) {
+    const words = ["БАХ!", "ТЫЩ!", "БУМ!", "ХРЯСЬ!", "НА!"];
+    this.hits.push({ x, y, born: Date.now(), word: words[Math.floor(Math.random() * words.length)], dir });
+    if (this.hits.length > 3) this.hits.shift();
+    if (!this.hitText) {
+      this.hitText = this.scene.add
+        .text(0, 0, "", {
+          fontFamily: "Impact, Arial Black, Segoe UI, sans-serif",
+          fontSize: "22px",
+          color: "#ffe27a",
+          stroke: "#1a1206",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5, 0.5)
+        .setDepth(30);
+    }
+    this.hitText.setResolution(dpr);
+    this.hitText.frame.source.resolution = dpr;
+  }
+  /** Cracks punched into "the glass" by the drunk pet (desktop px). */
+  private cracks: { x: number; y: number; born: number; life: number; rays: { x: number; y: number }[][] }[] = [];
+  crack(x: number, y: number) {
+    const rays: { x: number; y: number }[][] = [];
+    const n = 7 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const len = 26 + Math.random() * 38;
+      const pts = [{ x: 0, y: 0 }];
+      for (let j = 1; j <= 3; j++) {
+        const r = (len * j) / 3;
+        const b = a + (Math.random() - 0.5) * 0.45;
+        pts.push({ x: Math.cos(b) * r, y: Math.sin(b) * r });
+      }
+      rays.push(pts);
+    }
+    this.cracks.push({ x, y, born: Date.now(), life: 6500, rays });
+    if (this.cracks.length > 4) this.cracks.shift();
+    // A few glass shards.
+    for (let i = 0; i < 7; i++)
+      this.parts.push({
+        kind: "dust",
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 320,
+        vy: -(40 + Math.random() * 160),
+        born: Date.now(),
+        life: 500 + Math.random() * 300,
+        r: 1.5 + Math.random() * 1.5,
+      });
+  }
   constructor(private scene: Phaser.Scene) {
     this.fx = scene.add.graphics().setDepth(20);
   }
@@ -107,6 +160,47 @@ export class Effects {
       } else p.glyph?.setPosition(c.x, c.y).setAlpha(Math.min(1, fade * 2.5));
       return true;
     });
+    this.hits = this.hits.filter((h) => now - h.born < 650);
+    let word: { x: number; y: number; text: string; a: number; s: number } | null = null;
+    for (const h of this.hits) {
+      const o = toCanvas(h.x, h.y);
+      const age = now - h.born;
+      const p = age / 650;
+      if (age < 160) {
+        // White flash + ring.
+        this.fx.fillStyle(0xffffff, 0.85 * (1 - age / 160)).fillCircle(o.x, o.y, (6 + age / 12) * zoom);
+      }
+      this.fx.lineStyle(2.4 * zoom, 0xffe27a, Math.max(0, 1 - p * 1.4));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + 0.3;
+        const r0 = (9 + p * 26) * zoom,
+          r1 = r0 + (10 - p * 6) * zoom;
+        this.fx.beginPath();
+        this.fx.moveTo(o.x + Math.cos(a) * r0, o.y + Math.sin(a) * r0);
+        this.fx.lineTo(o.x + Math.cos(a) * r1, o.y + Math.sin(a) * r1);
+        this.fx.strokePath();
+      }
+      word = { x: o.x + h.dir * 18 * zoom, y: o.y - (22 + p * 14) * zoom, text: h.word, a: Math.min(1, 3 * (1 - p)), s: age < 90 ? 1.35 - age / 300 : 1 };
+    }
+    if (this.hitText) {
+      if (word) this.hitText.setText(word.text).setPosition(word.x, word.y).setAlpha(word.a).setScale(word.s).setVisible(true);
+      else this.hitText.setVisible(false);
+    }
+    this.cracks = this.cracks.filter((c) => now - c.born < c.life);
+    for (const c of this.cracks) {
+      const o = toCanvas(c.x, c.y);
+      const fade = Math.min(1, 2.5 * (1 - (now - c.born) / c.life));
+      for (const [col, w, off] of [[0x000000, 3, 1], [0xf4fbff, 1.6, 0]] as const) {
+        this.fx.lineStyle(w * Math.max(0.7, zoom * 0.8), col, (col ? 0.95 : 0.45) * fade);
+        for (const ray of c.rays) {
+          this.fx.beginPath();
+          this.fx.moveTo(o.x + off, o.y + off);
+          for (const p of ray.slice(1)) this.fx.lineTo(o.x + p.x * zoom + off, o.y + p.y * zoom + off);
+          this.fx.strokePath();
+        }
+      }
+      this.fx.fillStyle(0xf4fbff, 0.8 * fade).fillCircle(o.x, o.y, 3 * zoom);
+    }
     // Dizzy: three little stars circling above the head.
     if (head && now < this.starsUntil) {
       const t = now / 260;
@@ -140,6 +234,15 @@ export class Effects {
         bottom: Math.ceil(c.y + r),
       });
     }
+    for (const h of this.hits) {
+      const o = toCanvas(h.x, h.y);
+      out.push({ left: Math.floor(o.x - 60 * zoom), top: Math.floor(o.y - 60 * zoom), right: Math.ceil(o.x + 60 * zoom), bottom: Math.ceil(o.y + 40 * zoom) });
+    }
+    for (const c of this.cracks) {
+      const o = toCanvas(c.x, c.y);
+      const r = 70 * zoom;
+      out.push({ left: Math.floor(o.x - r), top: Math.floor(o.y - r), right: Math.ceil(o.x + r), bottom: Math.ceil(o.y + r) });
+    }
     if (head && now < this.starsUntil)
       out.push({
         left: Math.floor(head.x - 24 * zoom),
@@ -150,6 +253,6 @@ export class Effects {
     return out;
   }
   get busy() {
-    return this.parts.length > 0;
+    return this.parts.length > 0 || this.cracks.length > 0 || this.hits.length > 0;
   }
 }

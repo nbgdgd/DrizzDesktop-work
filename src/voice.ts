@@ -2,7 +2,7 @@
 // character its own pitch and timbre, tempo from the length of the text)
 // and small action sounds — steps, jump, landing, snoring, crunching, a
 // swat, a sigh, dizziness. WebAudio only, nothing recorded, no files.
-export type Act = "step" | "jump" | "land" | "snore" | "eat" | "swat" | "sigh" | "dizzy" | "pop";
+export type Act = "step" | "jump" | "land" | "snore" | "eat" | "swat" | "sigh" | "dizzy" | "pop" | "punch";
 export class Voice {
   private ctx?: AudioContext;
   private noise?: AudioBuffer;
@@ -129,6 +129,11 @@ export class Voice {
       case "swat":
         hiss(0.12, 0.14, 800, 1.2, t, 3200);
         tone("triangle", 600, 300, 0.06, 0.08, t + 0.08);
+        break;
+      case "punch":
+        tone("sine", 160, 42, 0.18, 0.32);
+        hiss(0.05, 0.22, 1400, 0.7);
+        tone("square", 90, 60, 0.05, 0.05, t + 0.01);
         break;
       case "sigh":
         hiss(0.8, 0.06, 900, 0.8, t, 300);
