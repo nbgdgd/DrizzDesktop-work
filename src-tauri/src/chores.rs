@@ -68,7 +68,7 @@ pub struct TempSize {
     pub bytes: u64,
     pub files: u64,
 }
-/// Files in %TEMP% older than a day: those are safe to offer for cleaning.
+/// Files in %TEMP% older than a week (the Disk Cleanup default): safe to offer for cleaning.
 fn walk(dir: &Path, depth: u32, cutoff: SystemTime, delete: bool, out: &mut TempSize, budget: &mut u32) {
     if depth > 8 || *budget == 0 {
         return;
@@ -111,7 +111,7 @@ fn walk(dir: &Path, depth: u32, cutoff: SystemTime, delete: bool, out: &mut Temp
 }
 pub fn temp(delete: bool) -> TempSize {
     let dir = std::env::temp_dir();
-    let cutoff = SystemTime::now() - Duration::from_secs(24 * 3600);
+    let cutoff = SystemTime::now() - Duration::from_secs(7 * 24 * 3600);
     let mut out = TempSize::default();
     let mut budget = 200_000u32;
     walk(&dir, 0, cutoff, delete, &mut out, &mut budget);

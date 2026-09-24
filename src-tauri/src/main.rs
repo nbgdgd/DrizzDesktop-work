@@ -336,7 +336,7 @@ fn nudge_cursor(window: tauri::Window, state: tauri::State<State>, dx: i32, dy: 
 async fn temp_scan() -> chores::TempSize {
     chores::temp(false)
 }
-/// Deletes day-old files from %TEMP%; the pet only calls it after "Почистить".
+/// Deletes week-old files from %TEMP%; the pet only calls it after "Почистить".
 #[tauri::command]
 async fn temp_clean() -> chores::TempSize {
     chores::temp(true)

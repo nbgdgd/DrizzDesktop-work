@@ -548,7 +548,7 @@ export class Movement {
       (this.relocating ||
         (s.walk &&
           s.mode === "normal" &&
-          !["sleep", "rest", "sit"].includes(base)));
+          !["sleep", "rest", "sit", "busy", "eat", "dance"].includes(base)));
     if (!s.perch) this.support = null;
     if (s.pinned) {
       this.target = null;
