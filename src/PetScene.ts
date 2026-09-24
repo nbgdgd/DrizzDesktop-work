@@ -1948,7 +1948,7 @@ export class PetScene extends Phaser.Scene {
     const mask = this.masks[frame] ?? [];
     const head = headTop(mask);
     const headCanvas = head && !absent ? toCanvas(p, head.x, head.y) : null;
-    // Props: accessories, headphones, umbrella, flashlight, carried things.
+    // Props: accessories, headphones, umbrella, carried things.
     const hol = holiday(now, this.store.memory.birthday, this.brain.life.since);
     const walking = action === "walkLeft" || action === "walkRight";
     const propRects = this.props.draw({
@@ -1966,7 +1966,6 @@ export class PetScene extends Phaser.Scene {
       // Only when chosen in the wardrobe: automatic headphones looked like a bug.
       headphones: (hol?.wear ?? this.brain.life.wear) === "headphones" && !absent,
       umbrella: this.weather?.kind === "rain" && now - this.weather.at < 3600000 && !this.world.dragging,
-      flashlight: dayPart(now) === "night" && walking && !absent ? (action === "walkRight" ? 1 : -1) : 0,
       carry: this.antics.carry,
       feet: { x: this.layout.anchorX, y: this.layout.anchorY },
       toCanvas: this.toScene,

@@ -1,6 +1,6 @@
 // Things drawn with the pet: hats and other accessories (level rewards and
-// holidays), headphones while music plays, an umbrella in the rain, a
-// flashlight at night, the item it carries, and small objects on the floor
+// holidays), headphones from the wardrobe, an umbrella in the rain, the
+// item it carries, and small objects on the floor
 // (gifts, its stash, notes). All procedural Phaser graphics — no extra art.
 import Phaser from "phaser";
 import type { Rect } from "./model";
@@ -48,7 +48,7 @@ export class Props {
   items: FloorItem[] = [];
   private nextId = 1;
   constructor(private scene: Phaser.Scene) {
-    // Behind the pet: aura, flashlight beam. In front: hats, umbrella.
+    // Behind the pet: aura. In front: hats, umbrella.
     this.back = scene.add.graphics().setDepth(-1);
     this.g = scene.add.graphics().setDepth(5);
     this.noteText = scene.add
@@ -112,7 +112,6 @@ export class Props {
     wear: string;
     headphones: boolean;
     umbrella: boolean;
-    flashlight: number;
     carry: string;
     feet: { x: number; y: number };
     toCanvas: (x: number, y: number) => { x: number; y: number };
@@ -175,35 +174,6 @@ export class Props {
       back.fillStyle(0xb4e62e, 0.1 + 0.08 * pulse).fillCircle(o.feet.x, o.feet.y - 90 * z, 105 * z);
       back.fillStyle(0xb4e62e, 0.06 + 0.05 * pulse).fillCircle(o.feet.x, o.feet.y - 90 * z, 125 * z);
       add(o.feet.x - 127 * z, o.feet.y - 217 * z, 254 * z, 254 * z);
-    }
-    // Night: a small flashlight in the walking direction with a glowing
-    // lens and a soft pool of light on the floor ahead. No beam: a
-    // translucent cone on a transparent overlay reads as a grey wedge over a
-    // dark desktop (and its window region swallowed clicks).
-    if (o.flashlight) {
-      const dir = o.flashlight;
-      // Held out at the side of the body, not painted over it: at the usual
-      // size (z ≈ 0.4) a lamp scaled with the frame was a 6×3 px smudge on
-      // the belly that read as a dirty pixel. Fixed minimum size in px.
-      const bodyHalf = 96 * z;
-      const lw = Math.max(16 * z, 12),
-        lh = Math.max(8 * z, 7),
-        lr = Math.max(3.5 * z, 2.6);
-      const x0 = o.feet.x + dir * (bodyHalf + lw * 0.6),
-        y0 = o.feet.y - bodyHalf * 0.75;
-      const spotX = o.feet.x + dir * 105 * z,
-        spotY = o.feet.y - 3 * z;
-      for (const [w, h, a] of [
-        [90, 16, 0.08],
-        [64, 12, 0.12],
-        [38, 8, 0.18],
-      ] as const)
-        back.fillStyle(0xffe9a8, a).fillEllipse(spotX, spotY, w * z, h * z);
-      g.fillStyle(0x2a2c31, 1).fillRoundedRect(x0 - (dir > 0 ? lw : 0), y0 - lh / 2, lw, lh, 2);
-      g.lineStyle(1, 0x55595f, 1).strokeRoundedRect(x0 - (dir > 0 ? lw : 0), y0 - lh / 2, lw, lh, 2);
-      back.fillStyle(0xfff3c0, 0.3).fillCircle(x0, y0, lr * 2.6);
-      g.fillStyle(0xfff6c8, 1).fillCircle(x0, y0, lr);
-      add(Math.min(x0 - lw - 8, spotX - 46 * z), Math.min(y0 - lr * 3, spotY - 9 * z), Math.abs(spotX - x0) + lw + 64 * z, spotY - y0 + lr * 3 + 12);
     }
     // Hat on the head, turned with the body.
     const hat = (x: number, y: number) => {

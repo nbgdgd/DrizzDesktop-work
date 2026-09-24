@@ -1,4 +1,4 @@
-// Visual check while walking, on a copy of the user's profile (same pet,
+﻿// Visual check while walking, on a copy of the user's profile (same pet,
 // worn items and settings): captures the pet window from the screen several
 // times while it walks and reports what is drawn on top of the sprite.
 // Usage: node tools/dot-probe.cjs [--exe PATH]
@@ -12,7 +12,7 @@ const qa = path.join(__dirname, "qa-dot-" + Date.now());
 fs.mkdirSync(path.join(qa, "DrizzDesktop"), { recursive: true });
 const src = path.join(process.env.LOCALAPPDATA, "DrizzDesktop");
 for (const f of ["state.json"]) if (fs.existsSync(path.join(src, f))) fs.copyFileSync(path.join(src, f), path.join(qa, "DrizzDesktop", f));
-// --awake: no night sleep, so the night walk (with the flashlight) can be seen.
+// --awake: no night sleep, so the night walk can be seen.
 if (args.includes("--awake")) { const p = path.join(qa, "DrizzDesktop", "state.json"), st = JSON.parse(fs.readFileSync(p, "utf8")); st.settings = { ...st.settings, nightSleep: false }; fs.writeFileSync(p, JSON.stringify(st)); }
 const port = 9831 + Math.floor(Math.random() * 40);
 const app = cp.spawn(exe, ["--background", "--diag"], { windowsHide: true, env: { ...process.env, LOCALAPPDATA: qa, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` } });
