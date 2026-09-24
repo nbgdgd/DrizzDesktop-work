@@ -207,3 +207,31 @@ describe("mixer balance and the dose", () => {
     expect(levels({ ...e, gains: [0, 1] }, 100)[0]).toBe(0);
   });
 });
+describe("ears lines actually get said", () => {
+  it("every ears event has a rule and lines in both languages", async () => {
+    const { rules } = await import("./director");
+    const names = ["earsOn", "earsHello", "earsLoud", "earsVeryLoud", "earsBreak", "earsBreakLong", "earsRested", "earsNight", "earsDose50", "earsDose80", "earsDose100", "earsLowered", "earsUneven", "earsRestSwap", "earsThanks"];
+    for (const n of names) {
+      expect(rules[n], n).toBeDefined();
+      expect(linesFor(n, cfg()).length, n).toBeGreaterThan(0);
+      expect(linesFor(n, cfg({ lang: "en" })).length, n).toBeGreaterThan(0);
+    }
+  });
+  it("a line that comes while the pet is busy waits and is said later", async () => {
+    const { rules } = await import("./director");
+    const d = new Director(cfg(), { ...emptyMemory }, () => 0.3, newGame(T0));
+    const env = { volume: 40, muted: false, audio: true, clipboard: 0, caps: false, dark: false, memory: 10, disk: 50, windows: 3, headphones: true, db: -13, left: -13, right: -13 };
+    let t = T0;
+    const said: string[] = [];
+    for (let i = 0; i < 400; i++) {
+      t += 2000;
+      // Something stronger keeps the pet busy for the first three minutes.
+      if (t - T0 < 180000) d.reaction = { event: "traceAlert", rule: rules.traceAlert, until: t + 5000 };
+      d.observe({ now: t, idle: 0, app: "spotify.exe", fullscreen: false, foreground: 1, windows: [], monitors: [], media: { playing: true, available: true, track: "", position: 0 }, cpu: 5, online: true, battery: null, plugged: true, controller: false, locked: false, env });
+      d.tick(t);
+      d.heartbeat(t, { present: true, resting: false, music: true });
+      if (d.reaction?.event?.startsWith("ears")) said.push(d.reaction.event);
+    }
+    expect(said).toContain("earsHello");
+  });
+});

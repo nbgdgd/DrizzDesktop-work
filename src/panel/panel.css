@@ -286,10 +286,22 @@
   box-shadow: inset 0 0 0 2px var(--ink), 0 1px 0 var(--ink);
 }
 .toon .rt-ProgressRoot {
+  position: relative;
   height: 14px;
   border-radius: 999px;
   background: #eadfcb;
+  overflow: hidden;
+}
+/* The ink outline sits on top of the fill, so the colour runs under it
+   instead of over it. */
+.toon .rt-ProgressRoot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   box-shadow: inset 0 0 0 2px var(--ink);
+  pointer-events: none;
+  z-index: 1;
 }
 .toon .rt-ProgressIndicator {
   border-radius: 999px;

@@ -101,7 +101,7 @@ import {
   working,
 } from "./game";
 import { tx } from "./i18n";
-import { EarSample, earTick } from "./ears";
+import { EarEvent, EarSample, earTick } from "./ears";
 /** Relationship in percent of the current likability cap. */
 export const bondPct = (g: Game) =>
   Math.round((100 * g.likability) / Math.max(1, likabilityMax(level(g.exp))));
@@ -767,20 +767,37 @@ export class Director {
     const before = JSON.stringify(this.game.ears.days);
     this.game = { ...this.game, ears: r.log };
     this.earGains = r.gains;
-    if (!this.hidden)
-      for (const ev of r.events) {
-        if (ev.name === "earsOn" && !sample.playing) continue;
-        if (this.event(ev.name, now, EARS_DIRECT.has(ev.name), undefined, ev.vars) && this.bubble && ev.lower)
-          this.bubble.actions = [
-            { id: "ears:lower", label: tx("Убавить") },
-            { id: "panel:ears", label: tx("Уши") },
-          ];
+    // A line that cannot be said right now (the pet is talking, busy,
+    // hidden, a stronger reaction is on) waits instead of being lost: ears
+    // lines are one-offs (the hello is once a day), so dropping them meant
+    // they often never appeared at all.
+    for (const ev of r.events) {
+      this.earQueue = this.earQueue.filter((q) => q.ev.name !== ev.name);
+      this.earQueue.push({ ev, until: now + (ev.name === "earsRestSwap" ? 60000 : 10 * 60000) });
+    }
+    this.earQueue = this.earQueue.filter((q) => q.until > now).slice(-4);
+    if (!this.hidden && this.earQueue.length) {
+      const q = this.earQueue[0];
+      const ev = q.ev;
+      // "Headphones on" only once sound actually plays through them.
+      if (ev.name !== "earsOn" || sample.playing) {
+        if (this.event(ev.name, now, EARS_DIRECT.has(ev.name) || now - (q.until - 10 * 60000) > 60000, undefined, ev.vars)) {
+          this.earQueue.shift();
+          if (this.bubble && ev.lower)
+            this.bubble.actions = [
+              { id: "ears:lower", label: tx("Убавить") },
+              { id: "panel:ears", label: tx("Уши") },
+            ];
+        }
       }
+    }
     if (r.events.some((x) => x.name === "earsLowered")) this.earLower = now;
     return before !== JSON.stringify(r.log.days) && Math.floor(now / 60000) !== Math.floor((now - dt) / 60000);
   }
   /** Set when the pet decided to turn the volume down by itself. */
   earLower = 0;
+  /** Ears lines waiting for a moment to be said. */
+  earQueue: { ev: EarEvent; until: number }[] = [];
   private input(n: Snapshot) {
     const now = n.now;
     const cur = n.input ?? emptyInput;
