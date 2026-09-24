@@ -761,6 +761,7 @@ export class Director {
       db: e?.db,
       left: e?.left,
       right: e?.right,
+      gains: this.earGains,
     };
     const r = earTick(this.game.ears, sample, this.settings, now, dt, this.settings.lang);
     const before = JSON.stringify(this.game.ears.days);

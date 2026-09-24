@@ -197,3 +197,13 @@ describe("spike guard settings", () => {
     }
   });
 });
+describe("mixer balance and the dose", () => {
+  it("a quieter ear in the mixer counts less; a muted ear counts nothing", () => {
+    const e = { headphones: true, playing: true, muted: false, volume: 80, db: -3, left: -3, right: -3 };
+    const [l0, r0] = levels(e, 100);
+    const [l, r] = levels({ ...e, gains: [0.5, 1] }, 100);
+    expect(r).toBe(r0);
+    expect(l).toBeCloseTo(l0 - 6.02, 1);
+    expect(levels({ ...e, gains: [0, 1] }, 100)[0]).toBe(0);
+  });
+});

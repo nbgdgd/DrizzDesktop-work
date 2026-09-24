@@ -1,8 +1,11 @@
 // Live check of ear-care balance safety: the pet shifts the left/right
 // balance, gets killed (no clean exit), and the next start must put the
-// user's balance back. Reads the channel levels through the pet's own
-// snapshot (env.left / env.right, dB). Changes the real audio balance for a
-// few seconds.
+// balance back. Since 0.3 the balance lives in the mixer (every app's
+// session, balance.rs), not in the device: the device channels (env.left /
+// env.right) must stay as they were, and the sessions (balance_sessions)
+// must show left < right while shifted and 1/1 after the restart.
+// Play something (music, a video) while it runs: a session only exists for
+// an app that makes sound.
 // Usage: node tools/balance-probe.cjs [--exe PATH]
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -39,7 +42,9 @@ async function launch() {
     }
     return null;
   };
-  return { app, js, ws, ears };
+  const sessions = () =>
+    js(`new Promise(r => { const ok = Math.floor(Math.random()*1e9); window["_"+ok] = r; window["_"+(ok+1)] = () => r(null); window.__TAURI_IPC__({ cmd: "balance_sessions", callback: ok, error: ok+1 }); })`);
+  return { app, js, ws, ears, sessions };
 }
 const kill = (pid) => cp.spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
 (async () => {
@@ -53,7 +58,8 @@ const kill = (pid) => cp.spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"]
     await run.js(`new Promise(r => { const st = window.__PET_SCENE__.store; const ok = Math.floor(Math.random()*1e9); window["_"+ok] = r; window["_"+(ok+1)] = r; window.__TAURI_IPC__({ cmd: "save_settings", callback: ok, error: ok+1, settings: { ...st.settings, balance: 60 } }); })`);
     await delay(3000);
     const shifted = await run.ears();
-    const fileAfterShift = fs.existsSync(path.join(dir, "balance.before.json"));
+    const mixerShifted = await run.sessions();
+    const fileAfterShift = fs.existsSync(path.join(dir, "balance.sessions"));
     kill(run.app.pid);
     run.ws.close();
     await delay(1500);
@@ -62,9 +68,14 @@ const kill = (pid) => cp.spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"]
     run = await launch();
     await delay(4000);
     const restored = await run.ears();
-    const fileAfterRestart = fs.existsSync(path.join(dir, "balance.before.json"));
-    console.log(JSON.stringify({ baseline, shifted, fileAfterShift, afterKill, restored, fileAfterRestart,
-      ok: !!baseline && !!restored && Math.abs(baseline.left - restored.left) < 0.3 && Math.abs(baseline.right - restored.right) < 0.3 && !fileAfterRestart }, null, 1));
+    const mixerRestored = await run.sessions();
+    const fileAfterRestart = fs.existsSync(path.join(dir, "balance.sessions"));
+    const same = (a, b) => !!a && !!b && Math.abs(a.left - b.left) < 0.3 && Math.abs(a.right - b.right) < 0.3;
+    const leftDown = (mixerShifted ?? []).some((ch) => ch.length >= 2 && ch[0] < ch[1] - 0.2);
+    const allFull = (mixerRestored ?? []).every((ch) => ch.every((v) => v > 0.99));
+    console.log(JSON.stringify({ baseline, shifted, mixerShifted, fileAfterShift, afterKill, restored, mixerRestored, fileAfterRestart,
+      deviceUntouched: same(baseline, shifted), leftDown, allFull,
+      ok: same(baseline, shifted) && same(baseline, restored) && leftDown && allFull && fileAfterShift && !fileAfterRestart }, null, 1));
     await run.js(`window.__TAURI_IPC__({ cmd: "exit_app", callback: 1, error: 2 })`).catch(() => {});
     await delay(1500);
   } catch (e) {

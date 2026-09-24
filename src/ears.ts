@@ -44,6 +44,8 @@ export interface EarSample {
   db?: number;
   left?: number;
   right?: number;
+  /** Balance / ear-rest gains applied in the mixer (balance.rs), 0..1 amplitude. */
+  gains?: [number, number];
 }
 export interface EarSettings {
   ears: boolean;
@@ -106,7 +108,10 @@ export const allowedHours = (level: number, norm: number) => 40 * 10 ** ((norm -
 export function levels(e: EarSample, max: number): [number, number] {
   const fallback = volumeDb(e.volume);
   const known = (v?: number) => (v !== undefined && v > -99 ? v : fallback);
-  return [earLevel(known(e.left), max), earLevel(known(e.right), max)];
+  // Mixer gains are linear amplitude: 0.5 = −6 dB; a muted ear gets nothing.
+  const gain = (g = 1) => (g <= 0.001 ? -100 : 20 * Math.log10(Math.min(1, g)));
+  const ear = (db: number, g?: number) => (db + gain(g) <= -99 ? 0 : earLevel(db + gain(g), max));
+  return [ear(known(e.left), e.gains?.[0]), ear(known(e.right), e.gains?.[1])];
 }
 /** Weekly dose per ear, fractions: the last seven days including today. */
 export function weekly(log: EarLog, now: number): { l: number; r: number; min: number } {

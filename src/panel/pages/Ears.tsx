@@ -56,7 +56,6 @@ export function Ears({ p }: { p: PanelState }) {
   const days = [...log.days].slice(-7);
   const pct = (v: number) => Math.round(v * 100);
   const hours = allowedHours(Math.max(0, live?.level ?? 0), s.earsNorm);
-  const side = (v: number) => (v < 0 ? tx("левее") : v > 0 ? tx("правее") : tx("по центру"));
   const minutes = Math.round((live?.session ?? 0) / 60000);
   return (
     <>
@@ -127,7 +126,7 @@ export function Ears({ p }: { p: PanelState }) {
       </Grid>
       <Section
         title={tx("Баланс")}
-        description={tx("Громкость левого и правого канала. Питомец меняет только соотношение, общий ползунок громкости Windows работает как обычно. При выходе баланс возвращается.")}
+        description={tx("Громкость левого и правого уха для всех программ — через микшер Windows, поэтому работает на любых наушниках, в том числе Bluetooth. Общий ползунок громкости не меняется. При выходе баланс возвращается.")}
         action={
           <Button size="1" variant="soft" color="gray" disabled={balance === 0} onClick={() => apply("balance", 0)}>
             {tx("По центру")}
@@ -152,7 +151,11 @@ export function Ears({ p }: { p: PanelState }) {
           </Text>
         </Flex>
         <Text size="1" color="gray">
-          {balance === 0 ? tx("по центру") : tx("{side} на {n} %", { side: side(balance), n: Math.abs(balance) })}
+          {balance === 0
+            ? tx("по центру")
+            : Math.abs(balance) >= 100
+              ? tx(balance > 0 ? "Левое ухо выключено — звук только справа." : "Правое ухо выключено — звук только слева.")
+              : tx(balance > 0 ? "Левое ухо тише на {n} %" : "Правое ухо тише на {n} %", { n: Math.abs(balance) })}
         </Text>
       </Section>
       <Section

@@ -876,3 +876,10 @@ Object.assign(EN, {
   "погода и поиск городов (GeoNames), CC BY 4.0": "weather and city search (GeoNames), CC BY 4.0",
   "нормы безопасного прослушивания для «Береги уши»": "safe listening norms for \"Ear care\"",
 });
+Object.assign(EN, {
+  "Громкость левого и правого уха для всех программ — через микшер Windows, поэтому работает на любых наушниках, в том числе Bluetooth. Общий ползунок громкости не меняется. При выходе баланс возвращается.": "Left and right ear volume for all programs — through the Windows mixer, so it works with any headphones, Bluetooth included. The main volume slider does not change. The balance is restored on exit.",
+  "Левое ухо выключено — звук только справа.": "Left ear off — sound only on the right.",
+  "Правое ухо выключено — звук только слева.": "Right ear off — sound only on the left.",
+  "Левое ухо тише на {n} %": "Left ear quieter by {n} %",
+  "Правое ухо тише на {n} %": "Right ear quieter by {n} %",
+});

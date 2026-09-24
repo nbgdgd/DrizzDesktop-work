@@ -608,7 +608,7 @@ export class PetScene extends Phaser.Scene {
     // Live state for the panel's "Уши" page.
     const env = this.snapshot?.env;
     const [ll, lr] = levels(
-      { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right },
+      { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right, gains: this.brain.earGains },
       this.store.settings.earsMax,
     );
     void emitAll("ears-live", {

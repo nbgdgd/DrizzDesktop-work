@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod autoruns;
 mod chores;
+mod balance;
 mod env;
 mod guard;
 mod integration;
@@ -127,19 +128,21 @@ static BALANCE_BEFORE: Mutex<Option<(f32, f32)>> = Mutex::new(None);
 fn balance_file() -> std::path::PathBuf {
     storage::root().join("balance.before.json")
 }
+/// Balance / ear rest: per-channel gains on every app's audio session
+/// (balance.rs). The endpoint channel volumes are no longer touched.
 #[tauri::command]
 fn set_balance(left: f32, right: f32) -> Result<(), String> {
-    let before = env::set_balance(left, right)?;
-    let mut saved = BALANCE_BEFORE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if saved.is_none() {
-        *saved = Some(before);
-        let _ = std::fs::create_dir_all(storage::root());
-        let _ = std::fs::write(balance_file(), json!([before.0, before.1]).to_string());
-    }
-    Ok(())
+    balance::set(left, right)
 }
-/// Left over from a run that did not exit cleanly: restore and forget.
+#[tauri::command]
+fn balance_sessions() -> Result<Vec<Vec<f32>>, String> {
+    balance::sessions()
+}
+/// Left over from a run that did not exit cleanly: restore and forget. The
+/// endpoint file comes from versions before 0.3 (endpoint channel volumes);
+/// it puts the device's own balance back once.
 fn restore_stale_balance() {
+    balance::restore_stale();
     let Ok(text) = std::fs::read_to_string(balance_file()) else { return };
     if let Ok(v) = serde_json::from_str::<Vec<f32>>(&text) {
         if v.len() == 2 {
@@ -154,6 +157,7 @@ fn set_volume(level: f32) -> Result<(), String> {
     env::set_volume(level)
 }
 fn restore_balance() {
+    balance::reset();
     let saved = BALANCE_BEFORE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
     if let Some((l, r)) = saved {
         let _ = env::set_balance(l, r);
@@ -673,6 +677,10 @@ fn main() {
         })
         .setup(move |app| {
             restore_stale_balance();
+            {
+                let h = app.handle();
+                balance::start(move || h.state::<State>().stop.load(Ordering::Relaxed));
+            }
             let pet = app.get_window("pet").unwrap();
             unsafe { native::configure(pet.hwnd()?.0 as _) }
             let a = app.handle();
@@ -745,6 +753,7 @@ fn main() {
             monitors,
             chat,
             set_balance,
+            balance_sessions,
             set_volume,
             guard::ear_guard_test,
             diag_enabled,
