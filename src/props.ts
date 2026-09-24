@@ -104,6 +104,8 @@ export class Props {
    */
   draw(o: {
     head: { x: number; y: number } | null;
+    /** Skull box in canvas px (see pose.headBox), for things worn on it. */
+    skull?: { left: number; right: number; top: number; mid: number } | null;
     angle: number;
     z: number;
     wear: string;
@@ -254,13 +256,28 @@ export class Props {
       add(head.x - 55 * z, head.y - 60 * z, 110 * z, 66 * z);
     }
     // Headphones while music plays: a band over the head and two cups.
-    if (o.headphones && !["tophat", "crown", "santa", "pumpkin"].includes(o.wear)) {
-      const w = 24 * z * 3;
-      g.lineStyle(2.5 * z * 3, 0x2b2d33, 1).beginPath();
-      g.arc(head.x, head.y + 16 * z * 3, w, Math.PI * 1.1, Math.PI * 1.9, false).strokePath();
-      g.fillStyle(0xb4e62e, 1).fillRoundedRect(head.x - w - 3 * z * 3, head.y + 8 * z * 3, 7 * z * 3, 11 * z * 3, 3);
-      g.fillRoundedRect(head.x + w - 4 * z * 3, head.y + 8 * z * 3, 7 * z * 3, 11 * z * 3, 3);
-      add(head.x - w - 12 * z, head.y - 8 * z, 2 * w + 24 * z, 70 * z);
+    if (o.headphones && o.skull && !["tophat", "crown", "santa", "pumpkin"].includes(o.wear)) {
+      // Fitted to the skull: a band hugging the top, cups over the sides.
+      const { left, right, top, mid } = o.skull;
+      const cx = (left + right) / 2,
+        rx = (right - left) / 2 + 2,
+        ry = Math.max(8, mid - top + 4);
+      const cw = Math.max(7, (right - left) * 0.16),
+        ch = Math.max(12, (right - left) * 0.32);
+      const band = Math.max(2.5, (right - left) * 0.05);
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i <= 16; i++) {
+        const a = Math.PI + (i / 16) * Math.PI;
+        pts.push({ x: cx + rx * Math.cos(a), y: mid + ry * Math.sin(a) });
+      }
+      g.lineStyle(band + 2, 0x2b2233, 1).strokePoints(pts);
+      g.lineStyle(band - 1, 0x55596a, 1).strokePoints(pts);
+      for (const x of [left - cw * 0.55, right - cw * 0.45]) {
+        g.fillStyle(0x2b2233, 1).fillRoundedRect(x - 1, mid - ch / 2 - 1, cw + 2, ch + 2, 4);
+        g.fillStyle(0xb4e62e, 1).fillRoundedRect(x, mid - ch / 2, cw, ch, 3);
+        g.fillStyle(0xffffff, 0.45).fillRoundedRect(x + 1.5, mid - ch / 2 + 2, cw * 0.35, ch * 0.4, 1.5);
+      }
+      add(left - cw - 3, mid - ry - band - 3, right - left + 2 * cw + 6, ry + ch / 2 + band + 6);
     }
     // Umbrella in the rain: a canopy on a stick over the head.
     if (o.umbrella) {

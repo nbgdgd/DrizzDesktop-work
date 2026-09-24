@@ -79,6 +79,27 @@ export function headTop(mask: Rect[]): { x: number; y: number } | null {
     right = Math.max(...row.map((r) => r.right));
   return { x: (left + right) / 2, y: top };
 }
+/**
+ * The skull, frame px: the first row at least half as wide as the body (so
+ * an antenna or a hair tuft on top does not count) and the sides a little
+ * lower, where headphone cups sit.
+ */
+export function headBox(mask: Rect[]): { left: number; right: number; top: number; mid: number } | null {
+  if (!mask.length) return null;
+  const rows = new Map<number, [number, number]>();
+  for (const r of mask)
+    for (let y = r.top; y < r.bottom; y++) {
+      const e = rows.get(y);
+      rows.set(y, e ? [Math.min(e[0], r.left), Math.max(e[1], r.right)] : [r.left, r.right]);
+    }
+  const ys = [...rows.keys()].sort((a, b) => a - b);
+  const width = (y: number) => rows.get(y)![1] - rows.get(y)![0];
+  const maxW = Math.max(...ys.map(width));
+  const top = ys.find((y) => width(y) >= maxW * 0.5) ?? ys[0];
+  const mid = ys.find((y) => y >= top + width(top) * 0.42) ?? top;
+  const [left, right] = rows.get(mid)!;
+  return { left, right, top, mid };
+}
 /** Merges strips that touch vertically with the same span (fewer rects for Win32). */
 export function compact(rects: Rect[], limit = 299): Rect[] {
   const out: Rect[] = [];

@@ -311,3 +311,13 @@
   font-weight: 800;
   box-shadow: inset 0 0 0 1.5px var(--ink);
 }
+/* Achievement not reached yet: faded, dashed, no shadow. */
+.toon .rt-BaseCard.locked {
+  opacity: 0.6;
+  box-shadow: none;
+}
+.toon .rt-BaseCard.locked::before,
+.toon .rt-BaseCard.locked::after {
+  box-shadow: none;
+  border: 2px dashed #b9a98f;
+}

@@ -46,7 +46,7 @@ export function Collection({ p }: { p: PanelState }) {
           {achievements.map((a) => {
             const at = life.achievements[a.id];
             return (
-              <Card key={a.id} variant={at ? "surface" : "ghost"} style={{ opacity: at ? 1 : 0.55 }}>
+              <Card key={a.id} variant="surface" className={at ? undefined : "locked"}>
                 <Flex justify="between" gap="2">
                   <Text size="2" weight="medium">
                     {tx(a.name)}
@@ -58,7 +58,7 @@ export function Collection({ p }: { p: PanelState }) {
                 <Text as="div" size="1" color="gray" mt="1">
                   {tx(a.desc)}
                 </Text>
-                {at && (
+                {at > 1e12 && (
                   <Text as="div" size="1" color="gray" mt="1">
                     {new Date(at).toLocaleDateString(getLang())}
                   </Text>

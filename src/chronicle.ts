@@ -66,7 +66,9 @@ export const newLife = (now: number): Life => ({
   wear: "",
   role: null,
 });
-const numMap = (raw: unknown, limit: number, lo = -1e9, hi = 1e9) => {
+// hi defaults high enough for millisecond timestamps (marks, achievements):
+// a 1e9 cap turned every date into 12.01.1970.
+const numMap = (raw: unknown, limit: number, lo = -1e9, hi = 1e13) => {
   const out: Record<string, number> = {};
   if (!raw || typeof raw !== "object") return out;
   const entries = Object.entries(raw as Record<string, unknown>)

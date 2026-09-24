@@ -55,7 +55,7 @@ import { CursorPlay, PlayIntent } from "./cursorplay";
 import { Antics, Host } from "./antics";
 import { MiniGames, GameKind } from "./minigames";
 import { parse, obeys } from "./commands";
-import { FRAME_H, FRAME_W, Placement, compact, headTop, regionRects, toCanvas } from "./pose";
+import { FRAME_H, FRAME_W, Placement, compact, headBox, headTop, regionRects, toCanvas } from "./pose";
 import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
 import { getLang, money, setLang, tx } from "./i18n";
@@ -1953,6 +1953,13 @@ export class PetScene extends Phaser.Scene {
     const walking = action === "walkLeft" || action === "walkRight";
     const propRects = this.props.draw({
       head: headCanvas,
+      skull: (() => {
+        const b = !absent ? headBox(mask) : null;
+        if (!b) return null;
+        const a = toCanvas(p, b.left, b.top),
+          c = toCanvas(p, b.right, b.mid);
+        return { left: Math.min(a.x, c.x), right: Math.max(a.x, c.x), top: a.y, mid: c.y };
+      })(),
       angle,
       z,
       wear: hol?.wear ?? this.brain.life.wear,
