@@ -121,14 +121,31 @@ fn retitle_tray(app: &tauri::AppHandle, lang: &str) {
 /// Channel gains before the pet first touched the balance, put back on exit.
 static BALANCE_BEFORE: Mutex<Option<(f32, f32)>> = Mutex::new(None);
 /// Ear care: per-ear gains 0..1 (balance, or one ear resting).
+/// Also on disk: if the pet is killed (task manager, installer, crash) the
+/// next start puts the user's balance back instead of keeping one ear down.
+fn balance_file() -> std::path::PathBuf {
+    storage::root().join("balance.before.json")
+}
 #[tauri::command]
 fn set_balance(left: f32, right: f32) -> Result<(), String> {
     let before = env::set_balance(left, right)?;
     let mut saved = BALANCE_BEFORE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if saved.is_none() {
         *saved = Some(before);
+        let _ = std::fs::create_dir_all(storage::root());
+        let _ = std::fs::write(balance_file(), json!([before.0, before.1]).to_string());
     }
     Ok(())
+}
+/// Left over from a run that did not exit cleanly: restore and forget.
+fn restore_stale_balance() {
+    let Ok(text) = std::fs::read_to_string(balance_file()) else { return };
+    if let Ok(v) = serde_json::from_str::<Vec<f32>>(&text) {
+        if v.len() == 2 {
+            let _ = env::set_balance(v[0], v[1]);
+        }
+    }
+    let _ = std::fs::remove_file(balance_file());
 }
 /// Ear care: "make it quieter" from the balloon, master volume 0..1.
 #[tauri::command]
@@ -139,6 +156,7 @@ fn restore_balance() {
     let saved = BALANCE_BEFORE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
     if let Some((l, r)) = saved {
         let _ = env::set_balance(l, r);
+        let _ = std::fs::remove_file(balance_file());
     }
 }
 #[tauri::command]
@@ -602,6 +620,7 @@ fn main() {
             _ => (),
         })
         .setup(move |app| {
+            restore_stale_balance();
             let pet = app.get_window("pet").unwrap();
             unsafe { native::configure(pet.hwnd()?.0 as _) }
             let a = app.handle();

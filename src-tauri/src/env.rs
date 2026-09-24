@@ -292,3 +292,18 @@ pub fn sample(audio_allowed: bool) -> Desktop {
         right: ears.right,
     }
 }
+#[cfg(test)]
+mod probe_channels {
+    #[test]
+    #[ignore]
+    fn print_default_output_channels() {
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use windows::Win32::System::Com::CLSCTX_ALL;
+        super::init();
+        let device = super::default_device().expect("device");
+        unsafe {
+            let v: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).expect("volume");
+            println!("channels={:?} master_db={:?} headphones={}", v.GetChannelCount(), v.GetMasterVolumeLevel(), super::is_headphones(&device));
+        }
+    }
+}

@@ -11,9 +11,11 @@ const opt = (n, d) => (args.includes(n) ? args[args.indexOf(n) + 1] : d);
 const exe = path.resolve(opt("--exe", "src-tauri/target/release/Drizz Desktop.exe"));
 const seconds = +opt("--seconds", "90");
 const qa = path.join(__dirname, "qa-roam-" + Date.now());
-fs.mkdirSync(qa, { recursive: true });
+fs.mkdirSync(path.join(qa, "DrizzDesktop"), { recursive: true });
+// --day: no night sleep, so daytime roaming can be checked at any hour.
+if (args.includes("--day")) fs.writeFileSync(path.join(qa, "DrizzDesktop", "state.json"), JSON.stringify({ settings: { nightSleep: false }, memory: { cardShown: true }, token: "t", hasKey: false }));
 const port = 9661 + Math.floor(Math.random() * 40);
-const app = cp.spawn(exe, ["--background"], {
+const app = cp.spawn(exe, ["--background", "--diag"], {
   windowsHide: true,
   env: { ...process.env, LOCALAPPDATA: qa, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` },
 });
