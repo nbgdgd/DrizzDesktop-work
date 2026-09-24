@@ -7,7 +7,7 @@
 // which equals `dpr` once the window sits on that monitor.
 import { Buzz } from "./buzz";
 import Phaser from "phaser";
-import { command, emitAll, on, native } from "./bridge";
+import { command, demo, demoHost, emitAll, on, native } from "./bridge";
 import { Sfx, Sound } from "./sound";
 import { Voice } from "./voice";
 import { Animator } from "./animation";
@@ -379,7 +379,7 @@ export class PetScene extends Phaser.Scene {
       const timer = window.setInterval(() => this.heartbeat(), 2000);
       this.disposers.push(() => window.clearInterval(timer));
       if (!native) {
-        this.monitors = [
+        this.monitors = (demoHost?.monitors as Monitor[] | undefined) ?? [
           {
             id: "preview",
             primary: true,
@@ -1543,7 +1543,7 @@ export class PetScene extends Phaser.Scene {
       this.snapshot?.windows.find(
         (w) => x >= w.rect.left && x <= w.rect.right && y >= w.rect.top && y <= w.rect.bottom,
       ) ?? null;
-    if (!win || !native || !s.drunkWindows) {
+    if (!win || !(native || demo) || !s.drunkWindows) {
       this.brain.event("beerScreen", now, true);
       return;
     }
@@ -1584,7 +1584,7 @@ export class PetScene extends Phaser.Scene {
       this.squash = { t: now, kind: "wall", amt: 0.22 };
       // Drunk punches land harder.
       const kx = this.buzz.drunk && this.buzz.active(now) ? 1.6 : 1;
-      if (s.cursorPush && native)
+      if (s.cursorPush && (native || demo))
         void command("nudge_cursor", {
           dx: Math.max(-220, Math.min(220, Math.round(p.nudge.dx * kx))),
           dy: Math.max(-220, Math.min(220, Math.round(p.nudge.dy * kx))),

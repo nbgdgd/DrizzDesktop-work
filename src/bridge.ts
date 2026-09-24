@@ -4,6 +4,24 @@ import { defaults, emptyMemory, Store } from "./model";
 import { newGame } from "./game";
 export const native = !!(window as unknown as { __TAURI_IPC__?: unknown })
   .__TAURI_IPC__;
+/**
+ * Demo desktop (tools/demo/desktop.html): the pet page runs in an iframe and
+ * the host page plays the part of Windows — it moves the overlay, owns a
+ * drawn cursor and a few fake windows. Only used for promo recordings.
+ */
+type DemoHost = ((cmd: string, args: Record<string, unknown>) => unknown) & {
+  monitors?: unknown;
+};
+export const demoHost: DemoHost | undefined = (() => {
+  try {
+    return !native && window.parent !== window
+      ? ((window.parent as unknown as { demoHost?: DemoHost }).demoHost ?? undefined)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+export const demo = !!demoHost;
 const previewStore = (): Store => {
   try {
     return (
@@ -30,6 +48,8 @@ export async function command<T = void>(
   args: Record<string, unknown> = {},
 ): Promise<T> {
   if (native) return invoke<T>(cmd, args);
+  if (demoHost && ["pose", "nudge_cursor", "window_act", "autorun_remove", "autorun_keep"].includes(cmd))
+    return demoHost(cmd, args) as T;
   if (cmd === "load_store") return previewStore() as T;
   if (cmd === "usage_stats")
     return { today: [], week: [], month: [], all: [] } as T;

@@ -1,0 +1,258 @@
+<!doctype html>
+<!-- A pretend Windows desktop for promo recordings (tools/demo/record.cjs).
+     The real pet page runs in the iframe; this page plays Windows: it moves
+     the overlay (pose), draws the cursor, owns a few fake windows, and feeds
+     the pet the same motion/snapshot/trace/autorun events Rust would. -->
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Drizz Desktop demo</title>
+<style>
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; }
+  body {
+    background:
+      radial-gradient(ellipse at 20% 25%, #3b4a7a 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 70%, #6a3b6e 0%, transparent 50%),
+      linear-gradient(160deg, #1b2240 0%, #151a2c 55%, #10121c 100%);
+  }
+  #pet { position: absolute; left: 0; top: 0; width: 360px; height: 340px; border: 0; background: transparent; pointer-events: none; z-index: 40; }
+  #taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: rgba(22, 24, 32, 0.88); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; gap: 10px; z-index: 30; }
+  .tb { width: 34px; height: 34px; border-radius: 6px; background: rgba(255,255,255,0.08); display: grid; place-items: center; color: #cfd6e6; font-size: 16px; }
+  .tb.start { background: linear-gradient(135deg, #4aa3ff, #2d6cdf); }
+  .tb.active { box-shadow: inset 0 -3px 0 #7fb2ff; }
+  #clock { position: absolute; right: 16px; bottom: 7px; color: #dfe6f3; font-size: 12px; text-align: right; line-height: 1.35; z-index: 31; }
+  .icon { position: absolute; width: 76px; text-align: center; color: #e8ecf5; font-size: 12px; text-shadow: 0 1px 2px #000; }
+  .icon div { width: 44px; height: 44px; margin: 0 auto 4px; border-radius: 8px; }
+  .win { position: absolute; background: #1f232d; border: 1px solid #3a4152; border-radius: 8px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); overflow: hidden; z-index: 20; transition: opacity 0.25s; }
+  .win .bar { height: 32px; display: flex; align-items: center; padding: 0 12px; color: #d9dfeb; font-size: 12px; background: #2a2f3b; gap: 8px; }
+  .win .bar .btns { margin-left: auto; display: flex; gap: 14px; color: #9aa3b5; }
+  .win .body { padding: 14px 16px; color: #c7cfdd; font-size: 13px; line-height: 1.6; }
+  .win.cmd { background: #0c0c0c; border-color: #333; }
+  .win.cmd .bar { background: #1e1e1e; }
+  .win.cmd .body { font-family: Consolas, "Cascadia Mono", monospace; color: #cccccc; font-size: 13px; white-space: pre; }
+  .win.min { transform: translateY(420px) scale(0.2); opacity: 0; transition: transform 0.45s ease-in, opacity 0.45s; }
+  .shake { animation: shake 0.35s; }
+  @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -9px 2px; } 40% { translate: 8px -2px; } 60% { translate: -6px 1px; } 80% { translate: 5px 0; } }
+  #cursor { position: absolute; left: 0; top: 0; width: 28px; height: 38px; z-index: 60; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+  #carry { position: absolute; width: 34px; height: 34px; z-index: 59; display: none; pointer-events: none; }
+  #caption { position: absolute; left: 40px; top: 34px; z-index: 70; color: #fff; opacity: 0; transition: opacity 0.35s, transform 0.35s; transform: translateY(-8px); max-width: 760px; }
+  #caption.on { opacity: 1; transform: none; }
+  #caption .t { font-size: 40px; font-weight: 800; letter-spacing: -0.5px; text-shadow: 0 3px 18px rgba(0,0,0,0.6); }
+  #caption .s { margin-top: 6px; font-size: 19px; color: #c9d3e6; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
+  #caption .t em { font-style: normal; color: #b4e62e; }
+  #card { position: absolute; inset: 0; z-index: 80; display: none; background: rgba(12, 14, 22, 0.94); color: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; }
+  #card.on { display: flex; }
+  #card h1 { font-size: 64px; margin: 0; letter-spacing: -1px; }
+  #card h1 span { color: #b4e62e; }
+  #card p { margin: 0; font-size: 21px; color: #c9d3e6; max-width: 860px; line-height: 1.5; }
+  #card .url { margin-top: 18px; font-size: 24px; padding: 12px 26px; border-radius: 10px; background: #b4e62e; color: #121418; font-weight: 700; }
+  #card .pets { display: flex; gap: 22px; margin-bottom: 8px; }
+  #card .pets div { width: 96px; height: 104px; background-size: 768px 936px; background-position: 0 0; }
+</style>
+</head>
+<body>
+  <div class="icon" style="left:22px;top:24px"><div style="background:#4a90e2"></div>Этот компьютер</div>
+  <div class="icon" style="left:22px;top:112px"><div style="background:#e2a64a"></div>Проекты</div>
+  <div class="icon" style="left:22px;top:200px"><div style="background:#7a7f8c"></div>Корзина</div>
+  <iframe id="pet" src="/" allowtransparency="true"></iframe>
+  <div id="taskbar">
+    <div class="tb start">⊞</div><div class="tb">⌕</div><div class="tb" id="tb-browser">◍</div><div class="tb" id="tb-cmd">▮</div><div class="tb">✉</div><div class="tb">♫</div>
+  </div>
+  <div id="clock"></div>
+  <img id="carry" alt="" />
+  <svg id="cursor" viewBox="0 0 22 30"><path d="M2 2 L2 24 L8 18.5 L12 28 L16 26.3 L12 17 L20 17 Z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div id="caption"><div class="t"></div><div class="s"></div></div>
+  <div id="card">
+    <div class="pets">
+      <div style="background-image:url('/pets/drizz/spritesheet.webp')"></div>
+      <div style="background-image:url('/pets/claude/spritesheet.webp')"></div>
+      <div style="background-image:url('/pets/nezukocoder/spritesheet.webp')"></div>
+      <div style="background-image:url('/pets/eigenblob/spritesheet.webp')"></div>
+      <div style="background-image:url('/pets/aqua-wisp/spritesheet.webp')"></div>
+    </div>
+    <h1>Drizz <span>Desktop</span></h1>
+    <p>Наглый питомец на рабочем столе Windows 10/11. Бегает по окнам и мониторам, бьёт курсор, пьёт пиво и энергетики, помнит обиды и сдаёт, какая программа тихо запускает консоли и лезет в автозагрузку.</p>
+    <p style="font-size:17px;color:#8f9ab0">Бесплатно · без облака · без чтения ваших окон и клавиш</p>
+    <div class="url" id="card-url"></div>
+  </div>
+<script>
+  const W = 1280, H = 720, TASKBAR = 48;
+  const frame = document.getElementById("pet");
+  const cur = { x: 900, y: 500, down: false };
+  const cursorEl = document.getElementById("cursor");
+  const carryEl = document.getElementById("carry");
+  const wins = new Map();
+  let foreground = 1;
+  let nextId = 100;
+  const tick = () => {
+    const d = new Date();
+    document.getElementById("clock").innerHTML = d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }) + "<br>" + d.toLocaleDateString("ru");
+  };
+  tick();
+  setInterval(tick, 10000);
+  const pet = () => frame.contentWindow;
+  const scene = () => pet() && pet().__PET_SCENE__;
+  const emit = (name, detail) => pet().dispatchEvent(new CustomEvent(name, { detail }));
+  const rectOf = (w) => ({ left: w.x, top: w.y, right: w.x + w.w, bottom: w.y + w.h });
+  const drawCursor = () => {
+    cursorEl.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
+    carryEl.style.transform = `translate(${cur.x + 12}px, ${cur.y + 14}px)`;
+  };
+  drawCursor();
+  // Windows' side of the bridge.
+  window.demoHost = Object.assign(
+    (cmd, a) => {
+      if (cmd === "pose") {
+        frame.style.transform = `translate(${a.x}px, ${a.y}px)`;
+        return 1;
+      }
+      if (cmd === "nudge_cursor") {
+        const x0 = cur.x, y0 = cur.y;
+        for (let i = 1; i <= 6; i++)
+          setTimeout(() => {
+            const t = 1 - Math.pow(1 - i / 6, 2);
+            cur.x = Math.max(0, Math.min(W - 4, x0 + a.dx * t));
+            cur.y = Math.max(0, Math.min(H - 4, y0 + a.dy * t));
+            drawCursor();
+          }, i * 15);
+        return null;
+      }
+      if (cmd === "window_act") {
+        const w = wins.get(a.id);
+        if (!w) throw "no window";
+        if (a.kind === "shake") {
+          w.el.classList.remove("shake");
+          void w.el.offsetWidth;
+          w.el.classList.add("shake");
+          return "shake";
+        }
+        if (a.kind === "shove") {
+          w.x = Math.max(60, Math.min(W - w.w - 20, w.x + a.dx));
+          place(w);
+          return "shove";
+        }
+        w.el.classList.add("min");
+        setTimeout(() => closeWindow(a.id), 500);
+        return "minimize";
+      }
+      if (cmd === "autorun_remove") return { name: window.demo.autorunName || "" };
+      return null;
+    },
+    { monitors: [{ id: "demo", primary: true, scale: 1, bounds: { left: 0, top: 0, right: W, bottom: H }, work: { left: 0, top: 0, right: W, bottom: H - TASKBAR } }] },
+  );
+  const place = (w) => {
+    w.el.style.left = w.x + "px";
+    w.el.style.top = w.y + "px";
+    w.el.style.width = w.w + "px";
+    w.el.style.height = w.h + "px";
+  };
+  function openWindow({ kind = "app", x, y, w, h, title, body = "", app = "chrome.exe" }) {
+    const id = nextId++;
+    const el = document.createElement("div");
+    el.className = "win " + kind;
+    el.innerHTML = `<div class="bar"><span>${title}</span><span class="btns"><span>—</span><span>☐</span><span>✕</span></span></div><div class="body">${body}</div>`;
+    document.body.appendChild(el);
+    const win = { id, el, x, y, w, h, app };
+    wins.set(id, win);
+    place(win);
+    foreground = id;
+    snapshot();
+    return id;
+  }
+  function closeWindow(id) {
+    const w = wins.get(id);
+    if (!w) return;
+    w.el.remove();
+    wins.delete(id);
+    snapshot();
+  }
+  function typeInto(id, text, ms = 30) {
+    const body = wins.get(id)?.el.querySelector(".body");
+    if (!body) return;
+    let i = 0;
+    const t = setInterval(() => {
+      body.textContent += text[i++] ?? "";
+      if (i >= text.length) clearInterval(t);
+    }, ms);
+  }
+  // What Rust would send: the cursor 30 times a second, a snapshot every second.
+  function snapshot() {
+    if (!scene() || !scene().ready) return;
+    const list = [...wins.values()].filter((w) => !w.el.classList.contains("min")).reverse();
+    const fg = wins.get(foreground);
+    emit("snapshot", {
+      now: Date.now(),
+      idle: 0,
+      app: fg ? fg.app : "explorer.exe",
+      fullscreen: false,
+      foreground,
+      windows: list.map((w) => ({ id: w.id, rect: rectOf(w) })),
+      monitors: window.demoHost.monitors,
+      media: { playing: false, available: false, track: "", position: 0 },
+      cpu: 7,
+      online: true,
+      battery: null,
+      plugged: false,
+      controller: false,
+      locked: false,
+    });
+  }
+  setInterval(snapshot, 1000);
+  setInterval(() => {
+    const s = scene();
+    if (!s || !s.ready) return;
+    const sup = s.world.support ? wins.get(s.world.support.id) : null;
+    emit("motion", { x: Math.round(cur.x), y: Math.round(cur.y), down: cur.down, support: sup ? { id: sup.id, rect: rectOf(sup) } : null });
+  }, 33);
+  // Driver API for the recorder.
+  window.demo = {
+    scene,
+    emit,
+    openWindow,
+    closeWindow,
+    typeInto,
+    snapshot,
+    wins,
+    cur,
+    async move(x, y, ms = 400, down = cur.down, ease = "inout") {
+      const x0 = cur.x, y0 = cur.y, t0 = performance.now();
+      cur.down = down;
+      await new Promise((r) => {
+        const step = () => {
+          const p = Math.min(1, (performance.now() - t0) / ms);
+          // "in" keeps speeding up to the end: a flick that throws.
+          const e = ease === "in" ? p * p : ease === "linear" ? p : p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+          cur.x = x0 + (x - x0) * e;
+          cur.y = y0 + (y - y0) * e;
+          drawCursor();
+          p < 1 ? requestAnimationFrame(step) : r();
+        };
+        step();
+      });
+    },
+    press(down) {
+      cur.down = down;
+    },
+    carry(src) {
+      carryEl.style.display = src ? "block" : "none";
+      if (src) carryEl.src = src;
+    },
+    caption(t, s = "") {
+      const c = document.getElementById("caption");
+      if (!t) return c.classList.remove("on");
+      c.querySelector(".t").innerHTML = t;
+      c.querySelector(".s").textContent = s;
+      c.classList.add("on");
+    },
+    card(url) {
+      document.getElementById("card-url").textContent = url;
+      document.getElementById("card").classList.add("on");
+    },
+    petAt() {
+      const s = scene();
+      return { x: s.world.x, y: s.world.y, size: s.sizePx() };
+    },
+  };
+</script>
+</body>
+</html>
