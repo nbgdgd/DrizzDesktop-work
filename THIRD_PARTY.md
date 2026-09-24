@@ -28,3 +28,18 @@
 - RPG Audio — https://kenney.nl/assets/rpg-audio (eat — `chop`, coin — `handleCoins`)
 
 Оригинальный текст лицензии — `public/sfx/Kenney-License.txt`. CC0 не требует указания авторства; ссылки оставлены из вежливости.
+
+## Интерфейс настроек
+
+- Radix Themes — WorkOS, https://github.com/radix-ui/themes, MIT.
+- Lucide — https://github.com/lucide-icons/lucide, ISC.
+
+Подключаются как npm-зависимости и собираются в отдельный бандл окна настроек.
+
+## Погода
+
+Данные о погоде — Open-Meteo, https://open-meteo.com, CC BY 4.0. Запрашиваются только при включённой настройке «Показывать погоду» и только по координатам, которые ввёл пользователь.
+
+## Звуки действий и бормотание
+
+Синтезируются в `src/voice.ts` через WebAudio, записанных файлов нет.
