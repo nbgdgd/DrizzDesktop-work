@@ -78,12 +78,12 @@ export default function Panel({ initialTab }: { initialTab: string }) {
   const saveable = ["settings", "privacy"].includes(tab);
   if (welcome)
     return (
-      <Theme appearance="dark" accentColor={accents[pet.id] ?? "lime"} grayColor="slate" radius="large" scaling="100%" panelBackground="solid">
+      <Theme className="toon" appearance="light" accentColor={accents[pet.id] ?? "lime"} grayColor="sand" radius="large" scaling="100%" panelBackground="solid">
         {p.loaded ? <Welcome p={p} done={() => setWelcome(false)} /> : null}
       </Theme>
     );
   return (
-    <Theme appearance="dark" accentColor={accents[pet.id] ?? "lime"} grayColor="slate" radius="medium" scaling="95%" panelBackground="solid">
+    <Theme className="toon" appearance="light" accentColor={accents[pet.id] ?? "lime"} grayColor="sand" radius="medium" scaling="95%" panelBackground="solid">
       <div className="shell">
         <aside className="side">
           <Flex align="center" gap="3" px="3" pt="4" pb="3">

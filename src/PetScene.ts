@@ -864,6 +864,8 @@ export class PetScene extends Phaser.Scene {
       this.brain.bubble.until = now + Math.min(r.ms, 30000);
     }
     if (kind === "catch") this.play.game(now, r.ms);
+    // Clicker, coin and rock-paper-scissors: stand still so clicks land.
+    else this.world.target = this.world.goal = null;
     this.game.loop.wake();
   }
   private finishGame(o: { event: string; text: string; prize: number; feeling: number }) {
@@ -873,7 +875,7 @@ export class PetScene extends Phaser.Scene {
     if (o.event === "gameWin") note(this.brain.life, "win", now);
     this.brain.reset(o.event);
     this.brain.event(o.event, now, true, undefined, {});
-    if (this.brain.bubble) this.brain.bubble = { ...this.brain.bubble, sub: o.text + (o.prize ? ` +${money(o.prize)}` : "") };
+    if (this.brain.bubble) this.brain.bubble = { ...this.brain.bubble, sub: o.text + (o.prize && !o.text.includes(money(o.prize)) ? ` +${money(o.prize)}` : "") };
     this.saveGame(true);
     void emitAll("pet-reply", { text: `${this.brain.bubble?.text ?? ""} ${o.text}` });
   }
@@ -1709,7 +1711,12 @@ export class PetScene extends Phaser.Scene {
       this.brain.wantInspect = null;
     }
     this.inspectSpot(now);
-    const quietIdle = !this.brain.reaction && base === "idle" && !this.world.dragging && !this.play.busy && !this.forced && !this.antics.carry && !this.buzz.active(now);
+    // A timed game ends on the frame it runs out, not on the next heartbeat.
+    if (this.games.round) {
+      const done = this.games.tick(now);
+      if (done) this.finishGame(done);
+    }
+    const quietIdle = !this.games.round && !this.brain.reaction && base === "idle" && !this.world.dragging && !this.play.busy && !this.forced && !this.antics.carry && !this.buzz.active(now);
     if (quietIdle) {
       if (now > this.nextActivity) {
         const calm = s.activity === "calm";

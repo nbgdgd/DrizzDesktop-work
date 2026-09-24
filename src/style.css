@@ -15,8 +15,8 @@ body.overlay {
   overflow: hidden;
 }
 body.panel {
-  background: #111113;
-  color-scheme: dark;
+  background: #fff1d8;
+  color-scheme: light;
 }
 .pet-canvas {
   width: 360px;

@@ -233,3 +233,81 @@
   font-size: var(--font-size-2);
   color: var(--gray-11);
 }
+/* Cartoon skin, same as the pet's balloon (src/toon.ts): Nunito (SIL OFL),
+   cream paper, thick ink outlines, hard offset shadows, chunky controls. */
+.radix-themes.toon {
+  --ink: #2b2233;
+  --paper: #fffaf0;
+  --default-font-family: Nunito, "Segoe UI", sans-serif;
+  --heading-font-family: Nunito, "Segoe UI", sans-serif;
+  --font-weight-regular: 600;
+  --font-weight-medium: 700;
+  --font-weight-bold: 800;
+  --color-background: #fff1d8;
+  --color-panel-solid: var(--paper);
+}
+.toon .side,
+.toon .foot {
+  background: #f9e4bf;
+  border-color: var(--ink);
+  border-width: 2px;
+}
+.toon .head {
+  border-bottom: 2px dashed #d9c19a;
+}
+.toon .nav-item {
+  font-weight: 700;
+  border: 2px solid transparent;
+  border-radius: 12px;
+}
+.toon .nav-item[aria-current="page"] {
+  background: var(--accent-9);
+  color: var(--accent-contrast);
+  border-color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.toon .rt-BaseCard {
+  border-radius: 16px;
+  box-shadow: 3px 4px 0 rgba(43, 34, 51, 0.3);
+}
+.toon .rt-BaseCard::before,
+.toon .rt-BaseCard::after {
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 2.5px var(--ink);
+}
+.toon .rt-BaseButton:where(.rt-variant-solid, .rt-variant-soft, .rt-variant-surface, .rt-variant-outline) {
+  font-weight: 800;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 var(--ink);
+  transition: transform 80ms, box-shadow 80ms;
+}
+.toon .rt-BaseButton:where(.rt-variant-solid, .rt-variant-soft, .rt-variant-surface, .rt-variant-outline):active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 2px var(--ink), 0 1px 0 var(--ink);
+}
+.toon .rt-ProgressRoot {
+  height: 14px;
+  border-radius: 999px;
+  background: #eadfcb;
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.toon .rt-ProgressIndicator {
+  border-radius: 999px;
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 0 30%, transparent 30%);
+}
+.toon .rt-SwitchRoot::before {
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.toon .rt-SelectTrigger,
+.toon .rt-TextFieldRoot {
+  box-shadow: inset 0 0 0 2px var(--ink);
+  border-radius: 10px;
+}
+.toon .rt-CalloutRoot {
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.toon .rt-Badge {
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}

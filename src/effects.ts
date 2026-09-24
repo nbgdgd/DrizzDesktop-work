@@ -227,10 +227,23 @@ export class Effects {
     const out: Rect[] = [];
     for (const p of this.parts) {
       const c = p.kind === "glyph" ? toCanvas(petX + p.x, petY + p.y) : toCanvas(p.x, p.y);
-      const r = p.kind === "dust" ? p.r + 2 : 14;
+      if (p.kind === "glyph" && p.glyph) {
+        // Sized from the text itself (origin bottom-centre): a fixed 28 px
+        // box cut the top off every emoji and the sides off "ик!".
+        const w = p.glyph.displayWidth,
+          h = p.glyph.displayHeight;
+        out.push({
+          left: Math.floor(c.x - w / 2 - 3),
+          top: Math.floor(c.y - h - 3),
+          right: Math.ceil(c.x + w / 2 + 3),
+          bottom: Math.ceil(c.y + 3),
+        });
+        continue;
+      }
+      const r = p.r + 2;
       out.push({
         left: Math.floor(c.x - r),
-        top: Math.floor(c.y - r - (p.kind === "glyph" ? 6 : 0)),
+        top: Math.floor(c.y - r),
         right: Math.ceil(c.x + r),
         bottom: Math.ceil(c.y + r),
       });

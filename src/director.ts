@@ -884,7 +884,9 @@ export class Director {
       !!this.bubble &&
       this.bubble.until > now &&
       (this.bubble.readUntil ?? 0) > now &&
-      (this.bubble.priority ?? 0) >= r.priority;
+      // Equal or higher priority replaces the line (a game answer after its
+      // question); only weaker events wait.
+      (this.bubble.priority ?? 0) > r.priority;
     if (protectedLine && !direct && this.dialogue.retryable(name)) return false;
     const quiet = (!direct && quietNow(this.settings, now)) || (protectedLine && text === undefined);
     const phrase =

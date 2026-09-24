@@ -11,6 +11,7 @@
     "package": "tauri build --bundles nsis"
   },
   "dependencies": {
+    "@fontsource/nunito": "^5.3.0",
     "@radix-ui/themes": "^3.3.0",
     "@tauri-apps/api": "^1.6.0",
     "cli-spinners": "^3.4.0",

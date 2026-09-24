@@ -179,8 +179,15 @@ export class Props {
     // dark desktop (and its window region swallowed clicks).
     if (o.flashlight) {
       const dir = o.flashlight;
-      const x0 = o.feet.x + dir * 34 * z,
-        y0 = o.feet.y - 52 * z;
+      // Held out at the side of the body, not painted over it: at the usual
+      // size (z ≈ 0.4) a lamp scaled with the frame was a 6×3 px smudge on
+      // the belly that read as a dirty pixel. Fixed minimum size in px.
+      const bodyHalf = 96 * z;
+      const lw = Math.max(16 * z, 12),
+        lh = Math.max(8 * z, 7),
+        lr = Math.max(3.5 * z, 2.6);
+      const x0 = o.feet.x + dir * (bodyHalf + lw * 0.6),
+        y0 = o.feet.y - bodyHalf * 0.75;
       const spotX = o.feet.x + dir * 105 * z,
         spotY = o.feet.y - 3 * z;
       for (const [w, h, a] of [
@@ -189,10 +196,11 @@ export class Props {
         [38, 8, 0.18],
       ] as const)
         back.fillStyle(0xffe9a8, a).fillEllipse(spotX, spotY, w * z, h * z);
-      g.fillStyle(0x3a3d44, 1).fillRoundedRect(x0 - (dir > 0 ? 16 * z : 0), y0 - 4 * z, 16 * z, 8 * z, 2 * z);
-      back.fillStyle(0xfff3c0, 0.25).fillCircle(x0, y0, 8 * z);
-      g.fillStyle(0xfff6c8, 1).fillCircle(x0, y0, 3.5 * z);
-      add(Math.min(x0 - 18 * z, spotX - 46 * z), Math.min(y0 - 9 * z, spotY - 9 * z), Math.abs(spotX - x0) + 64 * z, spotY - y0 + 20 * z);
+      g.fillStyle(0x2a2c31, 1).fillRoundedRect(x0 - (dir > 0 ? lw : 0), y0 - lh / 2, lw, lh, 2);
+      g.lineStyle(1, 0x55595f, 1).strokeRoundedRect(x0 - (dir > 0 ? lw : 0), y0 - lh / 2, lw, lh, 2);
+      back.fillStyle(0xfff3c0, 0.3).fillCircle(x0, y0, lr * 2.6);
+      g.fillStyle(0xfff6c8, 1).fillCircle(x0, y0, lr);
+      add(Math.min(x0 - lw - 8, spotX - 46 * z), Math.min(y0 - lr * 3, spotY - 9 * z), Math.abs(spotX - x0) + lw + 64 * z, spotY - y0 + lr * 3 + 12);
     }
     // Hat on the head, turned with the body.
     const hat = (x: number, y: number) => {

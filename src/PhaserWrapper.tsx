@@ -8,6 +8,22 @@ import { canvasSize, canvasZoom } from "./dpi";
 export function PhaserWrapper() {
   const parent = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Canvas text does not redraw when a web font arrives, so the game waits
+    // for Nunito (at most 1.5 s, then falls back to Segoe UI).
+    let game: Phaser.Game | null = null,
+      gone = false;
+    const faces = ["600 14px Nunito", "700 11px Nunito", "800 12px Nunito", "italic 600 12px Nunito"].map((f) => document.fonts.load(f, "Аб"));
+    void Promise.race([Promise.all(faces), new Promise((r) => setTimeout(r, 1500))])
+      .catch(() => {})
+      .then(() => {
+        if (!gone) game = start();
+      });
+    return () => {
+      gone = true;
+      game?.destroy(true);
+    };
+  }, []);
+  function start() {
     const dpr = window.devicePixelRatio || 1;
     const { width, height } = canvasSize(dpr);
     const game = new Phaser.Game({
@@ -26,7 +42,7 @@ export function PhaserWrapper() {
       // img-src of the CSP matters and a failure surfaces as a load error.
       loader: { imageLoadType: "HTMLImageElement" },
     });
-    return () => game.destroy(true);
-  }, []);
+    return game;
+  }
   return <div ref={parent} className="pet-canvas" />;
 }

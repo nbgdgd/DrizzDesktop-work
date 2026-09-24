@@ -100,7 +100,8 @@ export class MiniGames {
     if (r.kind === "clicker") {
       const prize = Math.min(20, Math.floor(r.score / 2));
       return {
-        event: r.score >= 25 ? "gameWin" : r.score >= 10 ? "gameDraw" : "gameLose",
+        // Every click pays, so ten or more is a win; "draw" lines ask for a replay.
+        event: r.score >= 10 ? "gameWin" : "gameLose",
         text: tx("{n} кликов за 10 секунд. {prize} твои.", { n: r.score, prize: money(prize) }),
         prize,
         feeling: 3,

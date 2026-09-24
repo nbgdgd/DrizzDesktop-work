@@ -6,7 +6,7 @@
 import Phaser from "phaser";
 import type { Bubble, BubbleAction } from "./director";
 import type { Rect } from "./model";
-const FONT = "Segoe UI, sans-serif";
+import { FONT, INK, OUTLINE, PAPER, SHADOW, button, ink, inkSoft, panel, textOn } from "./toon";
 const HAND = "Segoe Print, Comic Sans MS, Segoe UI, sans-serif";
 export class Balloon {
   private g: Phaser.GameObjects.Graphics;
@@ -23,7 +23,8 @@ export class Balloon {
       .text(0, 0, "", {
         fontFamily: FONT,
         fontSize: "14px",
-        color: "#e9e9eb",
+        fontStyle: "600",
+        color: ink,
         wordWrap: { width: 258 },
         lineSpacing: 4,
       })
@@ -34,7 +35,8 @@ export class Balloon {
       .text(0, 0, "", {
         fontFamily: FONT,
         fontSize: "11px",
-        color: "#9aa0a8",
+        fontStyle: "700",
+        color: inkSoft,
         wordWrap: { width: 258 },
       })
       .setDepth(31);
@@ -43,9 +45,9 @@ export class Balloon {
         .text(0, 0, "", {
           fontFamily: FONT,
           fontSize: "13px",
-          color: "#b4e62e",
-          backgroundColor: "#26282d",
-          padding: { x: 8, y: 4 },
+          fontStyle: "800",
+          color: ink,
+          padding: { x: 10, y: 3 },
         })
         .setDepth(32)
         .setVisible(false)
@@ -102,8 +104,8 @@ export class Balloon {
     this.label
       .setFontFamily(FONT)
       .setFontSize(mumble ? 12 : 14)
-      .setFontStyle(mumble ? "italic" : "normal")
-      .setColor(mumble ? "#b9bcc4" : "#e9e9eb")
+      .setFontStyle(mumble ? "italic 600" : "600")
+      .setColor(mumble ? inkSoft : ink)
       .setWordWrapWidth(mumble ? 200 : 258)
       .setText(text);
     // Size for the full line first, then show only what has been "typed".
@@ -114,7 +116,7 @@ export class Balloon {
     if (typed < text.length) this.label.setText(text.slice(0, typed));
     this.sub.setText(b?.sub ?? "");
     const subH = this.sub.visible ? this.sub.height + 4 : 0;
-    const row = actions.length ? 32 : 0;
+    const row = actions.length ? 36 : 0;
     const width = mumble ? Math.min(226, fullW + 26) : 290;
     const height = fullH + 26 + subH + row;
     const left = mumble ? Math.max(8, Math.min(352 - width, anchorX - width / 2)) : 35;
@@ -124,30 +126,35 @@ export class Balloon {
     let bx = left + 13;
     for (const btn of this.buttons) {
       if (!btn.visible) continue;
-      btn.setPosition(bx, bottom - row - 6);
+      btn.setPosition(bx, bottom - row - 4);
       bx += btn.width + 8;
     }
+    const fill = textOn(accent) === ink ? accent : 0xffcf3a;
     const tail = Math.max(left + 13, Math.min(left + width - 17, anchorX));
     if (mumble) {
       // A thought cloud: soft box and two little bubbles toward the head.
-      this.g.fillStyle(0x191a1d, 0.72).lineStyle(1, 0x3a3d44, 0.8);
-      this.g.fillRoundedRect(left, bottom - height, width, height, 14).strokeRoundedRect(left, bottom - height, width, height, 14);
+      panel(this.g, left, bottom - height, width, height, 16, 0xeef0fb, 0.95);
       const dir = below ? -1 : 1;
       const y0 = below ? bottom - height : bottom;
-      this.g.fillCircle(tail, y0 + dir * 7, 4).fillCircle(tail + 4, y0 + dir * 15, 2.5);
+      this.g.fillStyle(0xeef0fb, 0.95).lineStyle(2, INK, 0.95);
+      this.g.fillCircle(tail, y0 + dir * 8, 4.5).strokeCircle(tail, y0 + dir * 8, 4.5);
+      this.g.fillCircle(tail + 5, y0 + dir * 17, 2.8).strokeCircle(tail + 5, y0 + dir * 17, 2.8);
     } else {
-      this.g.fillStyle(0x191a1d, 0.97).lineStyle(1, accent, 0.55);
-      this.g
-        .fillRoundedRect(left, bottom - height, width, height, 11)
-        .strokeRoundedRect(left, bottom - height, width, height, 11);
-      if (below) this.g.fillTriangle(tail - 5, bottom - height, tail + 5, bottom - height, tail, bottom - height - 7);
-      else this.g.fillTriangle(tail - 5, bottom, tail + 5, bottom, tail, bottom + 7);
+      panel(this.g, left, bottom - height, width, height, 14);
+      // Tail: shadow, paper over the outline, then its two ink sides.
+      const y0 = below ? bottom - height : bottom,
+        tip = below ? y0 - 11 : y0 + 11,
+        k = below ? -1 : 1;
+      if (!below) this.g.fillStyle(INK, 0.3).fillTriangle(tail - 7 + SHADOW, y0 + SHADOW, tail + 7 + SHADOW, y0 + SHADOW, tail - 2 + SHADOW, tip + SHADOW);
+      this.g.fillStyle(PAPER, 1).fillTriangle(tail - 8, y0 - k * OUTLINE, tail + 8, y0 - k * OUTLINE, tail - 3, tip);
+      this.g.lineStyle(OUTLINE, INK, 1).lineBetween(tail - 8, y0, tail - 3, tip).lineBetween(tail + 8, y0, tail - 3, tip);
+      for (const btn of this.buttons) if (btn.visible) button(this.g, btn, fill);
     }
     return {
-      left: Math.floor(left - 2),
-      top: Math.floor(bottom - height - (below ? 10 : 2)),
-      right: Math.ceil(left + width + 2),
-      bottom: Math.ceil(bottom + (below ? 2 : 10)),
+      left: Math.floor(left - 3),
+      top: Math.floor(bottom - height - (below ? (mumble ? 24 : 14) : 3)),
+      right: Math.ceil(left + width + SHADOW + 3),
+      bottom: Math.ceil(bottom + (below ? SHADOW + 4 : mumble ? 24 : 16)),
     };
   }
   /** A cardboard placard on a stick, held above the head. */
