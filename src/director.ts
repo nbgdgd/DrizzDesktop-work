@@ -1,0 +1,822 @@
+import {
+  Action,
+  Desktop,
+  Input,
+  Memory,
+  Settings,
+  Snapshot,
+  category,
+  clamp,
+  emptyDesktop,
+  emptyInput,
+} from "./model";
+import { Dialogue } from "./dialogue";
+import { appName, formatDuration } from "./apps";
+import { AutorunChange, Spike, TraceEvent, autorunSpeech, revealTarget, spikeSpeech, traceSpeech } from "./trace";
+export interface BubbleAction {
+  id: string;
+  label: string;
+}
+import {
+  Game,
+  Interaction,
+  TickEnv,
+  interact,
+  jobById,
+  level,
+  mode,
+  newGame,
+  likabilityMax,
+  statusLine,
+  tick,
+  workTick,
+  working,
+} from "./game";
+/** Relationship in percent of the current likability cap. */
+export const bondPct = (g: Game) =>
+  Math.round((100 * g.likability) / Math.max(1, likabilityMax(level(g.exp))));
+interface Rule {
+  action: Action;
+  priority: number;
+  cooldown: number;
+  duration: number;
+}
+const rule = (
+  action: Action,
+  priority = 30,
+  cooldown = 180000,
+  duration = 3000,
+): Rule => ({ action, priority, cooldown, duration });
+export const rules: Record<string, Rule> = {
+  hello: rule("wave", 70, 86400000),
+  return: rule("wave", 60, 90000),
+  click: rule("wave", 90, 1800),
+  poke: rule("look", 90, 6000),
+  drag: rule("drag", 100, 12000, 1200),
+  dragged: rule("look", 100, 15000),
+  summon: rule("wave", 100, 1500),
+  cursor: rule("look", 15, 45000, 2400),
+  idle: rule("rest", 20, 600000, 7000),
+  sleep: rule("sleep", 25, 600000, 8000),
+  editor: rule("sit"),
+  game: rule("wave", 45),
+  gameEnd: rule("wave", 55),
+  breakEnd: rule("wave", 56),
+  long: rule("jump", 25, 3600000),
+  switching: rule("look", 35, 300000),
+  alternating: rule("look", 30, 600000),
+  chat: rule("look", 25),
+  music: rule("sit", 30),
+  mediaPause: rule("rest", 30, 90000, 7000),
+  mediaResume: rule("wave", 40, 90000),
+  repeat: rule("look", 30, 600000),
+  night: rule("rest", 25, 72000000, 8000),
+  windowMove: rule("look", 35, 120000),
+  fall: rule("jump", 80, 60000, 1500),
+  desktop: rule("look", 30),
+  cpu: rule("rest", 45, 900000, 8000),
+  offline: rule("look", 50, 120000),
+  online: rule("wave", 50, 120000),
+  battery: rule("rest", 65, 1800000),
+  power: rule("wave", 45, 300000),
+  monitor: rule("look", 60, 10000),
+  "build-success": rule("celebrate", 80, 10000),
+  "build-failed": rule("rest", 80, 10000),
+  "render-done": rule("celebrate", 80, 10000),
+  "download-done": rule("wave", 65, 10000),
+  "episode-ended": rule("celebrate", 70, 10000),
+  typing: rule("look", 40, 240000),
+  typingLong: rule("look", 40, 900000),
+  afterBurst: rule("wave", 35, 360000),
+  clicking: rule("look", 40, 180000),
+  scrolling: rule("look", 35, 240000),
+  rightClick: rule("look", 30, 300000),
+  glance: rule("look", 10, 8000, 1200),
+  curious: rule("look", 45, 120000, 2500),
+  chatter: rule("idle", 15, 60000, 2500),
+  stats: rule("look", 30, 3600000),
+  statsDay: rule("wave", 40, 43200000),
+  levelUp: rule("celebrate", 85, 5000, 2600),
+  hungry: rule("rest", 40, 1200000),
+  thirsty: rule("rest", 40, 1200000),
+  tired: rule("rest", 35, 1200000),
+  sad: rule("rest", 35, 1800000),
+  happy: rule("jump", 25, 1800000),
+  sick: rule("rest", 50, 1800000),
+  fed: rule("wave", 90, 1000),
+  broke: rule("look", 90, 1000),
+  status: rule("look", 95, 1200, 1600),
+  work: rule("sit", 70, 8000, 3000),
+  working: rule("sit", 20, 180000),
+  workDone: rule("celebrate", 88, 2000, 3000),
+  workFail: rule("rest", 80, 2000),
+  upgrade: rule("celebrate", 88, 1000, 2600),
+  // Windows itself: sound, clipboard, theme, pressure, windows opening.
+  volumeUp: rule("look", 40, 150000),
+  volumeDown: rule("look", 40, 150000),
+  mute: rule("look", 45, 90000),
+  unmute: rule("wave", 45, 90000),
+  loud: rule("jump", 45, 1800000),
+  soundOn: rule("sit", 40, 600000),
+  soundOff: rule("look", 30, 900000),
+  copy: rule("look", 30, 420000),
+  copyStorm: rule("look", 40, 900000),
+  screenshot: rule("wave", 55, 60000),
+  caps: rule("look", 35, 900000),
+  theme: rule("look", 50, 20000),
+  ram: rule("rest", 45, 1200000),
+  disk: rule("look", 45, 21600000),
+  appOpen: rule("look", 30, 300000),
+  appClose: rule("look", 30, 300000),
+  windowStorm: rule("look", 35, 1800000),
+  resume: rule("wave", 60, 60000),
+  // Process tracing and load spikes. Cooldowns per origin live in Rust;
+  // these only stop two lines colliding.
+  traceVisible: rule("look", 75, 3000, 4000),
+  traceFlash: rule("look", 75, 3000, 4000),
+  traceOrphan: rule("look", 70, 3000, 4000),
+  traceBackground: rule("look", 40, 60000, 3000),
+  traceAlert: rule("jump", 98, 1000, 5000),
+  cpuSpike: rule("look", 60, 60000, 4000),
+  cpuSpikeAnon: rule("look", 50, 60000, 3000),
+  gpuSpike: rule("look", 60, 60000, 4000),
+  gpuSpikeAnon: rule("look", 50, 60000, 3000),
+  // A cursor twitch while asleep: one eye opens, then back to sleep.
+  twitch: rule("look", 12, 1800000, 1200),
+  // Movement-driven reactions.
+  hop: rule("jump", 45, 90000, 2500),
+  dodge: rule("jump", 70, 20000, 1500),
+  zoomies: rule("celebrate", 30, 900000, 2500),
+  showDesktop: rule("celebrate", 50, 120000, 2500),
+  driveIn: rule("celebrate", 60, 20000, 2600),
+  // Touch and physics.
+  pet: rule("sit", 88, 9000, 2500),
+  tickle: rule("celebrate", 88, 7000, 2200),
+  thrown: rule("jump", 92, 4000, 1200),
+  ouch: rule("rest", 93, 4000, 1800),
+  bonk: rule("look", 93, 3000, 1400),
+  bondUp: rule("celebrate", 94, 60000, 2600),
+  driveOut: rule("look", 55, 20000, 2000),
+  autorunAdded: rule("look", 97, 1000, 6000),
+  autorunRisky: rule("jump", 99, 1000, 6000),
+  autorunChanged: rule("look", 97, 1000, 6000),
+  autorunRemoved: rule("celebrate", 96, 1000, 2600),
+  autorunKept: rule("wave", 96, 1000, 2000),
+  autorunFailed: rule("rest", 96, 1000, 3000),
+};
+export class Director {
+  dialogue: Dialogue;
+  reaction?: { event: string; rule: Rule; until: number };
+  bubble?: { text: string; until: number; actions?: BubbleAction[] };
+  base: Action = "idle";
+  hidden = false;
+  manualHidden = false;
+  energy = 0.75;
+  curiosity = 0.5;
+  sociability = 0.5;
+  last?: Snapshot;
+  private cooldown = new Map<string, number>();
+  private switches: { app: string; time: number }[] = [];
+  private appSince = 0;
+  private currentApp = "";
+  private wasIdle = false;
+  private editorBeforeGame = false;
+  private gameSeen = false;
+  private mediaPauseAt = 0;
+  private cpuSince = 0;
+  private lastNight = "";
+  private clicks: number[] = [];
+  private ids = new Map<string, number>();
+  private playPosition = 0;
+  // Global input: cumulative counters from the Rust hooks turned into
+  // per-second deltas and short sliding windows of timestamps.
+  private prevInput?: Input;
+  // Windows state from the previous snapshot, plus the timers a couple of the
+  // desktop rules need (silence, memory pressure, copy bursts).
+  private prevEnv?: Desktop;
+  private audioSince = 0;
+  private silenceSince = 0;
+  private ramSince = 0;
+  private volumeMark = -1;
+  private copies: number[] = [];
+  private keyTimes: number[] = [];
+  private clickTimes: number[] = [];
+  private wheelTimes: number[] = [];
+  private typingSince = 0;
+  private lastKey = 0;
+  private burst = false;
+  private petX = 0;
+  private petY = 0;
+  wantGo: number | null = null;
+  /** Window the pet wants to climb onto (set when focus moves to it). */
+  wantHop: { id: number; x: number; top: number; until: number } | null = null;
+  /** Run to this x fast (show desktop, excitement). */
+  wantRun: number | null = null;
+  private nextChatter = 0;
+  private nextStats = 0;
+  private lastStatsDay = "";
+  // Progression (VPet model). PetScene persists it; the director reads it
+  // for mood-dependent pacing and writes it through interactions and ticks.
+  game: Game;
+  private moodClicks: number[] = [];
+  constructor(
+    public settings: Settings,
+    public memory: Memory,
+    private random = Math.random,
+    game?: Game,
+  ) {
+    this.dialogue = new Dialogue(memory.recent, random);
+    this.game = game ?? newGame(Date.now());
+  }
+  /** Left click on the pet: level, money and what hurts, in one line. */
+  status(now: number): boolean {
+    return this.event("status", now, true, statusLine(this.game, now));
+  }
+  /** Pays out a finished shift and says so; called from the scene each frame. */
+  workPayout(now: number): boolean {
+    if (!this.game.job) return false;
+    const r = workTick(this.game, now);
+    if (!r.done) return false;
+    this.game = r.game;
+    this.event("workDone", now, true, undefined, {
+      job: r.done.job.name,
+      pay: String(r.done.pay),
+    });
+    return true;
+  }
+  position(x: number, y: number) {
+    this.petX = x;
+    this.petY = y;
+  }
+  // Ambient remark on its own timer; the dialogue budget still applies.
+  chatter(now: number): boolean {
+    if (!this.nextChatter) {
+      this.schedule(now);
+      return false;
+    }
+    if (now < this.nextChatter) return false;
+    this.schedule(now);
+    if (this.hidden || (this.last?.idle ?? 0) > 120000) return false;
+    return this.event("chatter", now);
+  }
+  private schedule(now: number) {
+    this.nextChatter =
+      now + this.settings.commentMinutes * 60000 * (0.6 + this.random() * 0.7);
+  }
+  wanderFactor(): number {
+    const m = mode(this.game);
+    return m === "ill" || m === "poor" ? 2 : m === "happy" ? 0.7 : 1;
+  }
+  private lastAlertAt = 0;
+  /** Current mood, used to pick the tone of every line. */
+  mood(now: number): "scared" | "angry" | "sleepy" | "friendly" | "normal" {
+    if (now - this.lastAlertAt < 90000) return "scared";
+    if (this.game.grudge >= 50) return "angry";
+    if (this.base === "sleep" || this.base === "rest") return "sleepy";
+    const h = new Date(now).getHours();
+    if (h < 6 && this.base !== "idle") return "sleepy";
+    if (bondPct(this.game) >= 60 && this.game.grudge < 20) return "friendly";
+    return "normal";
+  }
+  /** Slow hand over the pet. */
+  private lastPetGain = 0;
+  petted(now: number) {
+    // The hand reports ~30 samples a second: the reward is paid at most
+    // every 3 s, so stroking cannot be farmed.
+    if (now - this.lastPetGain < 3000) return;
+    this.lastPetGain = now;
+    const before = bondPct(this.game);
+    this.touch("pet", now);
+    this.event("pet", now, true);
+    this.bondCheck(before, now);
+  }
+  tickled(now: number) {
+    this.touch("tickle", now);
+    this.event("tickle", now, true);
+  }
+  /** Released with speed: counts the throw and complains. */
+  threw(now: number) {
+    const day = new Date(now).toLocaleDateString("sv");
+    if (this.game.throwsDay !== day) this.game = { ...this.game, throwsDay: day, throwsToday: 0 };
+    this.game = { ...this.game, throwsToday: this.game.throwsToday + 1 };
+    this.touch("throw", now);
+    this.event("thrown", now, true, undefined, { n: String(this.game.throwsToday) });
+  }
+  impact(kind: "floor" | "wall" | "ceiling", now: number) {
+    this.game = { ...this.game, grudge: Math.min(100, this.game.grudge + 4) };
+    this.event(kind === "floor" ? "ouch" : "bonk", now, true, undefined, {
+      n: String(this.game.throwsToday),
+    });
+  }
+  fed(now: number) {
+    const before = bondPct(this.game);
+    this.touch("fed", now);
+    this.bondCheck(before, now);
+  }
+  private bondCheck(before: number, now: number) {
+    const after = bondPct(this.game);
+    for (const mark of [25, 50, 75, 100])
+      if (before < mark && after >= mark) {
+        this.event("bondUp", now, true, undefined, { pct: String(mark) });
+        break;
+      }
+  }
+  private touch(kind: Interaction, now: number) {
+    if (kind === "click") {
+      this.moodClicks = this.moodClicks.filter((t) => now - t < 60000);
+      if (this.moodClicks.length >= 3) return;
+      this.moodClicks.push(now);
+    }
+    this.game = interact(this.game, kind);
+  }
+  // Advances the progression by whole minutes since the last tick. Returns
+  // true when the state changed so the scene can persist it.
+  applyTick(now: number, env: TickEnv): boolean {
+    const minutes = Math.floor((now - this.game.lastTick) / 60000);
+    if (minutes < 1) return false;
+    // Resentment fades: about 1 point a minute.
+    if (this.game.grudge > 0)
+      this.game = { ...this.game, grudge: Math.max(0, this.game.grudge - minutes) };
+    env = { ...env, working: working(this.game, now) };
+    const before = level(this.game.exp);
+    this.game = {
+      ...tick(this.game, minutes, env),
+      lastTick: this.game.lastTick + minutes * 60000,
+    };
+    const after = level(this.game.exp);
+    if (after > before)
+      this.event("levelUp", now, true, undefined, { level: String(after) });
+    else if (env.working) {
+      const job = jobById(this.game.job?.id ?? "");
+      if (job) this.event("working", now, false, undefined, { job: job.name });
+    } else if (this.settings.mode !== "dnd" && env.present) {
+      const g = this.game;
+      if (g.health < 50) this.event("sick", now);
+      else if (g.food < 25) this.event("hungry", now);
+      else if (g.drink < 25) this.event("thirsty", now);
+      else if (g.strength < 20) this.event("tired", now);
+      else if (mode(g) === "poor") this.event("sad", now);
+      else if (mode(g) === "happy") this.event("happy", now);
+    }
+    return true;
+  }
+  private input(n: Snapshot) {
+    const now = n.now;
+    const cur = n.input ?? emptyInput;
+    const prev = this.prevInput;
+    this.prevInput = cur;
+    if (!prev || !this.settings.observeInput) return;
+    const push = (arr: number[], count: number, keep: number) => {
+      for (let i = 0; i < Math.min(count, 60); i++) arr.push(now);
+      while (arr.length && now - arr[0] > keep) arr.shift();
+    };
+    const keys = Math.max(0, cur.keys - prev.keys);
+    const clicks = Math.max(0, cur.clicks - prev.clicks);
+    const right = Math.max(0, cur.rightClicks - prev.rightClicks);
+    const wheel = Math.max(0, cur.wheel - prev.wheel);
+    push(this.keyTimes, keys, 10000);
+    push(this.clickTimes, clicks, 5000);
+    push(this.wheelTimes, wheel, 8000);
+    if (keys) this.lastKey = now;
+    if (this.keyTimes.length >= 40 && this.event("typing", now))
+      this.burst = true;
+    if (this.keyTimes.length >= 10 && !this.typingSince) this.typingSince = now;
+    if (this.typingSince && now - this.lastKey > 20000) this.typingSince = 0;
+    if (this.typingSince && now - this.typingSince > 180000) {
+      this.event("typingLong", now);
+      this.typingSince = now;
+    }
+    if (this.burst && now - this.lastKey > 45000) {
+      this.burst = false;
+      if (this.random() < 0.3) this.event("afterBurst", now);
+    }
+    if (this.clickTimes.length >= 8) this.event("clicking", now);
+    if (this.wheelTimes.length >= 30) this.event("scrolling", now);
+    if (right && this.random() < 0.15) this.event("rightClick", now);
+    const click = cur.lastClick;
+    if (clicks && click && click.t !== prev.lastClick?.t) {
+      const inside = (x: number, y: number, m: Snapshot["monitors"][number]) =>
+        x >= m.bounds.left &&
+        x < m.bounds.right &&
+        y >= m.bounds.top &&
+        y <= m.bounds.bottom;
+      const far =
+        Math.hypot(click.x - this.petX, click.y - this.petY) > 900 ||
+        n.monitors.some(
+          (m) => inside(click.x, click.y, m) && !inside(this.petX, this.petY, m),
+        );
+      if (far && this.random() < 0.2 && this.event("curious", now))
+        this.wantGo = click.x;
+      else if (this.random() < 0.25) this.event("glance", now);
+    }
+  }
+  private usage(n: Snapshot) {
+    const now = n.now;
+    const top = n.usage?.today?.[0];
+    if (!this.nextStats)
+      this.nextStats = now + (90 + this.random() * 60) * 60000;
+    const vars = top
+      ? { app: appName(top.app), time: formatDuration(top.seconds) }
+      : undefined;
+    if (now >= this.nextStats) {
+      this.nextStats = now + (90 + this.random() * 60) * 60000;
+      if (vars && top && top.seconds >= 900 && n.idle < 120000)
+        this.event("stats", now, false, undefined, vars);
+    }
+    const today = new Date(now).toLocaleDateString("sv");
+    if (
+      vars &&
+      new Date(now).getHours() >= 21 &&
+      this.lastStatsDay !== today &&
+      this.event("statsDay", now, false, undefined, vars)
+    )
+      this.lastStatsDay = today;
+  }
+  event(
+    name: string,
+    now: number,
+    direct = false,
+    text?: string,
+    vars?: Record<string, string>,
+  ): boolean {
+    const r = rules[name];
+    if (
+      !r ||
+      this.settings.mode === "dnd" ||
+      (this.hidden && !direct) ||
+      now - (this.cooldown.get(name) ?? -Infinity) < r.cooldown
+    )
+      return false;
+    if (
+      this.reaction &&
+      this.reaction.until > now &&
+      this.reaction.rule.priority > r.priority
+    )
+      return false;
+    this.cooldown.set(name, now);
+    this.reaction = { event: name, rule: r, until: now + r.duration };
+    const phrase =
+      text ?? this.dialogue.choose(name, this.settings, now, direct, vars, this.mood(now));
+    // An open question (autostart prompt) is not talked over by chatter.
+    const asking =
+      this.bubble?.actions?.some((a) => a.id.startsWith("autorun-")) &&
+      this.bubble.until > now &&
+      r.priority < 96;
+    if (phrase && !asking) {
+      this.bubble = {
+        text: phrase,
+        until: now + clamp(phrase.length * 65, 4500, 10000),
+      };
+      this.memory.recent = this.dialogue.recent;
+    }
+    return true;
+  }
+  updateSettings(s: Settings) {
+    const changed = s.pet !== this.settings.pet;
+    this.settings = s;
+    if (changed || s.mode === "dnd") {
+      this.reaction = undefined;
+      this.bubble = undefined;
+    }
+    if (!s.comments) this.bubble = undefined;
+  }
+  action(now: number): Action {
+    if (this.reaction && this.reaction.until > now)
+      return this.reaction.rule.action;
+    this.reaction = undefined;
+    return this.base;
+  }
+  tick(now: number) {
+    if (this.bubble && now >= this.bubble.until) this.bubble = undefined;
+    if (this.reaction && now >= this.reaction.until) this.reaction = undefined;
+  }
+  // A direct touch (click/drag) ends rest or sleep immediately instead of
+  // waiting for the next idle snapshot; the "return" line still follows.
+  wake(now: number) {
+    if (this.settings.mode === "dnd") return;
+    if (this.base === "sleep" || this.base === "rest") {
+      this.base = "idle";
+      this.cooldown.set("sleep", now);
+    }
+  }
+  click(now: number) {
+    this.clicks = this.clicks.filter((t) => now - t < 6000);
+    this.clicks.push(now);
+    const poke = this.clicks.length >= 3;
+    this.touch(poke ? "poke" : "click", now);
+    this.event(poke ? "poke" : "click", now, true);
+  }
+  dragged(now: number) {
+    this.touch("drag", now);
+  }
+  summoned(now: number) {
+    this.touch("summon", now);
+  }
+  // Someone launched a console / script host / system tool (trace.rs).
+  trace(e: TraceEvent, now: number) {
+    if (!this.settings.observeProcesses) return false;
+    if (e.speak === "alert") this.lastAlertAt = now;
+    const say = traceSpeech(e);
+    if (!say) return false;
+    const ok = this.event(say.event, now, say.direct, undefined, say.vars);
+    if (ok && this.bubble) {
+      const actions: BubbleAction[] = [];
+      const target = revealTarget(e);
+      if (target) actions.push({ id: "reveal:" + target, label: "Открыть путь" });
+      actions.push({ id: "journal", label: "Журнал" });
+      this.bubble.actions = actions;
+      this.bubble.until = Math.max(this.bubble.until, now + 15000);
+    }
+    return ok;
+  }
+  // Something was added to autostart: ask what to do with it.
+  autorun(c: AutorunChange, now: number) {
+    if (!this.settings.watchAutoruns) return false;
+    const say = autorunSpeech(c);
+    const ok = this.event(say.event, now, true, undefined, say.vars);
+    if (ok && this.bubble) {
+      const id = c.entry.id;
+      this.bubble.actions = [
+        { id: "autorun-remove:" + id, label: "Убрать" },
+        { id: "autorun-keep:" + id, label: "Оставить" },
+      ];
+      if (c.entry.target)
+        this.bubble.actions.push({ id: "reveal:" + c.entry.target, label: "Открыть путь" });
+      this.bubble.until = now + 90000;
+    }
+    return ok;
+  }
+  // Sudden CPU/GPU rise with the process responsible (load.rs).
+  spike(s: Spike, now: number) {
+    if (!this.settings.observeSystem) return false;
+    if (s.kind === "gpu" && !this.settings.observeGpu) return false;
+    const say = spikeSpeech(s);
+    // Rare by construction (5 min per metric in load.rs): not rate-limited here.
+    return this.event(say.event, now, true, undefined, say.vars);
+  }
+  integration(e: { id: string; kind: string; title: string }, now: number) {
+    if (!this.settings.integration || this.ids.has(e.id)) return;
+    this.ids.set(e.id, now);
+    for (const [id, t] of this.ids) if (now - t > 600000) this.ids.delete(id);
+    if (["build-success", "render-done", "download-done"].includes(e.kind))
+      this.touch("win", now);
+    this.event(e.kind, now);
+  }
+  // Windows events proper: the volume knob, the clipboard, Caps Lock, the
+  // theme, memory and disk pressure, windows opening and closing. Each one is
+  // a plain diff against the previous snapshot; `event` handles the cooldowns.
+  private desktop(n: Snapshot, p: Snapshot) {
+    if (!this.settings.observeDesktop) return;
+    const now = n.now;
+    const e = n.env ?? emptyDesktop;
+    const prev = this.prevEnv;
+    this.prevEnv = e;
+    if (!prev) return;
+    // A gap in snapshots means the machine slept or the session was locked.
+    if (now - p.now > 300000) this.event("resume", now);
+    if (this.settings.observeSound && e.volume >= 0) {
+      // Against the last level we reacted to, not the previous sample: the
+      // knob moves in small steps and several presses add up to one change.
+      if (this.volumeMark < 0) this.volumeMark = e.volume;
+      const d = e.volume - this.volumeMark;
+      if (d >= 6 && this.event("volumeUp", now)) this.volumeMark = e.volume;
+      else if (d <= -6 && this.event("volumeDown", now))
+        this.volumeMark = e.volume;
+      else if (Math.abs(d) >= 6) this.volumeMark = e.volume;
+      if (e.volume >= 85 && e.audio) this.event("loud", now);
+    }
+    if (this.settings.observeSound) {
+      if (e.muted && !prev.muted) this.event("mute", now);
+      if (!e.muted && prev.muted) this.event("unmute", now);
+      // Sound starting after a long quiet spell, and going quiet after a
+      // long session, are the two moments worth a word.
+      if (e.audio) {
+        if (!this.audioSince) this.audioSince = now;
+        if (this.silenceSince && now - this.silenceSince > 120000)
+          this.event("soundOn", now);
+        this.silenceSince = 0;
+      } else {
+        if (!this.silenceSince) this.silenceSince = now;
+        if (this.audioSince && now - this.audioSince > 300000)
+          this.event("soundOff", now);
+        this.audioSince = 0;
+      }
+    }
+    if (e.clipboard && prev.clipboard && e.clipboard !== prev.clipboard) {
+      this.copies = this.copies.filter((t) => now - t < 60000);
+      this.copies.push(now);
+      if (this.copies.length >= 6) this.event("copyStorm", now);
+      else this.event("copy", now);
+    }
+    if ((n.input?.shots ?? 0) > (p.input?.shots ?? 0))
+      this.event("screenshot", now);
+    if (e.caps && !prev.caps) this.event("caps", now);
+    if (e.dark !== prev.dark)
+      this.event("theme", now, false, undefined, {
+        theme: e.dark ? "тёмную" : "светлую",
+      });
+    if (e.memory >= 90) {
+      if (!this.ramSince) this.ramSince = now;
+      if (now - this.ramSince > 30000)
+        this.event("ram", now, false, undefined, { pct: String(e.memory) });
+    } else this.ramSince = 0;
+    if (e.disk > 0 && e.disk <= 8)
+      this.event("disk", now, false, undefined, { pct: String(e.disk) });
+    if (e.windows && prev.windows) {
+      if (e.windows > prev.windows) this.event("appOpen", now);
+      else if (e.windows < prev.windows) this.event("appClose", now);
+      if (e.windows >= 14)
+        this.event("windowStorm", now, false, undefined, {
+          n: String(e.windows),
+        });
+    }
+  }
+  observe(n: Snapshot) {
+    const now = n.now,
+      s = this.settings,
+      p = this.last;
+    this.hidden =
+      this.manualHidden ||
+      n.locked ||
+      (s.hideFullscreen && n.fullscreen && !s.fullscreenAllow.includes(n.app));
+    if (this.hidden) {
+      this.bubble = undefined;
+      this.reaction = undefined;
+    }
+    const cat = category(n.app, s);
+    const occupied =
+      n.media.playing || n.controller || cat === "game" || n.fullscreen;
+    const idle = s.observeIdle && !occupied ? n.idle : 0;
+    this.base =
+      working(this.game, now)
+        ? "sit"
+        : s.mode === "dnd"
+        ? "sleep"
+        : idle > s.sleepMinutes * 60000
+          ? "sleep"
+          : idle > s.idleMinutes * 60000
+            ? "rest"
+            : n.media.playing
+              ? "sit"
+              : this.game.strength < 20
+                ? "rest"
+                : "idle";
+    const elapsed = Math.min(5, Math.max(0, (now - (p?.now ?? now)) / 1000));
+    this.energy += elapsed * (this.base === "sleep" ? 0.001 : -0.00005);
+    this.energy = clamp(this.energy, 0.2, 1);
+    const curiosityTarget = p && p.app !== n.app ? 0.85 : 0.4;
+    this.curiosity +=
+      (curiosityTarget - this.curiosity) * Math.min(1, elapsed * 0.04);
+    const socialTarget = s.mode === "normal" && !n.media.playing ? 0.7 : 0.2;
+    this.sociability +=
+      (socialTarget - this.sociability) * Math.min(1, elapsed * 0.02);
+    const today = new Date(now).toLocaleDateString("sv");
+    if (this.memory.lastGreeting !== today) {
+      if (this.event("hello", now)) {
+        this.memory.lastGreeting = today;
+      }
+    }
+    if (s.mode === "dnd") {
+      this.last = n;
+      this.currentApp = n.app;
+      this.appSince = now;
+      this.wasIdle = false;
+      this.gameSeen = false;
+      this.switches = [];
+      return;
+    }
+    if (p) {
+      if (this.wasIdle && idle < 2000) this.event("return", now);
+      if (!this.wasIdle && idle > s.idleMinutes * 60000)
+        this.event("idle", now);
+      if (this.base === "sleep" && p.idle <= s.sleepMinutes * 60000)
+        this.event("sleep", now);
+      if (n.monitors.length > p.monitors.length) this.event("monitor", now);
+      if (s.observeApps && n.app && n.app !== this.currentApp) {
+        const old = category(this.currentApp, s);
+        this.switches = this.switches.filter((v) => now - v.time < 90000);
+        this.switches.push({ app: n.app, time: now });
+        if (cat === "game") {
+          this.editorBeforeGame = old === "editor";
+          this.gameSeen = true;
+          this.event("game", now);
+        } else if (this.gameSeen && old === "game") {
+          this.event(
+            cat === "editor" && this.editorBeforeGame ? "breakEnd" : "gameEnd",
+            now,
+          );
+          this.gameSeen = false;
+        } else if (["editor", "chat"].includes(cat)) this.event(cat, now);
+        this.currentApp = n.app;
+        this.appSince = now;
+        if (this.switches.filter((v) => now - v.time < 12000).length >= 7)
+          this.event("switching", now);
+        if (
+          this.switches.length >= 10 &&
+          new Set(this.switches.map((v) => v.app)).size === 2
+        )
+          this.event("alternating", now);
+      }
+      if (
+        s.observeApps &&
+        this.appSince &&
+        now - this.appSince > s.longSessionMinutes * 60000
+      ) {
+        this.event("long", now);
+        this.appSince = now;
+      }
+      if (s.observeMedia) {
+        if (n.media.playing && !p.media.playing)
+          this.event(p.media.available ? "mediaResume" : "music", now);
+        if (!n.media.playing && p.media.playing) this.mediaPauseAt = now;
+        if (n.media.playing) this.mediaPauseAt = 0;
+        if (
+          this.mediaPauseAt &&
+          now - this.mediaPauseAt > 60000 &&
+          this.event("mediaPause", now)
+        )
+          this.mediaPauseAt = 0;
+        if (
+          n.media.track &&
+          n.media.track === p.media.track &&
+          this.playPosition > 30 &&
+          n.media.position < 3 &&
+          n.media.playing
+        )
+          this.event("repeat", now);
+        this.playPosition = n.media.position;
+      }
+      if (s.observeSystem) {
+        if (n.online === false && p.online === true) this.event("offline", now);
+        if (n.online === true && p.online === false) this.event("online", now);
+        if (n.battery !== null && n.battery <= 20 && !n.plugged)
+          this.event("battery", now);
+        if (n.battery !== null && n.plugged && !p.plugged)
+          this.event("power", now);
+        if (n.cpu !== null && n.cpu > 85) {
+          if (!this.cpuSince) this.cpuSince = now;
+          if (now - this.cpuSince > 20000) this.event("cpu", now);
+        } else this.cpuSince = 0;
+      }
+      if (
+        (n as Snapshot & { desktop?: boolean }).desktop &&
+        !(p as Snapshot & { desktop?: boolean }).desktop
+      ) {
+        // Everything minimised: the whole floor is free — run to the middle.
+        const m = n.monitors.find(
+          (mm) => this.petX >= mm.bounds.left && this.petX < mm.bounds.right,
+        );
+        if (m && this.event("showDesktop", now))
+          this.wantRun = (m.work.left + m.work.right) / 2;
+        else this.event("desktop", now);
+      }
+      // Focus moved to another big window on the pet's screen: sometimes
+      // climb onto it.
+      if (n.foreground !== p.foreground && s.walk && s.perch && !s.pinned) {
+        const w = n.windows.find((x) => x.id === n.foreground);
+        const m = n.monitors.find(
+          (mm) => this.petX >= mm.bounds.left && this.petX < mm.bounds.right,
+        );
+        if (
+          w &&
+          m &&
+          w.rect.left < m.work.right &&
+          w.rect.right > m.work.left &&
+          w.rect.top > m.work.top + s.size * m.scale * 1.3 &&
+          w.rect.right - w.rect.left > 400 * m.scale &&
+          this.random() < 0.35 &&
+          this.event("hop", now)
+        )
+          this.wantHop = {
+            id: w.id,
+            x: clamp(
+              this.petX,
+              Math.max(w.rect.left, m.work.left) + 80 * m.scale,
+              Math.min(w.rect.right, m.work.right) - 80 * m.scale,
+            ),
+            top: w.rect.top,
+            until: now + 12000,
+          };
+      }
+      const drives = n.env?.drives ?? 0;
+      const before = p.env?.drives ?? drives;
+      if (drives & ~before) this.event("driveIn", now);
+      else if (before & ~drives) this.event("driveOut", now);
+    }
+    if (new Date(now).getHours() >= s.lateHour && this.lastNight !== today) {
+      if (this.event("night", now)) this.lastNight = today;
+    }
+    if (p) this.desktop(n, p);
+    // Cursor jitter does not wake a sleeping pet; it only twitches.
+    if (
+      p &&
+      this.base === "sleep" &&
+      (n.jitter ?? 0) > (p.jitter ?? 0)
+    )
+      this.event("twitch", now);
+    this.input(n);
+    this.usage(n);
+    this.wasIdle = idle > s.idleMinutes * 60000;
+    this.last = n;
+  }
+}

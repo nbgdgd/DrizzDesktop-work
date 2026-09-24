@@ -1,0 +1,26 @@
+[package]
+name = "drizz-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "A small desktop neighbour"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.8", features = ["system-tray", "icon-ico", "window-hide", "window-show", "window-close", "global-shortcut"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+winreg = "0.52"
+windows = { version = "0.58", features = ["Foundation", "Media_Control", "Networking_Connectivity", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_Foundation"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_Storage_FileSystem", "Win32_UI_HiDpi", "Win32_System_StationsAndDesktops", "Win32_UI_WindowsAndMessaging", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_System_Power", "Win32_System_Memory", "Win32_Security_Cryptography", "Win32_Security", "Win32_UI_Input_XboxController", "Win32_System_DataExchange", "Win32_System_Registry", "Win32_Security_WinTrust", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Performance", "Win32_System_Environment"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+opt-level = "s"
+strip = true
