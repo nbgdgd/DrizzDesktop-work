@@ -1643,3 +1643,51 @@ Object.assign(en, {
     "Done. Your ears are safe now, damn it.",
   ],
 });
+// ------------------------------------------------------------ weather
+Object.assign(en, {
+  weatherNow: [
+    "Weather — {place}: {sky}, {temp}. Reporting like a forecaster.",
+    "{place}: {sky}, {temp}. Looked out the window for you, don't thank me.",
+    "Report: {place}, {temp}, {sky}. Dress for it, damn it.",
+    "Over there, {place}, it's {sky} now. {temp}. We live.",
+    "Checked the sky — {place}: {sky}, {temp}.",
+  ],
+  rainStart: [
+    "Oh, it's raining — {place}, {temp}. Got my umbrella out.",
+    "Drip-drip. {place}: rain, {temp}. I'm under an umbrella, you're under a roof.",
+    "It's pouring, bitch! {place}, {temp}. Good thing we're home.",
+    "Rain's started. If you were going out — take an umbrella, {place} is getting wet.",
+    "{place}: it's drizzling. {temp}. Perfect weather to go nowhere.",
+    "Hear that? Rain. {place}, {temp}. I'm already under my umbrella.",
+  ],
+  rainStop: [
+    "The rain stopped. Drying my umbrella.",
+    "That's it, no more drops. You can crawl out, {place} is drying.",
+    "Stopped pouring. Kind of boring without the drip-drip.",
+    "Rain's over. {sky}, {temp}. Umbrella away.",
+    "Done raining. Open a window, damn it.",
+  ],
+  storm: [
+    "Thunderstorm! {place}, {temp}. Unplug the charger, just in case.",
+    "It's thundering, bitch! I've got an umbrella, but that won't help.",
+    "A storm. Save your work before the lights flicker.",
+    "Kaboom! {place}: thunderstorm. I'm not scared. Almost.",
+    "Lightning, thunder, {temp}. Stay inside, I've got you covered.",
+  ],
+  snowStart: [
+    "It's snowing! {place}, {temp}. Catch the snowflakes.",
+    "Snow! {place}: {temp}. Dress warm, damn it.",
+    "Look — snow. I'm catching snowflakes, don't you catch a cold.",
+    "{place} is getting buried in snow. {temp}. Cocoa time.",
+  ],
+  fog: [
+    "Fog. {place} looks like milk. Can't see a thing, like in your code.",
+    "{place}: fog, {temp}. Careful on the road.",
+    "Thick fog. I can see you, the window can't.",
+  ],
+  frost: [
+    "{place}: {temp}. That's not weather, that's a freezer, bitch.",
+    "Frost, {temp}! Wear a hat or your ears will freeze off.",
+    "{temp} outside. I'm sitting by the CPU to keep warm.",
+  ],
+});

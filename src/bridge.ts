@@ -56,6 +56,8 @@ export async function command<T = void>(
   if (cmd === "temp_scan") return { bytes: 734003200, files: 5120 } as T;
   if (cmd === "temp_clean") return { bytes: 681574400, files: 4870 } as T;
   if (cmd === "weather") return null as T;
+  if (cmd === "weather_search")
+    return [{ name: String(args.query), region: "Preview", country: "—", lat: 55.789, lon: 49.122 }] as T;
   if (cmd === "trace_view")
     return {
       events: [],

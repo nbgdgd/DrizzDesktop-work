@@ -29,6 +29,10 @@ pub fn validate(e: &Event) -> bool {
         && KINDS.contains(&e.kind.as_str())
 }
 fn receive(stream: &mut TcpStream, token: &str) -> Result<Event, ()> {
+    // On Windows a socket accepted from a non-blocking listener is itself
+    // non-blocking: without this the first read fails with WouldBlock
+    // whenever the request has not fully arrived yet, and the client gets 400.
+    stream.set_nonblocking(false).map_err(|_| ())?;
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .map_err(|_| ())?;
@@ -100,13 +104,10 @@ pub fn start(app: tauri::AppHandle) {
                         Ok(l) => {
                             let _ = l.set_nonblocking(true);
                             listener = Some(l);
-                            let _ = app.emit_all("integration-status", "Готов: 127.0.0.1:49753");
+                            let _ = app.emit_all("integration-status", "ready");
                         }
                         Err(_) => {
-                            let _ = app.emit_all(
-                                "integration-status",
-                                "Порт 49753 занят. Интеграция недоступна.",
-                            );
+                            let _ = app.emit_all("integration-status", "busy");
                             std::thread::sleep(Duration::from_secs(3));
                         }
                     }

@@ -74,7 +74,11 @@ export function Privacy({ p }: { p: PanelState }) {
         {d.integration && (
           <>
             <Text size="1" color="gray">
-              {p.integrationStatus || tx("После сохранения: POST http://127.0.0.1:49753/event")}
+              {p.integrationStatus === "ready"
+                ? tx("Готов: 127.0.0.1:49753")
+                : p.integrationStatus === "busy"
+                  ? tx("Порт 49753 занят. Интеграция недоступна.")
+                  : tx("После сохранения: POST http://127.0.0.1:49753/event")}
             </Text>
             <Row label={tx("Локальный токен")} hint={tx("Не публикуйте. Скрипт отправки — в README.")}>
               <TextField.Root type="password" readOnly value={p.store.token} style={{ width: 220 }} />

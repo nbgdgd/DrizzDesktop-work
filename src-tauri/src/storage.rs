@@ -254,6 +254,34 @@ pub fn diag_enabled(settings: &Value) -> bool {
 pub fn diag_path() -> PathBuf {
     root().join("diagnostic.log")
 }
+/// Always on, unlike diagnostics: a Rust panic (any thread) or an uncaught
+/// JS error goes to crash.log, so a feature that died silently can be
+/// traced. Capped at 256 KB with one previous file kept.
+pub fn crash(source: &str, line: &str) {
+    use std::io::Write;
+    if fs::create_dir_all(root()).is_err() {
+        return;
+    }
+    let path = root().join("crash.log");
+    if fs::metadata(&path).map(|m| m.len() > 256_000).unwrap_or(false) {
+        let _ = fs::rename(&path, root().join("crash.1.log"));
+    }
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let text = format!(
+        "{secs} v{} [{source}] {}\n",
+        env!("CARGO_PKG_VERSION"),
+        line.chars().take(4000).collect::<String>()
+    );
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = f.write_all(text.as_bytes());
+    }
+    if DIAG_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
+        diag(source, line);
+    }
+}
 pub fn diag(source: &str, line: &str) {
     use std::io::Write;
     let path = diag_path();

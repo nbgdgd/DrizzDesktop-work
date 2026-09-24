@@ -50,3 +50,17 @@ describe("interface language", () => {
     expect(money(1200)).toMatch(/1\s200 ₽/);
   });
 });
+describe("credits", () => {
+  it("every pet is credited, with its terms in both languages", async () => {
+    const { petCredits, otherCredits } = await import("./credits");
+    for (const p of pets) {
+      const c = petCredits.find((x) => x.id === p.id);
+      expect(c, p.id).toBeDefined();
+      expect(c!.url).toMatch(/^https:\/\//);
+    }
+    for (const c of [...petCredits, ...otherCredits]) {
+      expect(c.url, c.id).toMatch(/^https:\/\/[^\s"'<>]+$/);
+      expect(EN[c.terms], c.terms).toBeDefined();
+    }
+  });
+});

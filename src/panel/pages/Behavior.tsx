@@ -4,6 +4,8 @@ import { pets, Settings } from "../../model";
 import type { PanelState } from "../store";
 import { Portrait, Row, Section, ToggleRow } from "../ui";
 import { tx } from "../../i18n";
+import { WeatherPlace } from "./WeatherPlace";
+import { PetCreditLine } from "./About";
 const hours = Array.from({ length: 24 }, (_, h) => h);
 export function Behavior({ p }: { p: PanelState }) {
   const d = p.draft;
@@ -61,6 +63,7 @@ export function Behavior({ p }: { p: PanelState }) {
                   <Text size="1" color="gray">
                     {tx(temper(x.id).trait)}
                   </Text>
+                  <PetCreditLine id={x.id} />
                 </Flex>
               </Flex>
             </RadioCards.Item>
@@ -166,13 +169,9 @@ export function Behavior({ p }: { p: PanelState }) {
           </Flex>
         </Row>
       </Section>
-      <Section title={tx("Погода")} description={tx("Зонтик в дождь и реплики о снеге и жаре. Запрос к Open-Meteo (данные CC BY 4.0) раз в 30 минут, только с вашими координатами и только если включено.")}>
+      <Section title={tx("Погода")} description={tx("Питомец говорит, когда пошёл или кончился дождь, гроза, снег, туман, жара или мороз, и показывает облачко с зонтиком. Запрос к Open-Meteo (данные CC BY 4.0) раз в 30 минут, только если включено.")}>
         {t("weather", tx("Показывать погоду"))}
-        {d.weather && (
-          <Row label={tx("Координаты")} hint={tx("Широта и долгота через запятую, например 55.75,37.62.")}>
-            <TextField.Root value={d.weatherPlace} placeholder="55.75,37.62" onChange={(e) => set("weatherPlace", e.target.value)} style={{ width: 160 }} />
-          </Row>
-        )}
+        {d.weather && <WeatherPlace p={p} />}
       </Section>
       <Section title={tx("Запуск")}>{t("autostart", tx("Запускать с Windows"), tx("По умолчанию выключено."))}</Section>
     </>

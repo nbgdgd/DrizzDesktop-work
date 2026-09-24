@@ -72,9 +72,12 @@ pub fn start(app: tauri::AppHandle) {
         let mut last_note = Instant::now() - Duration::from_secs(60);
         let mut first = true;
         while !app.state::<State>().stop.load(Ordering::Relaxed) {
-            std::thread::sleep(Duration::from_millis(15));
-            // A long gap between two 15 ms ticks = the PC was asleep.
-            let woke = tick.elapsed() > Duration::from_secs(5);
+            // Off (or no headphones to guard): look at the settings once a
+            // second instead of waking 66 times a second for nothing.
+            let idle = !cfg.is_some_and(|c| c.on) || !dev.as_ref().is_some_and(|d| d.headphones || cfg.is_some_and(|c| c.always));
+            std::thread::sleep(Duration::from_millis(if idle { 1000 } else { 15 }));
+            // A long gap between two ticks = the PC was asleep.
+            let woke = tick.elapsed() > Duration::from_secs(8);
             tick = Instant::now();
             // Settings and the device once a second (enumeration is not free).
             if checked.elapsed() >= Duration::from_secs(1) || woke {

@@ -9,6 +9,7 @@ import { temper } from "../../character";
 import { getLang, setLang, tx } from "../../i18n";
 import type { PanelState } from "../store";
 import { Portrait } from "../ui";
+import { PetCreditLine } from "./About";
 type Toggle = { key: keyof Settings; icon: JSX.Element; label: string; hint: string };
 export function Welcome({ p, done }: { p: PanelState; done: () => void }) {
   const [step, setStep] = useState(0);
@@ -91,6 +92,7 @@ export function Welcome({ p, done }: { p: PanelState; done: () => void }) {
                       <Text as="div" size="1" color="gray">
                         {tx(temper(x.id).trait)}
                       </Text>
+                      <PetCreditLine id={x.id} />
                     </Box>
                   </Flex>
                 </RadioCards.Item>

@@ -5,7 +5,7 @@
     "devPath": "http://127.0.0.1:1420",
     "distDir": "../dist"
   },
-  "package": { "productName": "Drizz Desktop", "version": "0.1.0" },
+  "package": { "productName": "Drizz Desktop", "version": "0.3.0" },
   "tauri": {
     "allowlist": {
       "all": false,
@@ -16,9 +16,10 @@
       "targets": ["nsis"],
       "identifier": "local.drizz.desktop",
       "icon": ["icons/icon.ico"],
-      "shortDescription": "Desktop companion",
+      "shortDescription": "Desktop pet companion",
+      "copyright": "Drizz Desktop contributors. Characters and icons: see Credits in the app.",
       "windows": {
-        "nsis": { "displayLanguageSelector": false, "languages": ["Russian"] }
+        "nsis": { "displayLanguageSelector": false, "languages": ["English", "Russian"] }
       }
     },
     "security": {

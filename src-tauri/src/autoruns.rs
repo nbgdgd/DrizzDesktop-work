@@ -307,7 +307,7 @@ fn elevated_reg(args: &str) -> Result<(), String> {
         let mut code = 1u32;
         GetExitCodeProcess(info.hProcess, &mut code);
         CloseHandle(info.hProcess);
-        if code == 0 { Ok(()) } else { Err(format!("reg.exe завершился с кодом {code}")) }
+        if code == 0 { Ok(()) } else { Err(format!("reg.exe: {code}")) }
     }
 }
 

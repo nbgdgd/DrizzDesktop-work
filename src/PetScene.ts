@@ -60,6 +60,7 @@ import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
 import { getLang, money, setLang, tx } from "./i18n";
 import { MUSIC_GAP, SAFE_DB, dbVolume, levels, weekly } from "./ears";
+import { WeatherNow, sky, visual, weatherLines, wet } from "./weather";
 interface Motion {
   x: number;
   y: number;
@@ -133,7 +134,8 @@ export class PetScene extends Phaser.Scene {
   private supportApp = "";
   private lastMonitor = "";
   private placement: Placement | null = null;
-  private weather: { kind: "rain" | "snow" | "heat" | "clear"; at: number } | null = null;
+  private weather: (WeatherNow & { at: number; place: string }) | null = null;
+  private weatherSay: { event: string; vars: Record<string, string>; until: number } | null = null;
   private nextWeather = 0;
   private nextNeedGlyph = 0;
   private nextStep = 0;
@@ -935,28 +937,40 @@ export class PetScene extends Phaser.Scene {
     }
     this.game.loop.wake();
   }
+  /**
+   * Weather every 30 minutes (and right away when the place changes): what
+   * changed since the last reading becomes a line (weather.ts), the sky
+   * picks the cloud above the pet. A line that could not be said now (the
+   * pet was busy talking) is tried again for ten minutes.
+   */
   private async checkWeather(now: number) {
     const s = this.store.settings;
-    if (!s.weather || !s.weatherPlace || now < this.nextWeather) return;
+    if (this.weatherSay && now < this.weatherSay.until && this.brain.event(this.weatherSay.event, now, false, undefined, this.weatherSay.vars))
+      this.weatherSay = null;
+    if (this.weatherSay && now >= this.weatherSay.until) this.weatherSay = null;
+    if (!s.weather || !s.weatherPlace) {
+      this.weather = null;
+      return;
+    }
+    const moved = !!this.weather && this.weather.place !== s.weatherPlace;
+    if (now < this.nextWeather && !moved) return;
     this.nextWeather = now + 30 * 60000;
     try {
       const w = await command<{ code: number; temp: number } | null>("weather", { place: s.weatherPlace });
       if (!w) return;
-      const code = w.code;
-      const kind: "rain" | "snow" | "heat" | "clear" =
-        (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95
-          ? "rain"
-          : (code >= 71 && code <= 77) || code === 85 || code === 86
-            ? "snow"
-            : w.temp >= 30
-              ? "heat"
-              : "clear";
-      this.weather = { kind, at: now };
-      if (kind !== "clear") this.brain.event(kind, now);
+      const reading = { sky: sky(w.code), temp: w.temp };
+      const prev = this.weather && this.weather.place === s.weatherPlace ? this.weather : null;
+      const place = s.weatherName || s.weatherPlace;
+      // A report when the place is new, else once a day with the first reading.
+      const announce = moved || (!prev && this.brain.once("weatherNow", new Date(now).toDateString()));
+      this.weather = { ...reading, at: now, place: s.weatherPlace };
+      const [line] = weatherLines(prev, reading, place, announce);
+      if (line && !this.brain.event(line.event, now, false, undefined, line.vars)) this.weatherSay = { ...line, until: now + 10 * 60000 };
     } catch (e) {
       this.diag.log("weather", String(e));
     }
   }
+
   // First launch: the welcome screen (language, pet, key settings) opens in
   // the panel window. Shown once; the flag goes into memory right away.
   private welcome() {
@@ -1377,7 +1391,7 @@ export class PetScene extends Phaser.Scene {
     } catch (err) {
       this.brain.bubble = undefined;
       this.brain.reaction = undefined;
-      this.brain.event("autorunFailed", Date.now(), true, undefined, { error: String(err) });
+      this.brain.event("autorunFailed", Date.now(), true, undefined, { error: tx(String(err).replace(/^Error:\s*/, "")) });
     }
     this.game.loop.wake();
   }
@@ -1972,7 +1986,8 @@ export class PetScene extends Phaser.Scene {
       wear: hol?.wear ?? this.brain.life.wear,
       // Only when chosen in the wardrobe: automatic headphones looked like a bug.
       headphones: (hol?.wear ?? this.brain.life.wear) === "headphones" && !absent,
-      umbrella: this.weather?.kind === "rain" && now - this.weather.at < 3600000 && !this.world.dragging,
+      umbrella: !!this.weather && wet(this.weather.sky) && now - this.weather.at < 3600000 && !this.world.dragging,
+      sky: this.weather && now - this.weather.at < 3600000 && !this.world.dragging ? visual(this.weather.sky) : null,
       carry: this.antics.carry,
       feet: { x: this.layout.anchorX, y: this.layout.anchorY },
       toCanvas: this.toScene,
@@ -1995,7 +2010,8 @@ export class PetScene extends Phaser.Scene {
       bubble,
       now,
       this.layout.anchorX,
-      headCanvas?.y ?? this.layout.anchorY - drawSize,
+      // Above the umbrella and the weather cloud when they are up.
+      Math.min(headCanvas?.y ?? this.layout.anchorY - drawSize, this.props.crown ?? Infinity),
       this.layout.anchorY,
       this.layout.below,
       Phaser.Display.Color.HexStringToColor(pet?.color ?? "#545c39").color,

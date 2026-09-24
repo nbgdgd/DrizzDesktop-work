@@ -4,6 +4,7 @@
 // (gifts, its stash, notes). All procedural Phaser graphics — no extra art.
 import Phaser from "phaser";
 import type { Rect } from "./model";
+import { INK as INK_C, OUTLINE as OUTLINE_W } from "./toon";
 export interface Accessory {
   id: string;
   name: string;
@@ -46,6 +47,8 @@ export class Props {
   private noteText: Phaser.GameObjects.Text;
   private icons = new Map<number, Phaser.GameObjects.Image>();
   items: FloorItem[] = [];
+  /** Top of what stands above the head (umbrella, weather cloud), canvas px; the balloon goes above it. */
+  crown: number | null = null;
   private nextId = 1;
   constructor(private scene: Phaser.Scene) {
     // Behind the pet: aura. In front: hats, umbrella.
@@ -112,6 +115,8 @@ export class Props {
     wear: string;
     headphones: boolean;
     umbrella: boolean;
+    /** The cloud above the head (weather.ts `visual`). */
+    sky?: "rain" | "storm" | "snow" | null;
     carry: string;
     feet: { x: number; y: number };
     toCanvas: (x: number, y: number) => { x: number; y: number };
@@ -250,16 +255,112 @@ export class Props {
       }
       add(left - cw - 3, mid - ry - band - 3, right - left + 2 * cw + 6, ry + ch / 2 + band + 6);
     }
-    // Umbrella in the rain: a canopy on a stick over the head.
-    if (o.umbrella) {
-      const cx = head.x + 8 * z * 3,
-        cy = head.y - 22 * z * 3,
-        r = 30 * z * 3;
-      g.lineStyle(2, 0x5a4a3a, 1).lineBetween(cx, cy, cx, head.y + 30 * z * 3);
-      g.fillStyle(0x2d6cdf, 1).slice(cx, cy, r, Math.PI, 0, false).fillPath();
-      g.fillStyle(0x1f4fa8, 1);
-      for (let i = 0; i < 3; i++) g.fillCircle(cx - r + r / 3 + (i * 2 * r) / 3, cy, r / 3);
-      add(cx - r - 4, cy - r - 4, 2 * r + 8, r + 10);
+    // Umbrella in the rain: a scalloped canopy with an ink outline, panel
+    // seams and a gloss; the stick goes behind the body (the pet holds it).
+    this.crown = null;
+    if (o.umbrella && head) {
+      const u = z * 3;
+      const cx = head.x + 8 * u,
+        cy = head.y - 22 * u,
+        r = 30 * u;
+      back.lineStyle(Math.max(2, 1.6 * u), INK_C, 1).lineBetween(cx, cy, cx, head.y + 30 * u);
+      const canopy = () => {
+        g.beginPath();
+        g.arc(cx, cy, r, Math.PI, 0, false);
+        // Four scallops along the rim, bulging down.
+        const k = r / 4;
+        for (let i = 0; i < 4; i++) g.arc(cx + r - k - i * 2 * k, cy, k, 0, Math.PI, false);
+        g.closePath();
+      };
+      g.fillStyle(0x3f86ec, 1);
+      canopy();
+      g.fillPath();
+      // Darker panels between the seams.
+      g.fillStyle(0x2c68c8, 1);
+      for (const side of [-1, 1]) {
+        g.beginPath();
+        g.moveTo(cx, cy - r);
+        g.lineTo(cx + side * r * 0.5, cy + r / 4);
+        g.lineTo(cx + side * r * 0.02, cy + r / 4);
+        g.closePath();
+        g.fillPath();
+      }
+      g.fillStyle(0xffffff, 0.35).fillEllipse(cx - r * 0.45, cy - r * 0.55, r * 0.35, r * 0.16);
+      g.lineStyle(OUTLINE_W, INK_C, 1);
+      canopy();
+      g.strokePath();
+      g.fillStyle(INK_C, 1).fillCircle(cx, cy - r - 2 * u, 2.2 * u);
+      add(cx - r - 4, cy - r - 4 * u - 4, 2 * r + 8, r + r / 4 + 4 * u + 10);
+      add(cx - 3 * u, cy, 6 * u, head.y + 30 * u - cy);
+      this.crown = cy - r - 4 * u;
+    }
+    // A little weather cloud of its own above the head (or the umbrella):
+    // drops fall onto the canopy and splash, snowflakes drift and sway, a
+    // storm cloud is darker and flashes a lightning bolt now and then. Ink
+    // outline like the balloon; deterministic from the clock, no particles.
+    if (o.sky && head) {
+      const u = z * 3 * 0.8;
+      const cx = o.umbrella ? head.x + 8 * z * 3 : head.x;
+      const land = o.umbrella ? head.y - 52 * z * 3 : head.y - 4 * u;
+      const cy = land - (o.sky === "snow" ? 30 : 24) * u;
+      const storm = o.sky === "storm";
+      const fill = storm ? 0x8d96a8 : o.sky === "snow" ? 0xf6f8fc : 0xdfe7f1;
+      const blobs: [number, number, number][] = [
+        [-17, 3, 9],
+        [-6, -4, 12],
+        [8, -2, 10],
+        [18, 4, 7.5],
+      ];
+      // Outline pass (slightly bigger ink shapes), then the fill.
+      for (const [pass, grow, color] of [
+        [0, OUTLINE_W, INK_C],
+        [1, 0, fill],
+      ] as const) {
+        void pass;
+        g.fillStyle(color, 1);
+        for (const [dx, dy, r] of blobs) g.fillCircle(cx + dx * u, cy + dy * u, r * u + grow);
+        g.fillRoundedRect(cx - 24 * u - grow, cy - 1 * u - grow, 48 * u + 2 * grow, 10 * u + 2 * grow, 5 * u);
+      }
+      g.fillStyle(0xffffff, storm ? 0.25 : 0.7).fillCircle(cx - 8 * u, cy - 8 * u, 3.2 * u);
+      const top = cy + 9 * u,
+        fall = Math.max(6 * u, land - top);
+      const n = o.sky === "snow" ? 6 : storm ? 9 : 7;
+      for (let i = 0; i < n; i++) {
+        const x0 = cx + (-19 + (38 * i) / (n - 1)) * u;
+        if (o.sky === "snow") {
+          const t = (o.now / 2600 + i * 0.41) % 1;
+          const x = x0 + Math.sin(o.now / 520 + i * 1.7) * 3 * u;
+          const y = top + t * fall;
+          g.fillStyle(INK_C, 0.9 * (1 - t * 0.6)).fillCircle(x, y, 1.9 * u + 0.6);
+          g.fillStyle(0xffffff, 1 - t * 0.6).fillCircle(x, y, 1.9 * u);
+        } else {
+          const t = (o.now / (storm ? 420 : 560) + i * 0.37) % 1;
+          const y = top + t * fall;
+          const len = Math.min(5 * u, land - y);
+          if (len > 0.5) g.lineStyle(Math.max(1.5, 1.1 * u), 0x3d8fe8, 1 - t * 0.35).lineBetween(x0, y, x0 - 0.8 * u, y + len);
+          // A splash where the drop lands.
+          if (t > 0.86) {
+            const k = (t - 0.86) / 0.14;
+            g.lineStyle(1.2, 0x3d8fe8, 1 - k).strokeCircle(x0 - 0.8 * u, land, (1 + 2.5 * k) * u);
+          }
+        }
+      }
+      if (storm && o.now % 3200 < 170) {
+        const bolt: [number, number][] = [
+          [2, 8],
+          [-4, 18],
+          [1, 18],
+          [-3, 28],
+          [6, 15],
+          [1, 15],
+          [5, 8],
+        ];
+        const pts = bolt.map(([x, y]) => ({ x: cx + x * u, y: cy + y * u }));
+        g.fillStyle(0xffe14d, 1).fillPoints(pts, true);
+        g.lineStyle(1.5, INK_C, 1).strokePoints(pts, true);
+      }
+      add(cx - 30 * u, cy - 18 * u, 60 * u, land - cy + 22 * u);
+      this.crown = cy - 17 * u;
     }
     // What it carries (a stolen coin, a gift), held above the head.
     if (o.carry) {

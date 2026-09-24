@@ -28,7 +28,10 @@ export function usePanel() {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
+  const [error, setErrorRaw] = useState("");
+  // Errors from Rust come in Russian (the canonical text); show them in the
+  // interface language. "Error: " prefixes from invoke are dropped.
+  const setError = (v: string) => setErrorRaw(v ? tx(v.replace(/^Error:\s*/, "")) : "");
   const [saving, setSaving] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState("");
   const [tabEvent, setTabEvent] = useState("");

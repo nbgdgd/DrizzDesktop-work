@@ -321,3 +321,50 @@
   box-shadow: none;
   border: 2px dashed #b9a98f;
 }
+
+/* Weather place search results. */
+.place-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.place-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  cursor: pointer;
+  font-size: var(--font-size-2);
+}
+.place-item:hover,
+.place-item:focus-visible {
+  background: var(--accent-a3);
+}
+.place-name {
+  font-weight: 600;
+}
+.place-hint {
+  margin-left: auto;
+  color: var(--gray-10);
+  font-size: var(--font-size-1);
+}
+.place-manual summary {
+  cursor: pointer;
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+  margin-bottom: 8px;
+}
+
+/* Credits under pet cards and on the About page. */
+.credit-line {
+  margin-top: 4px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+.credit-pet + .credit-pet {
+  padding-top: 10px;
+  border-top: 1px dashed var(--gray-a5);
+}

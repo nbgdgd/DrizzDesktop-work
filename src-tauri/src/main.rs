@@ -28,7 +28,7 @@ fn panel(app: &tauri::AppHandle, tab: &str) -> Result<(), String> {
             "settings",
             tauri::WindowUrl::App(format!("index.html?panel={tab}").into()),
         )
-        .title("TracePet")
+        .title("Drizz Desktop")
         .inner_size(900., 700.)
         .min_inner_size(640., 480.)
         .theme(Some(tauri::Theme::Dark))
@@ -41,7 +41,7 @@ fn panel(app: &tauri::AppHandle, tab: &str) -> Result<(), String> {
 async fn open_panel(app: tauri::AppHandle, tab: String) -> Result<(), String> {
     if ![
         "settings", "status", "shop", "skills", "work", "games", "collection", "stats", "trace", "chat",
-        "memory", "privacy", "welcome", "ears",
+        "memory", "privacy", "welcome", "ears", "about",
     ]
     .contains(&tab.as_str())
     {
@@ -306,6 +306,34 @@ fn trace_reveal(path: String) -> Result<(), String> {
         .map(|_| ())
         .map_err(|e| e.to_string())
 }
+/// "About": opens a credits link in the default browser. Only plain https
+/// URLs (no spaces, quotes or shell characters), handed to ShellExecuteW.
+#[tauri::command]
+fn open_link(url: String) -> Result<(), String> {
+    let ok = url.len() <= 300
+        && url.starts_with("https://")
+        && url.chars().all(|c| c.is_ascii_graphic() && !"\"'<>^`{|}\\".contains(c));
+    if !ok {
+        return Err("Invalid link".into());
+    }
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let (verb, target) = (wide("open"), wide(&url));
+    let r = unsafe {
+        windows_sys::Win32::UI::Shell::ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        )
+    };
+    if r as isize > 32 {
+        Ok(())
+    } else {
+        Err("Не удалось открыть ссылку".into())
+    }
+}
 #[tauri::command]
 fn save_key(app: tauri::AppHandle, state: tauri::State<State>, key: String) -> Result<(), String> {
     if key.len() > 512 {
@@ -358,6 +386,14 @@ fn diag_enabled(state: tauri::State<State>) -> bool {
 fn diag_log(state: tauri::State<State>, line: String) {
     if line.len() <= 4000 && storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
         storage::diag("fe", &line);
+    }
+}
+/// Uncaught errors of the web side (both windows), at most 30 per run.
+#[tauri::command]
+fn crash_log(window: tauri::Window, line: String) {
+    static COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    if line.len() <= 4000 && COUNT.fetch_add(1, Ordering::Relaxed) < 30 {
+        storage::crash(&format!("js:{}", window.label()), &line);
     }
 }
 #[tauri::command]
@@ -457,6 +493,12 @@ async fn weather(state: tauri::State<'_, State>, place: String) -> Result<Option
     }
     chores::weather(&place).await.map(Some)
 }
+/// Weather setting: find a city (or a country) by name.
+#[tauri::command]
+async fn weather_search(state: tauri::State<'_, State>, query: String) -> Result<Vec<chores::Place>, String> {
+    let lang = lang(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings);
+    chores::geocode(&query, lang).await
+}
 #[tauri::command]
 fn monitors() -> Vec<native::Monitor> {
     native::monitors()
@@ -546,6 +588,15 @@ async fn chat(
         .ok_or_else(|| "Пустой ответ".into())
 }
 fn main() {
+    // A panic in any thread (input hooks, tracing, the ear guard) would
+    // otherwise end that feature without a trace: log it, then let the
+    // default hook print as usual.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let thread = std::thread::current().name().unwrap_or("unnamed").to_owned();
+        storage::crash("panic", &format!("{info} (thread {thread})"));
+        default_hook(info);
+    }));
     // The pet plays short effects without anyone clicking inside its window
     // first, so WebView2 must not hold them back behind a user gesture.
     if std::env::var_os("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_none() {
@@ -690,13 +741,16 @@ fn main() {
             temp_scan,
             temp_clean,
             weather,
+            weather_search,
             monitors,
             chat,
             set_balance,
             set_volume,
             guard::ear_guard_test,
             diag_enabled,
-            diag_log
+            diag_log,
+            crash_log,
+            open_link
         ])
         .build(tauri::generate_context!())
         .expect("Could not start Drizz")

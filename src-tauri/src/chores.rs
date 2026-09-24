@@ -154,6 +154,79 @@ pub async fn weather(place: &str) -> Result<Weather, String> {
     })
 }
 
+/// A place found by name, for the weather setting.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Place {
+    pub name: String,
+    /// Region (admin1), may be empty.
+    pub region: String,
+    pub country: String,
+    pub lat: f64,
+    pub lon: f64,
+}
+/// Open-Meteo geocoding (GeoNames data, CC BY 4.0): up to 8 places matching
+/// the name, in the interface language. Only the typed name leaves the PC,
+/// and only when the user presses "find".
+pub async fn geocode(query: &str, lang: &str) -> Result<Vec<Place>, String> {
+    let q = query.trim();
+    if q.chars().count() < 2 || q.chars().count() > 60 {
+        return Ok(vec![]);
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let v: serde_json::Value = client
+        .get("https://geocoding-api.open-meteo.com/v1/search")
+        .query(&[("name", q), ("count", "8"), ("language", if lang == "en" { "en" } else { "ru" }), ("format", "json")])
+        .send()
+        .await
+        .map_err(|_| "Сеть недоступна")?
+        .json()
+        .await
+        .map_err(|_| "Некорректный ответ")?;
+    Ok(places(&v))
+}
+/// The useful part of a geocoding answer; no "results" key = nothing found.
+pub fn places(v: &serde_json::Value) -> Vec<Place> {
+    let Some(list) = v.get("results").and_then(|r| r.as_array()) else {
+        return vec![];
+    };
+    let text = |x: &serde_json::Value, k: &str| x.get(k).and_then(|s| s.as_str()).unwrap_or("").chars().take(60).collect::<String>();
+    list.iter()
+        .filter_map(|x| {
+            let lat = x.get("latitude")?.as_f64()?;
+            let lon = x.get("longitude")?.as_f64()?;
+            ((-90. ..=90.).contains(&lat) && (-180. ..=180.).contains(&lon)).then(|| Place {
+                name: text(x, "name"),
+                region: text(x, "admin1"),
+                country: text(x, "country"),
+                lat: (lat * 1000.).round() / 1000.,
+                lon: (lon * 1000.).round() / 1000.,
+            })
+        })
+        .filter(|p| !p.name.is_empty())
+        .take(8)
+        .collect()
+}
+#[cfg(test)]
+mod geo_tests {
+    use super::*;
+    #[test]
+    fn reads_places_and_ignores_junk() {
+        let v = serde_json::json!({"results":[
+            {"name":"Казань","latitude":55.78874,"longitude":49.12214,"country":"Россия","admin1":"Татарстан","feature_code":"PPLA"},
+            {"name":"Broken","latitude":"x","longitude":1.0},
+            {"name":"","latitude":1.0,"longitude":1.0},
+            {"name":"Far","latitude":95.0,"longitude":1.0}
+        ]});
+        assert_eq!(
+            places(&v),
+            vec![Place { name: "Казань".into(), region: "Татарстан".into(), country: "Россия".into(), lat: 55.789, lon: 49.122 }]
+        );
+        assert!(places(&serde_json::json!({"generationtime_ms":0.5})).is_empty());
+    }
+}
 // ---------------------------------------------------------------- drunk pet
 // What the drunk pet does to a real window, only when the user allowed it
 // in the settings: shake it (it ends where it started), shove it a little

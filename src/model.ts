@@ -189,8 +189,10 @@ export interface Settings {
   nightSleep: boolean;
   /** Real weather (Open-Meteo) for umbrella and snow; off until allowed. */
   weather: boolean;
-  /** Coordinates for the weather, "55.75,37.62"; nothing is looked up by name. */
+  /** Coordinates for the weather, "55.75,37.62" (from the city search, a country or typed). */
   weatherPlace: string;
+  /** How the place is called in lines and in the panel: "Казань, Россия". */
+  weatherName: string;
   /** Quiet hours: no lines of its own from…to (hours), -1 = off. */
   quietFrom: number;
   quietTo: number;
@@ -300,6 +302,7 @@ export const defaults: Settings = {
   nightSleep: true,
   weather: false,
   weatherPlace: "",
+  weatherName: "",
   quietFrom: -1,
   quietTo: -1,
   ears: true,
@@ -424,6 +427,7 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
     : 23;
   for (const k of ["quietFrom", "quietTo"] as const)
     s[k] = Number.isInteger(Number(s[k])) ? clamp(Number(s[k]), -1, 23) : -1;
+  s.weatherName = typeof s.weatherName === "string" ? s.weatherName.trim().slice(0, 80) : "";
   s.earsNorm = Number(s.earsNorm) === 75 ? 75 : 80;
   if (s.earsDevice !== "always") s.earsDevice = "auto";
   s.earsMax = clamp(Number(s.earsMax) || 100, 85, 120);

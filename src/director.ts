@@ -313,6 +313,14 @@ export const rules: Record<string, Rule> = {
   rain: rule("sigh", 40, 10800000, 3000),
   snow: rule("celebrate", 40, 10800000, 3000),
   heat: rule("sigh", 35, 10800000, 3000),
+  // Weather changes (weather.ts): one line when it starts or stops.
+  weatherNow: rule("wave", 48, 60000, 2500),
+  rainStart: rule("look", 52, 1800000, 3000),
+  rainStop: rule("celebrate", 45, 1800000, 2500),
+  storm: rule("jump", 60, 1800000, 3000),
+  snowStart: rule("celebrate", 50, 1800000, 3000),
+  fog: rule("look", 40, 10800000, 2500),
+  frost: rule("sigh", 42, 10800000, 3000),
   // Cursor games (cursorplay.ts).
   cursorLecture: rule("judge", 66, 20000, 4500),
   cursorHunt: rule(null, 64, 30000, 2500),

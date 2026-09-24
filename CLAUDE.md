@@ -4,7 +4,7 @@ Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas 
 
 ## Commands
 - `npx tsc --noEmit` — typecheck (run after every change)
-- `npm test` — vitest, all of `src/*.test.ts` (~150 tests, 3 s)
+- `npm test` — vitest, all of `src/*.test.ts` (~200 tests, 4 s; `soak.test.ts` simulates a day)
 - `npx vitest run src/scenarios.test.ts` — behaviour scenarios (cursor games, memory, time, antics)
 - `npm run build` — tsc + vite; required before any cargo command (`generate_context!` reads `dist/`)
 - Rust on Linux: `cargo check --tests --target x86_64-pc-windows-gnu` in `src-tauri/` (needs `mingw-w64`, the target, and a local `src-tauri/icons/icon.png` converted from `icon.ico`; do not commit it). Real Windows is needed for `cargo test` / `npm run package`.
@@ -15,7 +15,7 @@ Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas 
 - `movement.ts` — physics, multi-monitor seams (`neighbor`/`span`), drag pendulum, climbing. `cursorplay.ts` — cursor games per temper. `antics.ts` — long behaviours (sulk, notes, gifts, hiding). `character.ts` — tempers.
 - `game.ts` + `chronicle.ts` — progression and long-term memory (`Game.life`); `PetScene.ts` wires it all and renders (`pose.ts`, `effects.ts`, `balloon.ts`, `props.ts`).
 - `src/panel/` — settings window (Radix Themes + Lucide), `pages/Welcome.tsx` first run, `pages/Ears.tsx` ear care. Rust: `main.rs` commands, `native.rs` Win32, `chores.rs` cursor nudge / temp / weather, `env.rs` sound (headphones, per-channel dB, balance).
-- `i18n.ts` + `i18n.en.ts` — `tx("русский текст", vars)` looked up by the Russian text; `lines.en.ts` — English banks; `swear.ts` — `cleanEn`. `ears.ts` — weekly sound dose per ear (WHO/ITU H.870), breaks, ear rest.
+- `i18n.ts` + `i18n.en.ts` — `tx("русский текст", vars)` looked up by the Russian text; `lines.en.ts` — English banks; `swear.ts` — `cleanEn`. `ears.ts` — weekly sound dose per ear (WHO/ITU H.870), breaks, ear rest. `weather.ts` — WMO codes → sky and change lines; `places.ts` — countries; `credits.ts` — who made what (About page, pet pickers). `docs/RELEASE.md` — release checklist.
 
 ## Rules that are easy to break
 - The pet window owns game state; the panel only sends ids/commands (`buy_item`, `emitAll("pet-command")`). Pet-owned memory keys are whitelisted in `save_pet_memory`.

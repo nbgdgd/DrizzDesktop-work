@@ -41,6 +41,7 @@ import { Behavior } from "./pages/Behavior";
 import { Privacy } from "./pages/Privacy";
 import { Welcome } from "./pages/Welcome";
 import { Ears } from "./pages/Ears";
+import { About } from "./pages/About";
 import { stage, stageNames } from "../chronicle";
 import { bondPct } from "../director";
 import { tx } from "../i18n";
@@ -59,6 +60,7 @@ const pages: Page[] = [
   { id: "settings", name: "Поведение", icon: <SlidersHorizontal size={16} />, group: "Настройки" },
   { id: "ears", name: "Уши", icon: <Headphones size={16} />, group: "Настройки" },
   { id: "privacy", name: "Доступ", icon: <ShieldCheck size={16} />, group: "Настройки" },
+  { id: "about", name: "О программе", icon: <Info size={16} />, group: "Настройки" },
 ];
 export default function Panel({ initialTab }: { initialTab: string }) {
   const p = usePanel();
@@ -185,6 +187,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                   {tab === "settings" && <Behavior p={p} />}
                   {tab === "privacy" && <Privacy p={p} />}
                   {tab === "ears" && <Ears p={p} />}
+                  {tab === "about" && <About p={p} />}
                 </>
               )}
             </div>
