@@ -26,12 +26,10 @@ export function clips(id: string): Record<Action, Clip> {
       ? clip(3, [1, 3, 1, 3, 1], [200, 320, 200, 320, 240], false)
       : clip(3, [0, 1, 2, 1, 2, 0], [180, 260, 260, 260, 260, 220], false),
     jump: clip(4, blob ? [0, 1, 2, 1, 0] : [0, 1, 2, 3, 4], 180, false),
-    celebrate: clip(
-      4,
-      blob ? [0, 1, 2, 1, 0, 1, 2, 1, 0] : [0, 1, 2, 3, 4, 2, 1, 0],
-      180,
-      false,
-    ),
+    // Arms up and a hop from the scene: no longer the same frames as `jump`.
+    celebrate: blob
+      ? clip(3, [1, 3, 1, 3, 1, 3], 150, false)
+      : clip(3, [1, 2, 1, 2, 1, 2], [140, 140, 140, 140, 140, 220], false),
     rest: clip(
       5,
       [2, 3, 4, 5, 5, 4, 3, 2],
@@ -51,8 +49,29 @@ export function clips(id: string): Record<Action, Clip> {
           [400, 900, 900, 500, 900, 900, 400],
           false,
         ),
-    drag: clip(4, [1], 1000),
+    // Hanging from the hand: a slow kick of the legs.
+    drag: clip(4, [1, 2], [420, 380]),
     land: clip(4, [3, 4, 0], [100, 100, 160], false),
+    // Rows 5 (upset/collapse), 7 (busy) and 8 (squint) of the Codex pet
+    // atlas were unused before; they carry the moods below.
+    flail: clip(3, [1, 2], 100),
+    shaken: clip(5, [2], 1000),
+    pained: clip(5, [2, 2, 0], [500, 400, 300], false),
+    dizzy: clip(5, [2, 1], [320, 280]),
+    grumpy: clip(5, [0], 1000),
+    sigh: clip(5, [0, 1, 1, 0], [300, 700, 700, 400], false),
+    sulk: clip(5, [6, 7], [1400, 1600]),
+    judge: clip(8, [0, 1, 2, 1], [500, 900, 900, 600]),
+    busy: clip(7, [0, 1, 2, 3, 4, 5], 120),
+    swat: clip(3, [1, 2, 1], [70, 110, 140], false),
+    eat: clip(7, [0, 1, 2, 3], [160, 140, 160, 220]),
+    dance: {
+      cells: [4 * 8 + 1, 3 * 8 + 1, 4 * 8 + 2, 3 * 8 + 2],
+      durations: [230, 230, 230, 230],
+      loop: true,
+    },
+    hang: clip(3, [1, 2], [450, 450]),
+    stretch: clip(4, [1, 2, 3, 2, 1], [200, 400, 800, 400, 200], false),
   };
 }
 export class Animator {

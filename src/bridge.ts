@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { defaults, emptyMemory, Store } from "./model";
 import { newGame } from "./game";
 export const native = !!(window as unknown as { __TAURI_IPC__?: unknown })
@@ -33,6 +33,9 @@ export async function command<T = void>(
   if (cmd === "load_store") return previewStore() as T;
   if (cmd === "usage_stats")
     return { today: [], week: [], month: [], all: [] } as T;
+  if (cmd === "temp_scan") return { bytes: 734003200, files: 5120 } as T;
+  if (cmd === "temp_clean") return { bytes: 681574400, files: 4870 } as T;
+  if (cmd === "weather") return null as T;
   if (cmd === "buy_item") {
     window.dispatchEvent(new CustomEvent("buy", { detail: args.id }));
     return undefined as T;
@@ -74,6 +77,11 @@ export async function command<T = void>(
     window.dispatchEvent(new CustomEvent("store", { detail: s }));
   }
   return undefined as T;
+}
+/** Broadcast to every window (panel <-> pet), no Rust round trip. */
+export async function emitAll(name: string, payload?: unknown) {
+  if (native) return emit(name, payload);
+  window.dispatchEvent(new CustomEvent(name, { detail: payload }));
 }
 export async function on<T>(
   name: string,

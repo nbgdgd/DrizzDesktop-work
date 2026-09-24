@@ -52,7 +52,7 @@ pub fn start(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
             .ok();
         while !a.state::<State>().stop.load(Ordering::Relaxed) {
             let allow = enabled(
-                &a.state::<State>().store.lock().unwrap().settings,
+                &a.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings,
                 "observeMedia",
                 true,
             );
@@ -93,7 +93,7 @@ pub fn start(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
                     }
                 }
             }
-            *m.lock().unwrap() = data;
+            *m.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = data;
             std::thread::sleep(Duration::from_secs(2));
         }
     });
@@ -118,7 +118,7 @@ pub fn start(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
                 if last.elapsed() >= Duration::from_secs(1)
                     || (dirty && last.elapsed() >= Duration::from_millis(250))
                 {
-                    let s = state.store.lock().unwrap().settings.clone();
+                    let s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
                     let monitors = native::monitors();
                     let fg = native::foreground(enabled(&s, "observeApps", true), &monitors);
                     native::INPUT_ENABLED.store(enabled(&s, "observeInput", true), Ordering::Relaxed);
@@ -189,7 +189,7 @@ pub fn start(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
                             vec![]
                         },
                         monitors,
-                        media: media.lock().unwrap().clone(),
+                        media: media.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone(),
                         cpu,
                         online,
                         battery,

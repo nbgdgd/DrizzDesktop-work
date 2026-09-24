@@ -1,6 +1,7 @@
 // Progression in the spirit of VPet (LorisYounger/VPet, Apache-2.0):
 // level from exp, mood/stamina/food/drink/health/likability and a food shop.
 // Pure functions over a plain `Game` record; PetScene owns the live copy.
+import { Life, cleanLife, newLife } from "./chronicle";
 export interface Game {
   exp: number;
   money: number;
@@ -25,6 +26,8 @@ export interface Game {
   /** Throws today and the day they were counted on (for "the 5th time, sadist"). */
   throwsToday: number;
   throwsDay: string;
+  /** Long-term memory: counters, habits, opinions, achievements. */
+  life: Life;
 }
 export interface ActiveJob {
   id: string;
@@ -72,9 +75,10 @@ export const newGame = (now: number): Game => ({
   skills: {},
   job: null,
   jobsDone: 0,
-    grudge: 0,
-    throwsToday: 0,
-    throwsDay: "",
+  grudge: 0,
+  throwsToday: 0,
+  throwsDay: "",
+  life: newLife(now),
 });
 export const level = (exp: number) =>
   exp < 0 ? 1 : Math.floor(Math.sqrt(exp) / 10) + 1;
@@ -154,6 +158,22 @@ export const upgrades: Upgrade[] = [
     step: "+20% к оплате работы",
     max: 5,
     base: 320,
+  },
+  {
+    id: "agility",
+    name: "Ловкость",
+    desc: "Прыгает выше, реже промахивается по курсору и реже падает.",
+    step: "+12% к высоте прыжка, −15% промахов",
+    max: 5,
+    base: 150,
+  },
+  {
+    id: "vigilance",
+    name: "Бдительность",
+    desc: "Внимательнее к процессам: подробнее объясняет, дольше стоит на страже.",
+    step: "+1 деталь в объяснениях и +10 минут роли «охранник»",
+    max: 5,
+    base: 240,
   },
 ];
 export const upgradeById = (id: string) => upgrades.find((u) => u.id === id);
@@ -403,6 +423,25 @@ export function tick(game: Game, minutes: number, env: TickEnv): Game {
   for (let i = 0; i < n; i++) minute(g, env);
   return g;
 }
+/**
+ * Minutes the pet spent alone (app closed, PC asleep): it slept, got a
+ * little hungry, earned nothing for being near you and finished a shift if
+ * one was running. Starts at `from` (ms) so a shift ends at the right minute.
+ */
+export function away(game: Game, from: number, minutes: number): Game {
+  const g = { ...game };
+  const n = Math.min(MAX_CATCH_UP, Math.max(0, Math.floor(minutes)));
+  for (let i = 0; i < n; i++) {
+    const t = from + i * 60000;
+    minute(g, {
+      present: false,
+      resting: true,
+      music: false,
+      working: !!g.job && t < g.job.endsAt,
+    });
+  }
+  return g;
+}
 export function interact(game: Game, kind: Interaction): Game {
   const g = { ...game };
   switch (kind) {
@@ -493,6 +532,7 @@ export function cleanGame(raw: Partial<Game> | null | undefined, now: number): G
     grudge: num("grudge", 0, 100),
     throwsToday: num("throwsToday", 0, 1e6),
     throwsDay: typeof r.throwsDay === "string" ? r.throwsDay.slice(0, 10) : "",
+    life: cleanLife(r.life, now),
   };
   const rawSkills = (r.skills ?? {}) as Record<string, unknown>;
   for (const u of upgrades) {
@@ -505,7 +545,8 @@ export function cleanGame(raw: Partial<Game> | null | undefined, now: number): G
     typeof rawJob.id === "string" &&
     jobById(rawJob.id) &&
     Number.isFinite(Number(rawJob.endsAt)) &&
-    Number(rawJob.endsAt) > now
+    // A shift that ended while the app was closed is still paid out.
+    Number(rawJob.endsAt) > now - 7 * 86400000
   )
     g.job = {
       id: rawJob.id,

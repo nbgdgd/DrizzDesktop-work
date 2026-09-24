@@ -318,10 +318,10 @@ pub fn start(app: tauri::AppHandle) {
         let mut gpu: Option<Gpu> = None;
         let mut gpu_tried = false;
         while !app.state::<State>().stop.load(Ordering::Relaxed) {
-            let settings = app.state::<State>().store.lock().unwrap().settings.clone();
+            let settings = app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
             let system = enabled(&settings, "observeSystem", true);
             if !system {
-                *CURRENT.lock().unwrap() = None;
+                *CURRENT.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
                 std::thread::sleep(Duration::from_secs(2));
                 continue;
             }
@@ -361,7 +361,7 @@ pub fn start(app: tauri::AppHandle) {
                 gpu = None;
                 gpu_tried = false;
             }
-            *CURRENT.lock().unwrap() = Some(state);
+            *CURRENT.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(state);
             std::thread::sleep(Duration::from_millis(1000));
         }
     });

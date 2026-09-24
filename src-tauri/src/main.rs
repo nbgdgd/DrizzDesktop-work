@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod autoruns;
+mod chores;
 mod env;
 mod integration;
 mod load;
@@ -27,8 +28,8 @@ fn panel(app: &tauri::AppHandle, tab: &str) -> Result<(), String> {
             tauri::WindowUrl::App(format!("index.html?panel={tab}").into()),
         )
         .title("TracePet")
-        .inner_size(720., 670.)
-        .min_inner_size(550., 440.)
+        .inner_size(900., 700.)
+        .min_inner_size(640., 480.)
         .theme(Some(tauri::Theme::Dark))
         .build()
         .map_err(|e| e.to_string())?;
@@ -37,8 +38,11 @@ fn panel(app: &tauri::AppHandle, tab: &str) -> Result<(), String> {
 }
 #[tauri::command]
 async fn open_panel(app: tauri::AppHandle, tab: String) -> Result<(), String> {
-    if !["settings", "status", "shop", "skills", "work", "stats", "trace", "chat", "memory", "privacy"]
-        .contains(&tab.as_str())
+    if ![
+        "settings", "status", "shop", "skills", "work", "games", "collection", "stats", "trace", "chat",
+        "memory", "privacy",
+    ]
+    .contains(&tab.as_str())
     {
         return Err("Unknown tab".into());
     }
@@ -51,7 +55,7 @@ fn request_panel(app:&tauri::AppHandle,tab:&str){
 }
 #[tauri::command]
 fn load_store(state: tauri::State<State>) -> Store {
-    state.store.lock().unwrap().clone()
+    state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
 }
 #[tauri::command]
 fn save_settings(
@@ -62,7 +66,7 @@ fn save_settings(
     if !settings.is_object() || settings.to_string().len() > 16000 {
         return Err("Invalid settings".into());
     }
-    let mut store = state.store.lock().unwrap();
+    let mut store = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut updated = store.clone();
     updated.settings = settings;
     storage::autostart(storage::enabled(&updated.settings, "autostart", false))?;
@@ -79,7 +83,7 @@ fn save_memory(
     if !memory.is_object() || memory.to_string().len() > 20000 {
         return Err("Memory too large".into());
     }
-    let mut store = state.store.lock().unwrap();
+    let mut store = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut updated = store.clone();
     updated.memory = memory;
     storage::persist(&updated)?;
@@ -96,10 +100,10 @@ fn save_pet_memory(
     if window.label() != "pet" || !memory.is_object() || memory.to_string().len() > 20000 {
         return Err("Invalid pet state".into());
     }
-    let mut store = state.store.lock().unwrap();
+    let mut store = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut updated = store.clone();
     // Automatic saves never restore facts that the user has just edited/deleted.
-    for key in ["position", "recent", "lastGreeting", "cardShown"] {
+    for key in ["position", "recent", "lastGreeting", "cardShown", "daily"] {
         if let Some(value) = memory.get(key) {
             updated.memory[key] = value.clone();
         }
@@ -117,10 +121,12 @@ fn save_game(
     state: tauri::State<State>,
     game: Value,
 ) -> Result<(), String> {
-    if window.label() != "pet" || !game.is_object() || game.to_string().len() > 4000 {
+    // The game carries the pet's long-term memory (counters, habits,
+    // achievements): a few kilobytes, bounded by cleanLife on the JS side.
+    if window.label() != "pet" || !game.is_object() || game.to_string().len() > 64000 {
         return Err("Invalid game state".into());
     }
-    let mut store = state.store.lock().unwrap();
+    let mut store = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut updated = store.clone();
     updated.game = game;
     storage::persist(&updated)?;
@@ -176,7 +182,7 @@ fn trace_view(state: tauri::State<State>) -> TraceView {
     TraceView {
         events: trace::log(),
         load: load::current(),
-        enabled: storage::enabled(&state.store.lock().unwrap().settings, "observeProcesses", true),
+        enabled: storage::enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings, "observeProcesses", true),
     }
 }
 #[tauri::command]
@@ -220,7 +226,7 @@ fn save_key(app: tauri::AppHandle, state: tauri::State<State>, key: String) -> R
         return Err("Invalid key".into());
     }
     storage::key_write(key.trim())?;
-    let mut s = state.store.lock().unwrap();
+    let mut s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     s.has_key = !key.trim().is_empty();
     storage::persist(&s)?;
     app.emit_all("store", s.clone()).map_err(|e| e.to_string())
@@ -251,7 +257,7 @@ fn pose(
         let assigned = native::pose(hwnd, x, y, scale, &rects);
         if state.visible.swap(show, Ordering::Relaxed) != show {
             native::show(hwnd, show);
-            if storage::diag_enabled(&state.store.lock().unwrap().settings) {
+            if storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 storage::diag("rs", &format!("window {} at {x},{y} scale {scale} assigned {assigned}", if show { "shown" } else { "hidden" }));
             }
         }
@@ -260,11 +266,11 @@ fn pose(
 }
 #[tauri::command]
 fn diag_enabled(state: tauri::State<State>) -> bool {
-    storage::diag_enabled(&state.store.lock().unwrap().settings)
+    storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings)
 }
 #[tauri::command]
 fn diag_log(state: tauri::State<State>, line: String) {
-    if line.len() <= 4000 && storage::diag_enabled(&state.store.lock().unwrap().settings) {
+    if line.len() <= 4000 && storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
         storage::diag("fe", &line);
     }
 }
@@ -301,10 +307,47 @@ fn summon_pet(app: tauri::AppHandle) {
 fn recenter_pet(app: tauri::AppHandle) {
     recenter(&app)
 }
+/// Quit from the tray or the panel: the pet window gets a moment to save the
+/// game and its memory (they are otherwise written once a minute).
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle) {
-    app.state::<State>().stop.store(true, Ordering::Relaxed);
-    app.exit(0)
+    if let Some(w) = app.get_window("pet") {
+        let _ = w.emit("flush", ());
+    }
+    let a = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(450));
+        a.state::<State>().stop.store(true, Ordering::Relaxed);
+        a.exit(0)
+    });
+}
+#[tauri::command]
+fn nudge_cursor(window: tauri::Window, state: tauri::State<State>, dx: i32, dy: i32) -> Result<(), String> {
+    if window.label() != "pet" {
+        return Err("Overlay only".into());
+    }
+    let s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
+    if !storage::enabled(&s, "cursorPush", true) || !storage::enabled(&s, "cursorPlay", true) {
+        return Ok(());
+    }
+    chores::nudge(dx, dy)
+}
+#[tauri::command]
+async fn temp_scan() -> chores::TempSize {
+    chores::temp(false)
+}
+/// Deletes day-old files from %TEMP%; the pet only calls it after "Почистить".
+#[tauri::command]
+async fn temp_clean() -> chores::TempSize {
+    chores::temp(true)
+}
+#[tauri::command]
+async fn weather(state: tauri::State<'_, State>, place: String) -> Result<Option<chores::Weather>, String> {
+    let s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
+    if !storage::enabled(&s, "weather", false) || place.len() > 40 {
+        return Ok(None);
+    }
+    chores::weather(&place).await.map(Some)
 }
 #[tauri::command]
 fn monitors() -> Vec<native::Monitor> {
@@ -317,7 +360,7 @@ async fn chat(
     recent: Vec<Value>,
     context: Option<String>,
 ) -> Result<String, String> {
-    let s = state.store.lock().unwrap().clone();
+    let s = state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
     if !storage::enabled(&s.settings, "ai", false) {
         return Err("AI отключён".into());
     }
@@ -448,7 +491,7 @@ fn main() {
                 "hide" => hide_pet(app.clone(), app.state()),
                 "quit" => exit_app(app.clone()),
                 "quiet" | "dnd" => {
-                    let mut s = app.state::<State>().store.lock().unwrap().clone();
+                    let mut s = app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
                     let wanted = if id == "quiet" { "quiet" } else { "dnd" };
                     s.settings["mode"] = json!(if s.settings["mode"] == wanted {
                         "normal"
@@ -475,7 +518,7 @@ fn main() {
             observe::start(
                 a.clone(),
                 Box::new(move |id| {
-                    if storage::diag_enabled(&hot.state::<State>().store.lock().unwrap().settings) {
+                    if storage::diag_enabled(&hot.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                         storage::diag("rs", &format!("hotkey {id} fired"));
                     }
                     match id {
@@ -490,11 +533,11 @@ fn main() {
             trace::start(a.clone());
             autoruns::start(a.clone());
             load::start(a.clone());
-            if storage::diag_enabled(&app.state::<State>().store.lock().unwrap().settings) {
+            if storage::diag_enabled(&app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 let list = native::monitors();
                 storage::diag("rs", &format!("start {} monitors: {}", list.len(), list.iter().map(|m| format!("{} bounds {},{},{},{} work {},{},{},{} scale {} primary {}", m.id, m.bounds.left, m.bounds.top, m.bounds.right, m.bounds.bottom, m.work.left, m.work.top, m.work.right, m.work.bottom, m.scale, m.primary)).collect::<Vec<_>>().join("; ")));
             }
-            let _ = storage::persist(&app.state::<State>().store.lock().unwrap());
+            let _ = storage::persist(&app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
             if !std::env::args().any(|a| a == "--background") {
                 request_panel(&a, "settings");
             }
@@ -525,6 +568,10 @@ fn main() {
             summon_pet,
             recenter_pet,
             exit_app,
+            nudge_cursor,
+            temp_scan,
+            temp_clean,
+            weather,
             monitors,
             chat,
             diag_enabled,

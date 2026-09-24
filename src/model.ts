@@ -12,7 +12,22 @@ export type Action =
   | "sit"
   | "look"
   | "drag"
-  | "land";
+  | "land"
+  // Held and shaken, hanging from a window edge, moods and chores.
+  | "flail"
+  | "shaken"
+  | "pained"
+  | "dizzy"
+  | "grumpy"
+  | "sigh"
+  | "sulk"
+  | "judge"
+  | "busy"
+  | "swat"
+  | "eat"
+  | "dance"
+  | "hang"
+  | "stretch";
 export type Category = "editor" | "game" | "chat" | "video" | "other";
 export interface Rect {
   left: number;
@@ -146,6 +161,25 @@ export interface Settings {
   model: string;
   sendContext: boolean;
   diagnostics: boolean;
+  /** Hunts, swats and chases the cursor. */
+  cursorPlay: boolean;
+  /** May actually move the cursor a little when it hits it. */
+  cursorPush: boolean;
+  /** Talks to itself when nothing happens. */
+  mumble: boolean;
+  /** Animal Crossing-like babble under every line. */
+  voice: boolean;
+  /** Leaves notes, brings gifts, steals trinkets. */
+  mischief: boolean;
+  /** Goes to sleep at night even while you work. */
+  nightSleep: boolean;
+  /** Real weather (Open-Meteo) for umbrella and snow; off until allowed. */
+  weather: boolean;
+  /** Coordinates for the weather, "55.75,37.62"; nothing is looked up by name. */
+  weatherPlace: string;
+  /** Quiet hours: no lines of its own from…to (hours), -1 = off. */
+  quietFrom: number;
+  quietTo: number;
 }
 export interface Memory {
   address: string;
@@ -156,6 +190,12 @@ export interface Memory {
   lastGreeting: string;
   favorite: { x: number; y: number; monitor: string } | null;
   position: { x: number; y: number } | null;
+  /** Your birthday, "MM-DD" or "". */
+  birthday: string;
+  /** Once-a-day lines already said: key -> day ("night" -> "2026-09-24"). */
+  daily: Record<string, string>;
+  /** Bumped by the panel when the user resets memory, so the pet takes the reset. */
+  epoch: number;
 }
 export interface Store {
   settings: Settings;
@@ -215,6 +255,16 @@ export const defaults: Settings = {
   model: "google/gemini-3.1-flash-lite",
   sendContext: false,
   diagnostics: false,
+  cursorPlay: true,
+  cursorPush: true,
+  mumble: true,
+  voice: true,
+  mischief: true,
+  nightSleep: true,
+  weather: false,
+  weatherPlace: "",
+  quietFrom: -1,
+  quietTo: -1,
 };
 export const emptyMemory: Memory = {
   address: "",
@@ -224,34 +274,25 @@ export const emptyMemory: Memory = {
   lastGreeting: "",
   favorite: null,
   position: null,
+  birthday: "",
+  daily: {},
+  epoch: 0,
 };
 export const pets = [
-  { id: "drizz", name: "Drizz", color: "#b4e62e", trait: "Наглый сосед" },
-  {
-    id: "claude",
-    name: "Claude",
-    color: "#f2853a",
-    trait: "Спокойный наблюдатель",
-  },
-  {
-    id: "eigenblob",
-    name: "Eigenblob",
-    color: "#c6a8f5",
-    trait: "Любопытный сгусток",
-  },
-  {
-    id: "aqua-wisp",
-    name: "Aqua Wisp",
-    color: "#3fd0d8",
-    trait: "Тихий попутчик",
-  },
-  {
-    id: "nezukocoder",
-    name: "Nezuko Coder",
-    color: "#e0567a",
-    trait: "Энергичная соседка",
-  },
+  { id: "drizz", name: "Drizz", color: "#b4e62e", trait: "Наглый" },
+  { id: "claude", name: "Claude", color: "#f2853a", trait: "Ворчливый философ" },
+  { id: "eigenblob", name: "Eigenblob", color: "#c6a8f5", trait: "Немного туповатый" },
+  { id: "aqua-wisp", name: "Aqua Wisp", color: "#3fd0d8", trait: "Меланхолик" },
+  { id: "nezukocoder", name: "Nezuko Coder", color: "#e0567a", trait: "Энергичная и ревнивая" },
 ];
+/** True inside the user's quiet hours (handles ranges over midnight). */
+export function quietNow(s: Settings, now: number): boolean {
+  if (s.quietFrom < 0 || s.quietTo < 0 || s.quietFrom === s.quietTo) return false;
+  const h = new Date(now).getHours();
+  return s.quietFrom < s.quietTo
+    ? h >= s.quietFrom && h < s.quietTo
+    : h >= s.quietFrom || h < s.quietTo;
+}
 export const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
 export function cleanMemory(raw: Partial<Memory>): Memory {
@@ -273,6 +314,16 @@ export function cleanMemory(raw: Partial<Memory>): Memory {
   if (!point(m.position)) m.position = null;
   if (!point(m.favorite) || typeof m.favorite?.monitor !== "string")
     m.favorite = null;
+  m.birthday =
+    typeof m.birthday === "string" && /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(m.birthday)
+      ? m.birthday
+      : "";
+  const daily: Record<string, string> = {};
+  if (m.daily && typeof m.daily === "object")
+    for (const [k, v] of Object.entries(m.daily).slice(-40))
+      if (typeof v === "string" && k.length <= 40) daily[k] = v.slice(0, 10);
+  m.daily = daily;
+  m.epoch = Number.isFinite(Number(m.epoch)) ? Number(m.epoch) : 0;
   return m;
 }
 export function cleanSettings(raw: Partial<Settings>): Settings {
@@ -320,6 +371,12 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   s.lateHour = Number.isFinite(Number(s.lateHour))
     ? clamp(Number(s.lateHour), 0, 23)
     : 23;
+  for (const k of ["quietFrom", "quietTo"] as const)
+    s[k] = Number.isInteger(Number(s[k])) ? clamp(Number(s[k]), -1, 23) : -1;
+  s.weatherPlace =
+    typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())
+      ? s.weatherPlace.trim()
+      : "";
   return s;
 }
 export function category(app: string, s: Settings): Category {

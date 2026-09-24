@@ -91,7 +91,7 @@ pub fn start(app: tauri::AppHandle) {
         let mut listener: Option<TcpListener> = None;
         let mut recent: HashMap<String, Instant> = HashMap::new();
         while !app.state::<State>().stop.load(Ordering::Relaxed) {
-            let store = app.state::<State>().store.lock().unwrap().clone();
+            let store = app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
             if !enabled(&store.settings, "integration", false) {
                 listener = None;
             } else {
@@ -118,7 +118,7 @@ pub fn start(app: tauri::AppHandle) {
                             recent.retain(|_, t| t.elapsed() < Duration::from_secs(600));
                             if !recent.contains_key(&e.id)
                                 && enabled(
-                                    &app.state::<State>().store.lock().unwrap().settings,
+                                    &app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings,
                                     "integration",
                                     false,
                                 )

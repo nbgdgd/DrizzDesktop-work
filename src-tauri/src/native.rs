@@ -531,7 +531,7 @@ pub fn hook_thread(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
         }
         {
             let state = app.state::<crate::storage::State>();
-            if crate::storage::diag_enabled(&state.store.lock().unwrap().settings) {
+            if crate::storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 crate::storage::diag("rs", &format!("hotkeys: {}", report.join("; ")));
             }
         }
@@ -562,7 +562,7 @@ pub fn hook_thread(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
         HOOKS_OK.store(!mouse.is_null() && !keyboard.is_null(), Ordering::Relaxed);
         {
             let state = app.state::<crate::storage::State>();
-            if crate::storage::diag_enabled(&state.store.lock().unwrap().settings) {
+            if crate::storage::diag_enabled(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 crate::storage::diag(
                     "rs",
                     &format!(

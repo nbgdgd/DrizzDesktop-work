@@ -732,7 +732,7 @@ pub fn load_log() {
     let Ok(items) = serde_json::from_slice::<Vec<Loose>>(&bytes) else { return };
     // Stored events are re-validated field by field: an old or damaged file
     // just loses the entries that no longer parse.
-    let mut log = LOG.lock().unwrap();
+    let mut log = LOG.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     for item in items.into_iter().rev().take(LOG_CAP).rev() {
         if let Ok(e) = serde_json::from_value::<TraceEventIn>(item.v) {
             log.push_back(e.into());
@@ -818,7 +818,7 @@ pub fn clear() {
 /// executable, same child, same visibility and verdict) within 10 minutes.
 /// Returns the stored event and whether it was new.
 fn record(mut e: TraceEvent) -> (TraceEvent, bool) {
-    let mut log = LOG.lock().unwrap();
+    let mut log = LOG.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let key = |x: &TraceEvent| {
         (
             x.origin.as_ref().map(|o| o.path.to_lowercase()).unwrap_or_default(),
@@ -865,7 +865,7 @@ pub fn start(app: tauri::AppHandle) {
         let mut dirty_log = false;
         let mut last_persist = Instant::now();
         while !app.state::<State>().stop.load(Ordering::Relaxed) {
-            let settings = app.state::<State>().store.lock().unwrap().settings.clone();
+            let settings = app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
             if !enabled(&settings, "observeProcesses", true) {
                 primed = false;
                 t.known.clear();

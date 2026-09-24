@@ -215,10 +215,10 @@ pub fn start(app: tauri::AppHandle) {
             if st.stop.load(Ordering::Relaxed) {
                 break;
             }
-            let settings = st.store.lock().unwrap().settings.clone();
+            let settings = st.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
             if storage::enabled(&settings, "watchAutoruns", true) {
                 let entries = scan(&mut cache);
-                let mut guard = STATE.lock().unwrap();
+                let mut guard = STATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 if guard.is_none() {
                     *guard = Some(load().unwrap_or_else(|| Saved {
                         // First launch ever: everything present is the baseline.
@@ -241,7 +241,7 @@ pub fn start(app: tauri::AppHandle) {
                     saved.baseline.retain(|id, _| entries.iter().any(|e| &e.id == id));
                     save(saved);
                     drop(guard);
-                    let mut pending = PENDING.lock().unwrap();
+                    let mut pending = PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                     for c in changes {
                         if !pending.contains(&c.entry.id) {
                             pending.push(c.entry.id.clone());
@@ -263,17 +263,17 @@ pub fn start(app: tauri::AppHandle) {
 
 pub fn view() -> View {
     let mut cache = HashMap::new();
-    let q = STATE.lock().unwrap().as_ref().map(|s| s.quarantine.clone()).unwrap_or_default();
+    let q = STATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().map(|s| s.quarantine.clone()).unwrap_or_default();
     View {
         entries: scan(&mut cache),
         quarantine: q,
-        pending: PENDING.lock().unwrap().clone(),
+        pending: PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone(),
     }
 }
 
 pub fn keep(id: &str) {
-    PENDING.lock().unwrap().retain(|p| p != id);
-    if let Some(s) = STATE.lock().unwrap().as_mut() {
+    PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|p| p != id);
+    if let Some(s) = STATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
         if !s.kept.iter().any(|k| k == id) {
             s.kept.push(id.to_string());
         }
@@ -363,8 +363,8 @@ pub fn remove(id: &str) -> Result<Entry, String> {
         }
         q.file = dst.to_string_lossy().to_string();
     }
-    PENDING.lock().unwrap().retain(|p| p != id);
-    if let Some(s) = STATE.lock().unwrap().as_mut() {
+    PENDING.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|p| p != id);
+    if let Some(s) = STATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
         s.baseline.remove(id);
         s.quarantine.retain(|x| x.entry.id != id);
         s.quarantine.push(q);
@@ -412,7 +412,7 @@ pub fn restore(id: &str) -> Result<(), String> {
             .or_else(|_| std::fs::copy(&q.file, back).map(|_| ()).and_then(|_| std::fs::remove_file(&q.file)))
             .map_err(|x| x.to_string())?;
     }
-    if let Some(s) = STATE.lock().unwrap().as_mut() {
+    if let Some(s) = STATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
         s.quarantine.retain(|x| x.entry.id != id);
         // Restored on purpose: accept it silently.
         s.baseline.insert(e.id.clone(), e.command.clone());

@@ -1,10 +1,11 @@
 import { Settings } from "./model";
+import { more } from "./lines";
 // Every line is deliberately rude: the pet swears at its owner. That is the
 // whole character. Keep new lines short, Russian, and aimed at the user, not
 // at anyone else; `{app}`, `{time}`, `{level}`, `{item}`, `{job}`, `{pay}`,
 // `{pct}`, `{n}`, `{theme}`, `{child}`, `{origin}`, `{details}`, `{flags}`, `{top}`, `{share}`, `{base}`, `{name}`, `{scope}`, `{error}` are
 // substituted by the director.
-export const phrases: Record<string, string[]> = {
+const base: Record<string, string[]> = {
   hello: [
     "Ну что, придурок, поехали. Я уже тут.",
     "О, проснулся, тело. Кофе себе налей, мне не надо.",
@@ -823,9 +824,14 @@ export const phrases: Record<string, string[]> = {
     "Могу посидеть рядом, полежать и порадоваться за тебя, долбоёб. Философ из меня пока локальный.",
   ],
 };
+// Base lines plus the ones added with the life features (lines.ts); banks
+// with the same name are joined, not replaced.
+export const phrases: Record<string, string[]> = { ...base };
+for (const [k, v] of Object.entries(more)) phrases[k] = [...(phrases[k] ?? []), ...v];
 // Ambient remarks share the user's "not more often than N minutes" budget.
 // Everything else is a reaction to something that just happened and only
-// keeps a short anti-spam gap plus its own rule cooldown.
+// keeps a short anti-spam gap plus its own rule cooldown. Needs (hungry,
+// sick…) are reactions: a starving pet must not wait for the chatter budget.
 export const ambient = new Set([
   "chatter",
   "idle",
@@ -834,24 +840,51 @@ export const ambient = new Set([
   "cursor",
   "stats",
   "statsDay",
-  "hungry",
-  "thirsty",
-  "tired",
-  "sad",
-  "happy",
-  "sick",
   "working",
+  "happy",
+  "sad",
+  "tired",
+  "morning",
+  "lunch",
+  "weekend",
+  "streak",
+  "jealous",
+  "likeApp",
+  "attention",
+  "nightOwl",
 ]);
+/** Needs are not ambient, but a hungry pet should not be silenced by a gap. */
+export const RETRY = new Set(["hungry", "thirsty", "sick", "tired", "sad"]);
+/** Muttering has its own slow clock and never blocks real lines. */
+export const MUMBLE_GAP = 40000;
 export const REACTION_GAP = 20000;
 export class Dialogue {
   recent: string[];
   last = -Infinity;
+  lastMumble = -Infinity;
   constructor(
     recent: string[] = [],
     private random = Math.random,
   ) {
     this.recent = recent.slice(-20);
   }
+  private gap(event: string, s: Settings) {
+    const soft = ["claude", "aqua-wisp"].includes(s.pet) ? 1.6 : 1;
+    return ambient.has(event) ? s.commentMinutes * 60000 * soft : REACTION_GAP;
+  }
+  /**
+   * True when a line for `event` would be refused only because of timing:
+   * the comment budget for ambient lines, the short gap for needs. Such a
+   * line is tried again later instead of being dropped.
+   */
+  ambientBlocked(event: string, s: Settings, now: number) {
+    return (ambient.has(event) || RETRY.has(event)) && now - this.last < this.gap(event, s);
+  }
+  /**
+   * Picks a line. Order of banks: the mood ("click@angry", 3 in 4), then the
+   * relationship stage ("click~close", 3 in 5), then the plain bank. Lines
+   * with {name} or {fact} are only used when there is a name or a fact.
+   */
   choose(
     event: string,
     s: Settings,
@@ -859,27 +892,43 @@ export class Dialogue {
     direct = false,
     vars?: Record<string, string>,
     mood = "normal",
+    stage = "",
   ): string | undefined {
     if (!s.comments || s.mode === "dnd") return;
+    const mumble = event === "mumble" || event === "sigh";
     if (!direct) {
       if (s.mode === "quiet") return;
-      const soft = ["claude", "aqua-wisp"].includes(s.pet) ? 1.6 : 1;
-      const gap = ambient.has(event)
-        ? s.commentMinutes * 60000 * soft
-        : REACTION_GAP;
-      if (now - this.last < gap) return;
+      if (mumble) {
+        if (now - this.lastMumble < MUMBLE_GAP) return;
+      } else if (now - this.last < this.gap(event, s)) return;
     }
-    // A mood-specific bank ("click@angry") wins most of the time.
-    const moodBank = phrases[`${event}@${mood}`];
+    const usable = (bank?: string[]) =>
+      (bank ?? []).filter(
+        (t) =>
+          (!t.includes("{name}") || !!vars?.name) &&
+          (!t.includes("{fact}") || !!vars?.fact),
+      );
+    const moodBank = usable(phrases[`${event}@${mood}`]);
+    const stageBank = stage ? usable(phrases[`${event}~${stage}`]) : [];
+    const plain = usable(phrases[event]);
     const bank =
-      moodBank?.length && this.random() < 0.75 ? moodBank : phrases[event];
-    if (!bank?.length) return;
+      moodBank.length && this.random() < 0.75
+        ? moodBank
+        : stageBank.length && this.random() < 0.6
+          ? stageBank
+          : plain.length
+            ? plain
+            : moodBank.length
+              ? moodBank
+              : stageBank;
+    if (!bank.length) return;
     const skip = Math.min(12, bank.length - 1);
     const recent = skip > 0 ? this.recent.slice(-skip) : [];
     const available = bank.filter((t) => !recent.includes(t));
     let text = available[Math.floor(this.random() * available.length)];
     this.recent = [...this.recent, text].slice(-20);
-    this.last = now;
+    if (mumble) this.lastMumble = now;
+    else this.last = now;
     if (vars)
       for (const [k, v] of Object.entries(vars))
         text = text.split(`{${k}}`).join(v);

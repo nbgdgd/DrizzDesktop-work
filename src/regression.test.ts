@@ -2,7 +2,7 @@
 // invisible sprite (CSP), blurry/misaligned overlay at Windows scaling,
 // frame warnings from an absent texture, lost pet after monitor changes.
 import { describe, it, expect, vi } from "vitest";
-import { Animator } from "./animation";
+import { Animator, clips } from "./animation";
 import { canvasSize, canvasZoom, BASE_WIDTH, BASE_HEIGHT } from "./dpi";
 import { overlayLayout } from "./layout";
 import { Movement } from "./movement";
@@ -73,20 +73,8 @@ describe("DPI: canvas backing store versus logical overlay size", () => {
 describe("animation frames stay inside the 72-cell atlas", () => {
   it.each(pets.map((p) => p.id))("%s", (id) => {
     const a = new Animator(id);
-    const actions = [
-      "idle",
-      "walkRight",
-      "walkLeft",
-      "wave",
-      "jump",
-      "celebrate",
-      "rest",
-      "sleep",
-      "sit",
-      "look",
-      "drag",
-      "land",
-    ] as const;
+    // Every clip, including the ones added later (moods, hanging, dancing).
+    const actions = Object.keys(clips(id)) as (keyof ReturnType<typeof clips>)[];
     for (const action of actions)
       for (let t = 0; t < 20000; t += 37) {
         const f = a.frame(action, 1000 + t);

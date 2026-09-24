@@ -11,11 +11,15 @@ import {
   cleanSettings,
 } from "./model";
 const now = new Date(2026, 8, 20, 14).getTime();
+const day = new Date(now).toLocaleDateString("sv");
+// Once-a-day lines (weekend, morning, lunch) already said: these tests are
+// about reactions, not the calendar.
 const mem = () => ({
   ...emptyMemory,
   recent: [],
   facts: [],
-  lastGreeting: new Date(now).toLocaleDateString("sv"),
+  lastGreeting: day,
+  daily: { weekend: day, morning: day, lunch: day, holiday: day },
 });
 const monitor: Monitor = {
   id: "main",

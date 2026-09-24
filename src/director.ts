@@ -9,24 +9,54 @@ import {
   clamp,
   emptyDesktop,
   emptyInput,
+  quietNow,
 } from "./model";
 import { Dialogue } from "./dialogue";
 import { appName, formatDuration } from "./apps";
 import { AutorunChange, Spike, TraceEvent, autorunSpeech, revealTarget, spikeSpeech, traceSpeech } from "./trace";
+import { Temper, temper } from "./character";
+import {
+  Achievement,
+  Life,
+  Stage,
+  count,
+  judgeApp,
+  lately,
+  note,
+  opinion,
+  rememberSpot,
+  since,
+  stage,
+  stageKeys,
+  unlock,
+  visitDay,
+} from "./chronicle";
+import { dayPart, holiday, nightKey, weekend } from "./calendar";
 export interface BubbleAction {
   id: string;
   label: string;
+}
+export interface Bubble {
+  text: string;
+  until: number;
+  actions?: BubbleAction[];
+  /** Second, smaller line (status under a click reply). */
+  sub?: string;
+  /** "mumble": muttered to itself; "sign": held up on a placard. */
+  kind?: "say" | "mumble" | "sign";
 }
 import {
   Game,
   Interaction,
   TickEnv,
+  away,
   interact,
   jobById,
   level,
   mode,
   newGame,
   likabilityMax,
+  skill,
   statusLine,
   tick,
   workTick,
@@ -36,13 +66,14 @@ import {
 export const bondPct = (g: Game) =>
   Math.round((100 * g.likability) / Math.max(1, likabilityMax(level(g.exp))));
 interface Rule {
-  action: Action;
+  /** Animation while the reaction lasts; null keeps the current one. */
+  action: Action | null;
   priority: number;
   cooldown: number;
   duration: number;
 }
 const rule = (
-  action: Action,
+  action: Action | null,
   priority = 30,
   cooldown = 180000,
   duration = 3000,
@@ -51,9 +82,9 @@ export const rules: Record<string, Rule> = {
   hello: rule("wave", 70, 86400000),
   return: rule("wave", 60, 90000),
   click: rule("wave", 90, 1800),
-  poke: rule("look", 90, 6000),
+  poke: rule("grumpy", 90, 6000),
   drag: rule("drag", 100, 12000, 1200),
-  dragged: rule("look", 100, 15000),
+  dragged: rule("drag", 100, 15000),
   summon: rule("wave", 100, 1500),
   cursor: rule("look", 15, 45000, 2400),
   idle: rule("rest", 20, 600000, 7000),
@@ -62,15 +93,16 @@ export const rules: Record<string, Rule> = {
   game: rule("wave", 45),
   gameEnd: rule("wave", 55),
   breakEnd: rule("wave", 56),
-  long: rule("jump", 25, 3600000),
-  switching: rule("look", 35, 300000),
+  long: rule("stretch", 25, 3600000),
+  switching: rule("dizzy", 35, 300000),
   alternating: rule("look", 30, 600000),
   chat: rule("look", 25),
-  music: rule("sit", 30),
+  video: rule("sit", 30, 600000),
+  music: rule("dance", 30, 180000, 5000),
   mediaPause: rule("rest", 30, 90000, 7000),
-  mediaResume: rule("wave", 40, 90000),
-  repeat: rule("look", 30, 600000),
-  night: rule("rest", 25, 72000000, 8000),
+  mediaResume: rule("dance", 40, 90000, 4000),
+  repeat: rule("dance", 30, 600000, 4000),
+  night: rule("sigh", 25, 72000000, 4000),
   windowMove: rule("look", 35, 120000),
   fall: rule("jump", 80, 60000, 1500),
   desktop: rule("look", 30),
@@ -81,35 +113,36 @@ export const rules: Record<string, Rule> = {
   power: rule("wave", 45, 300000),
   monitor: rule("look", 60, 10000),
   "build-success": rule("celebrate", 80, 10000),
-  "build-failed": rule("rest", 80, 10000),
+  "build-failed": rule("sulk", 80, 10000),
   "render-done": rule("celebrate", 80, 10000),
   "download-done": rule("wave", 65, 10000),
   "episode-ended": rule("celebrate", 70, 10000),
-  typing: rule("look", 40, 240000),
-  typingLong: rule("look", 40, 900000),
+  // Copying the user, badly: types along, hits the floor, squints at the scroll.
+  typing: rule("busy", 40, 240000, 3500),
+  typingLong: rule("busy", 40, 900000, 4000),
   afterBurst: rule("wave", 35, 360000),
-  clicking: rule("look", 40, 180000),
-  scrolling: rule("look", 35, 240000),
+  clicking: rule("swat", 40, 180000, 1500),
+  scrolling: rule("judge", 35, 240000),
   rightClick: rule("look", 30, 300000),
   glance: rule("look", 10, 8000, 1200),
   curious: rule("look", 45, 120000, 2500),
-  chatter: rule("idle", 15, 60000, 2500),
+  chatter: rule(null, 15, 60000, 2500),
   stats: rule("look", 30, 3600000),
   statsDay: rule("wave", 40, 43200000),
   levelUp: rule("celebrate", 85, 5000, 2600),
-  hungry: rule("rest", 40, 1200000),
-  thirsty: rule("rest", 40, 1200000),
+  hungry: rule("sulk", 40, 1200000),
+  thirsty: rule("sigh", 40, 1200000),
   tired: rule("rest", 35, 1200000),
-  sad: rule("rest", 35, 1800000),
-  happy: rule("jump", 25, 1800000),
-  sick: rule("rest", 50, 1800000),
-  fed: rule("wave", 90, 1000),
-  broke: rule("look", 90, 1000),
+  sad: rule("sulk", 35, 1800000),
+  happy: rule("dance", 25, 1800000),
+  sick: rule("pained", 50, 1800000),
+  fed: rule("eat", 90, 1000, 2600),
+  broke: rule("grumpy", 90, 1000),
   status: rule("look", 95, 1200, 1600),
-  work: rule("sit", 70, 8000, 3000),
-  working: rule("sit", 20, 180000),
+  work: rule("busy", 70, 8000, 3000),
+  working: rule("busy", 20, 180000),
   workDone: rule("celebrate", 88, 2000, 3000),
-  workFail: rule("rest", 80, 2000),
+  workFail: rule("sigh", 80, 2000),
   upgrade: rule("celebrate", 88, 1000, 2600),
   // Windows itself: sound, clipboard, theme, pressure, windows opening.
   volumeUp: rule("look", 40, 150000),
@@ -129,13 +162,13 @@ export const rules: Record<string, Rule> = {
   appOpen: rule("look", 30, 300000),
   appClose: rule("look", 30, 300000),
   windowStorm: rule("look", 35, 1800000),
-  resume: rule("wave", 60, 60000),
+  resume: rule("stretch", 60, 60000),
   // Process tracing and load spikes. Cooldowns per origin live in Rust;
   // these only stop two lines colliding.
   traceVisible: rule("look", 75, 3000, 4000),
   traceFlash: rule("look", 75, 3000, 4000),
   traceOrphan: rule("look", 70, 3000, 4000),
-  traceBackground: rule("look", 40, 60000, 3000),
+  traceBackground: rule("judge", 40, 60000, 3000),
   traceAlert: rule("jump", 98, 1000, 5000),
   cpuSpike: rule("look", 60, 60000, 4000),
   cpuSpikeAnon: rule("look", 50, 60000, 3000),
@@ -152,9 +185,9 @@ export const rules: Record<string, Rule> = {
   // Touch and physics.
   pet: rule("sit", 88, 9000, 2500),
   tickle: rule("celebrate", 88, 7000, 2200),
-  thrown: rule("jump", 92, 4000, 1200),
-  ouch: rule("rest", 93, 4000, 1800),
-  bonk: rule("look", 93, 3000, 1400),
+  thrown: rule("flail", 92, 4000, 1200),
+  ouch: rule("pained", 93, 4000, 1800),
+  bonk: rule("pained", 93, 3000, 1400),
   bondUp: rule("celebrate", 94, 60000, 2600),
   driveOut: rule("look", 55, 20000, 2000),
   autorunAdded: rule("look", 97, 1000, 6000),
@@ -162,12 +195,89 @@ export const rules: Record<string, Rule> = {
   autorunChanged: rule("look", 97, 1000, 6000),
   autorunRemoved: rule("celebrate", 96, 1000, 2600),
   autorunKept: rule("wave", 96, 1000, 2000),
-  autorunFailed: rule("rest", 96, 1000, 3000),
+  autorunFailed: rule("sigh", 96, 1000, 3000),
+  // Memory of what you did to it.
+  dizzy: rule("dizzy", 92, 4000, 3600),
+  seasick: rule("dizzy", 70, 60000, 3500),
+  regrab: rule("grumpy", 99, 20000, 1500),
+  grumpyWake: rule("grumpy", 91, 60000, 2400),
+  stare: rule("judge", 94, 30000, 3200),
+  remember: rule("grumpy", 94, 30000, 3500),
+  sulk: rule("sulk", 70, 120000, 6000),
+  sigh: rule("sigh", 20, 60000, 2100),
+  mumble: rule(null, 8, 20000, 2500),
+  attention: rule("wave", 45, 900000, 3000),
+  judgeApp: rule("judge", 40, 600000, 3500),
+  likeApp: rule("wave", 30, 900000),
+  jealous: rule("grumpy", 40, 3600000, 3000),
+  stubborn: rule("judge", 50, 30000, 2000),
+  repeatSpite: rule("judge", 50, 30000, 1800),
+  search: rule("look", 40, 60000, 3000),
+  perchLook: rule("judge", 40, 60000, 3500),
+  closedAgain: rule("grumpy", 60, 60000, 2500),
+  steal: rule("busy", 55, 1800000, 2500),
+  giveBack: rule("wave", 85, 5000, 2500),
+  gift: rule("wave", 60, 3600000, 4000),
+  giftTaken: rule("celebrate", 80, 5000, 2200),
+  giftIgnored: rule("sulk", 50, 60000, 3000),
+  // Time of day, dates.
+  morning: rule("stretch", 50, 72000000, 2800),
+  lunch: rule("look", 35, 72000000),
+  weekend: rule("dance", 40, 72000000, 3000),
+  holiday: rule("celebrate", 70, 72000000, 3000),
+  birthday: rule("celebrate", 80, 72000000, 3500),
+  streak: rule("celebrate", 45, 72000000, 2600),
+  achievement: rule("celebrate", 89, 3000, 3000),
+  nightCheck: rule("judge", 30, 900000, 3000),
+  nightOwl: rule("look", 40, 72000000),
+  fakeSleep: rule("sleep", 99, 30000, 3200),
+  fakeSleepEnd: rule("grumpy", 99, 30000, 1600),
+  rain: rule("sigh", 40, 10800000, 3000),
+  snow: rule("celebrate", 40, 10800000, 3000),
+  heat: rule("sigh", 35, 10800000, 3000),
+  // Cursor games (cursorplay.ts).
+  cursorLecture: rule("judge", 66, 20000, 4500),
+  cursorHunt: rule(null, 64, 30000, 2500),
+  cursorSwat: rule("swat", 70, 350, 450),
+  cursorPounce: rule("jump", 72, 3000, 1200),
+  cursorMiss: rule("pained", 73, 3000, 1600),
+  cursorWatch: rule("judge", 40, 60000, 4000),
+  cursorTouch: rule("swat", 45, 20000, 500),
+  cursorPush: rule("swat", 50, 20000, 600),
+  cursorCatch: rule("celebrate", 60, 15000, 1500),
+  cursorLazy: rule("sigh", 60, 20000, 2000),
+  cursorAnnoy: rule("wave", 44, 60000, 2500),
+  // Commands, games, roles, notes.
+  cmdSit: rule("sit", 96, 1000, 4000),
+  cmdCome: rule("wave", 96, 1000, 2000),
+  cmdSleep: rule("sleep", 96, 1000, 5000),
+  cmdGo: rule("grumpy", 96, 1000, 1500),
+  cmdJump: rule("jump", 96, 1000, 1200),
+  cmdDance: rule("dance", 96, 1000, 6000),
+  cmdRefuse: rule("grumpy", 96, 1000, 2000),
+  cmdUnknown: rule("look", 96, 1000, 2000),
+  peekBack: rule("look", 60, 60000, 3000),
+  gameStart: rule("wave", 96, 1000, 2500),
+  gameWin: rule("celebrate", 96, 1000, 2500),
+  gameLose: rule("sulk", 96, 1000, 2500),
+  gameDraw: rule("sigh", 96, 1000, 2000),
+  gameCatch: rule("swat", 96, 300, 400),
+  roleGuard: rule("judge", 90, 1000, 3000),
+  roleGuardEnd: rule("stretch", 60, 1000, 2500),
+  cleanOffer: rule("busy", 80, 1000, 3000),
+  cleanDone: rule("celebrate", 90, 1000, 3000),
+  cleanNothing: rule("sigh", 90, 1000, 2500),
+  noteLeft: rule(null, 50, 3600000, 1000),
+  noteAgain: rule(null, 95, 1000, 1000),
+  awayBack: rule("wave", 60, 60000, 2500),
 };
+/** Events that are about the user's attention (reset "ignored" timer). */
+const ATTENTION = new Set(["click", "pet", "fed", "drag", "command", "game", "summon", "tickle"]);
+export type Mood = "scared" | "angry" | "sleepy" | "sad" | "friendly" | "normal";
 export class Director {
   dialogue: Dialogue;
   reaction?: { event: string; rule: Rule; until: number };
-  bubble?: { text: string; until: number; actions?: BubbleAction[] };
+  bubble?: Bubble;
   base: Action = "idle";
   hidden = false;
   manualHidden = false;
@@ -184,7 +294,6 @@ export class Director {
   private gameSeen = false;
   private mediaPauseAt = 0;
   private cpuSince = 0;
-  private lastNight = "";
   private clicks: number[] = [];
   private ids = new Map<string, number>();
   private playPosition = 0;
@@ -204,6 +313,8 @@ export class Director {
   private wheelTimes: number[] = [];
   private typingSince = 0;
   private lastKey = 0;
+  /** Last keyboard/mouse activity seen through the hooks (ms). */
+  lastBusy = 0;
   private burst = false;
   private petX = 0;
   private petY = 0;
@@ -212,13 +323,25 @@ export class Director {
   wantHop: { id: number; x: number; top: number; until: number } | null = null;
   /** Run to this x fast (show desktop, excitement). */
   wantRun: number | null = null;
+  /** Wants to walk to the cursor and sit in front of it (ignored too long). */
+  wantAnnoy = false;
   private nextChatter = 0;
+  private nextMumble = 0;
   private nextStats = 0;
-  private lastStatsDay = "";
+  private nextNightCheck = 0;
   // Progression (VPet model). PetScene persists it; the director reads it
   // for mood-dependent pacing and writes it through interactions and ticks.
   game: Game;
   private moodClicks: number[] = [];
+  /** Memory fields changed here (daily flags); the scene saves them. */
+  memoryDirty = false;
+  /** Sulking until this time: sits in a corner with its back turned. */
+  sulkUntil = 0;
+  /** Coins taken by mischief, returned on petting. */
+  stolen = 0;
+  private wokeAt = 0;
+  private wokeFrom: Action = "idle";
+  private lastAttention = 0;
   constructor(
     public settings: Settings,
     public memory: Memory,
@@ -227,6 +350,37 @@ export class Director {
   ) {
     this.dialogue = new Dialogue(memory.recent, random);
     this.game = game ?? newGame(Date.now());
+    this.lastAttention = Math.max(
+      ...["click", "pet", "fed", "drag"].map((k) => this.game.life.marks[k] ?? 0),
+    );
+  }
+  get temper(): Temper {
+    return temper(this.settings.pet);
+  }
+  get life(): Life {
+    return this.game.life;
+  }
+  stageNow(now: number): Stage {
+    return stage(bondPct(this.game), this.life, now);
+  }
+  /** Variables every line may use: the user's name and a remembered fact. */
+  private vars(extra?: Record<string, string>): Record<string, string> {
+    const v: Record<string, string> = {};
+    if (this.memory.address) v.name = this.memory.address;
+    const facts = this.memory.facts;
+    if (facts.length) v.fact = facts[Math.floor(this.random() * facts.length)];
+    v.pet = this.settings.pet;
+    return { ...v, ...extra };
+  }
+  /** Once a day per key; the day lives in memory.daily (persisted). */
+  once(key: string, day: string): boolean {
+    if (this.memory.daily?.[key] === day) return false;
+    this.memory.daily = { ...(this.memory.daily ?? {}), [key]: day };
+    this.memoryDirty = true;
+    return true;
+  }
+  private seen(key: string, day: string) {
+    return this.memory.daily?.[key] === day;
   }
   /** Left click on the pet: level, money and what hurts, in one line. */
   status(now: number): boolean {
@@ -263,21 +417,52 @@ export class Director {
     this.nextChatter =
       now + this.settings.commentMinutes * 60000 * (0.6 + this.random() * 0.7);
   }
+  /**
+   * Talking to itself: counting pixels, humming. Only when nothing else is
+   * going on, on its own slow timer (not the comment budget), never in the
+   * quiet modes.
+   */
+  mumble(now: number): boolean {
+    if (!this.nextMumble) {
+      this.nextMumble = now + (60000 + this.random() * 120000) / this.temper.mumble;
+      return false;
+    }
+    if (now < this.nextMumble) return false;
+    this.nextMumble = now + (120000 + this.random() * 240000) / this.temper.mumble;
+    if (
+      !this.settings.mumble ||
+      this.hidden ||
+      this.bubble ||
+      (this.reaction && this.reaction.until > now) ||
+      !["idle", "sit", "rest"].includes(this.base) ||
+      (this.last?.idle ?? 0) > 600000
+    )
+      return false;
+    const ok = this.event(this.sulkUntil > now ? "sigh" : "mumble", now);
+    const said = this.bubble as Bubble | undefined;
+    if (ok && said) said.kind = "mumble";
+    return ok;
+  }
   wanderFactor(): number {
     const m = mode(this.game);
-    return m === "ill" || m === "poor" ? 2 : m === "happy" ? 0.7 : 1;
+    const base = m === "ill" || m === "poor" ? 2 : m === "happy" ? 0.7 : 1;
+    return base;
   }
   private lastAlertAt = 0;
   /** Current mood, used to pick the tone of every line. */
-  mood(now: number): "scared" | "angry" | "sleepy" | "friendly" | "normal" {
+  mood(now: number): Mood {
     if (now - this.lastAlertAt < 90000) return "scared";
-    if (this.game.grudge >= 50) return "angry";
+    if (this.game.grudge >= 50 || this.sulkUntil > now) return "angry";
+    // Just woken up by a click still counts as asleep for the reply.
+    if (now - this.wokeAt < 4000 && ["sleep", "rest"].includes(this.wokeFrom)) return "sleepy";
     if (this.base === "sleep" || this.base === "rest") return "sleepy";
     const h = new Date(now).getHours();
     if (h < 6 && this.base !== "idle") return "sleepy";
+    if (this.game.feeling < 25 || this.game.health < 40) return "sad";
     if (bondPct(this.game) >= 60 && this.game.grudge < 20) return "friendly";
     return "normal";
   }
+  // --------------------------------------------------------------- touch
   /** Slow hand over the pet. */
   private lastPetGain = 0;
   petted(now: number) {
@@ -287,11 +472,22 @@ export class Director {
     this.lastPetGain = now;
     const before = bondPct(this.game);
     this.touch("pet", now);
-    this.event("pet", now, true);
+    note(this.life, "pet", now);
+    this.attend(now);
+    if (this.stolen > 0) {
+      const back = this.stolen;
+      this.stolen = 0;
+      this.game = { ...this.game, money: this.game.money + back };
+      this.event("giveBack", now, true, undefined, { n: String(Math.round(back)) });
+    } else this.event("pet", now, true);
+    if (this.sulkUntil > now) this.sulkUntil = 0;
+    if (this.last?.app) judgeApp(this.life, this.last.app, 0.5);
     this.bondCheck(before, now);
   }
   tickled(now: number) {
     this.touch("tickle", now);
+    note(this.life, "tickle", now);
+    this.attend(now);
     this.event("tickle", now, true);
   }
   /** Released with speed: counts the throw and complains. */
@@ -300,17 +496,44 @@ export class Director {
     if (this.game.throwsDay !== day) this.game = { ...this.game, throwsDay: day, throwsToday: 0 };
     this.game = { ...this.game, throwsToday: this.game.throwsToday + 1 };
     this.touch("throw", now);
+    note(this.life, "throw", now);
+    if (this.last?.app) judgeApp(this.life, this.last.app, -3);
     this.event("thrown", now, true, undefined, { n: String(this.game.throwsToday) });
+    // Three throws in ten minutes: sulks in a corner with its back turned.
+    if (lately(this.life, "throw", now, 600000) >= 3) this.sulkUntil = now + 4 * 60000;
   }
   impact(kind: "floor" | "wall" | "ceiling", now: number) {
-    this.game = { ...this.game, grudge: Math.min(100, this.game.grudge + 4) };
+    this.game = {
+      ...this.game,
+      grudge: Math.min(100, this.game.grudge + 4 * this.temper.revenge),
+    };
     this.event(kind === "floor" ? "ouch" : "bonk", now, true, undefined, {
       n: String(this.game.throwsToday),
     });
   }
+  /** After a throw landed: a silent stare, then "I will remember this". */
+  stare(now: number): boolean {
+    return this.event("stare", now, true, "");
+  }
+  remember(now: number): boolean {
+    const ok = this.event("remember", now, true);
+    if (ok && this.bubble) this.bubble.kind = "sign";
+    return ok;
+  }
+  /** Where a throw ended; habits grow around the edges it keeps hitting. */
+  landed(monitor: string, x: number) {
+    const key = `${monitor}|${Math.round(x / 160)}`;
+    this.life.landings[key] = (this.life.landings[key] ?? 0) + 1;
+    // Out of spite it starts sitting exactly there.
+    if (this.life.landings[key] >= 5) rememberSpot(this.life, monitor, x, 2);
+  }
   fed(now: number) {
     const before = bondPct(this.game);
     this.touch("fed", now);
+    note(this.life, "fed", now);
+    this.attend(now);
+    if (this.sulkUntil > now) this.sulkUntil = 0;
+    if (this.last?.app) judgeApp(this.life, this.last.app, 2);
     this.bondCheck(before, now);
   }
   private bondCheck(before: number, now: number) {
@@ -327,21 +550,43 @@ export class Director {
       if (this.moodClicks.length >= 3) return;
       this.moodClicks.push(now);
     }
+    const before = this.game.grudge;
     this.game = interact(this.game, kind);
+    // How much a throw or a poke hurts depends on the character.
+    if (this.game.grudge > before)
+      this.game = {
+        ...this.game,
+        grudge: Math.min(100, before + (this.game.grudge - before) * this.temper.revenge),
+      };
+  }
+  private attend(now: number) {
+    this.lastAttention = now;
+    this.wantAnnoy = false;
   }
   // Advances the progression by whole minutes since the last tick. Returns
   // true when the state changed so the scene can persist it.
   applyTick(now: number, env: TickEnv): boolean {
     const minutes = Math.floor((now - this.game.lastTick) / 60000);
     if (minutes < 1) return false;
-    // Resentment fades: about 1 point a minute.
+    // Resentment fades: about 1 point a minute, faster for forgiving pets.
     if (this.game.grudge > 0)
-      this.game = { ...this.game, grudge: Math.max(0, this.game.grudge - minutes) };
+      this.game = {
+        ...this.game,
+        grudge: Math.max(0, this.game.grudge - minutes * this.temper.forgive),
+      };
+    // A gap of more than two minutes means the app was closed or the PC
+    // slept: the pet was alone, not "present" with you for hours.
+    if (minutes > 2) {
+      this.game = {
+        ...away(this.game, this.game.lastTick, minutes - 1),
+        lastTick: this.game.lastTick + (minutes - 1) * 60000,
+      };
+    }
     env = { ...env, working: working(this.game, now) };
     const before = level(this.game.exp);
     this.game = {
-      ...tick(this.game, minutes, env),
-      lastTick: this.game.lastTick + minutes * 60000,
+      ...tick(this.game, 1, env),
+      lastTick: this.game.lastTick + 60000,
     };
     const after = level(this.game.exp);
     if (after > before)
@@ -351,14 +596,50 @@ export class Director {
       if (job) this.event("working", now, false, undefined, { job: job.name });
     } else if (this.settings.mode !== "dnd" && env.present) {
       const g = this.game;
-      if (g.health < 50) this.event("sick", now);
-      else if (g.food < 25) this.event("hungry", now);
-      else if (g.drink < 25) this.event("thirsty", now);
+      if (g.health < 50) this.needs("sick", now);
+      else if (g.food < 25) this.needs("hungry", now);
+      else if (g.drink < 25) this.needs("thirsty", now);
       else if (g.strength < 20) this.event("tired", now);
       else if (mode(g) === "poor") this.event("sad", now);
       else if (mode(g) === "happy") this.event("happy", now);
     }
     return true;
+  }
+  /** A need line comes with buttons: feed right here, or open the shop. */
+  private needs(name: "sick" | "hungry" | "thirsty", now: number) {
+    if (!this.event(name, now) || !this.bubble) return;
+    this.bubble.actions = [
+      {
+        id: "quickfeed:" + (name === "sick" ? "drug" : name === "thirsty" ? "drink" : "food"),
+        label: name === "sick" ? "Дать лекарство" : name === "thirsty" ? "Напоить" : "Покормить",
+      },
+      { id: "panel:shop", label: "Магазин" },
+    ];
+    this.bubble.until = Math.max(this.bubble.until, now + 12000);
+  }
+  /**
+   * Every couple of seconds from the scene, whether or not the pet is drawn:
+   * shift payout, the minute tick, achievements, chatter and mumbling.
+   */
+  heartbeat(now: number, env: TickEnv): { changed: boolean; paid: boolean; unlocked: Achievement[] } {
+    const paid = this.workPayout(now);
+    const ticked = this.applyTick(now, env);
+    const unlocked = unlock(this.life, {
+      level: level(this.game.exp),
+      stage: this.stageNow(now),
+      now,
+      jobs: this.game.jobsDone ?? 0,
+    });
+    for (const a of unlocked) {
+      this.game = { ...this.game, money: this.game.money + a.prize };
+      this.event("achievement", now, true, undefined, { name: a.name, prize: String(a.prize) });
+      if (this.bubble) this.bubble.kind = "sign";
+    }
+    if (!this.hidden) {
+      this.chatter(now);
+      this.mumble(now);
+    }
+    return { changed: paid || ticked || unlocked.length > 0, paid, unlocked };
   }
   private input(n: Snapshot) {
     const now = n.now;
@@ -374,6 +655,7 @@ export class Director {
     const clicks = Math.max(0, cur.clicks - prev.clicks);
     const right = Math.max(0, cur.rightClicks - prev.rightClicks);
     const wheel = Math.max(0, cur.wheel - prev.wheel);
+    if (keys || clicks || wheel) this.lastBusy = now;
     push(this.keyTimes, keys, 10000);
     push(this.clickTimes, clicks, 5000);
     push(this.wheelTimes, wheel, 8000);
@@ -420,17 +702,22 @@ export class Director {
       : undefined;
     if (now >= this.nextStats) {
       this.nextStats = now + (90 + this.random() * 60) * 60000;
-      if (vars && top && top.seconds >= 900 && n.idle < 120000)
-        this.event("stats", now, false, undefined, vars);
+      if (vars && top && top.seconds >= 900 && n.idle < 120000) {
+        // A jealous pet takes hours in one program personally.
+        if (this.temper.jealous && top.seconds > 7200) {
+          judgeApp(this.life, top.app, -6);
+          this.event("jealous", now, false, undefined, vars);
+        } else this.event("stats", now, false, undefined, vars);
+      }
     }
     const today = new Date(now).toLocaleDateString("sv");
     if (
       vars &&
       new Date(now).getHours() >= 21 &&
-      this.lastStatsDay !== today &&
+      !this.seen("statsDay", today) &&
       this.event("statsDay", now, false, undefined, vars)
     )
-      this.lastStatsDay = today;
+      this.once("statsDay", today);
   }
   event(
     name: string,
@@ -453,10 +740,34 @@ export class Director {
       this.reaction.rule.priority > r.priority
     )
       return false;
+    const quiet = !direct && quietNow(this.settings, now);
+    const phrase =
+      text ??
+      (quiet
+        ? undefined
+        : this.dialogue.choose(
+            name,
+            this.settings,
+            now,
+            direct,
+            this.vars(vars),
+            this.mood(now),
+            stageKeys[this.stageNow(now)],
+          ));
+    // An ambient line that could not be said keeps its turn: it is tried
+    // again later instead of burning a 20-minute cooldown in silence.
+    if (
+      phrase === undefined &&
+      !direct &&
+      this.dialogue.ambientBlocked(name, this.settings, now) &&
+      this.settings.comments &&
+      this.settings.mode === "normal" &&
+      !quiet
+    )
+      return false;
     this.cooldown.set(name, now);
     this.reaction = { event: name, rule: r, until: now + r.duration };
-    const phrase =
-      text ?? this.dialogue.choose(name, this.settings, now, direct, vars, this.mood(now));
+    if (ATTENTION.has(name)) this.attend(now);
     // An open question (autostart prompt) is not talked over by chatter.
     const asking =
       this.bubble?.actions?.some((a) => a.id.startsWith("autorun-")) &&
@@ -471,6 +782,10 @@ export class Director {
     }
     return true;
   }
+  /** Forget a cooldown (games and commands can repeat a reaction at once). */
+  reset(name: string) {
+    this.cooldown.delete(name);
+  }
   updateSettings(s: Settings) {
     const changed = s.pet !== this.settings.pet;
     this.settings = s;
@@ -481,9 +796,10 @@ export class Director {
     if (!s.comments) this.bubble = undefined;
   }
   action(now: number): Action {
-    if (this.reaction && this.reaction.until > now)
+    if (this.reaction && this.reaction.until > now && this.reaction.rule.action)
       return this.reaction.rule.action;
-    this.reaction = undefined;
+    if (this.reaction && this.reaction.until <= now) this.reaction = undefined;
+    if (this.sulkUntil > now && ["idle", "sit", "look"].includes(this.base)) return "sulk";
     return this.base;
   }
   tick(now: number) {
@@ -495,30 +811,106 @@ export class Director {
   wake(now: number) {
     if (this.settings.mode === "dnd") return;
     if (this.base === "sleep" || this.base === "rest") {
+      this.wokeAt = now;
+      this.wokeFrom = this.base;
       this.base = "idle";
       this.cooldown.set("sleep", now);
+      note(this.life, "wake", now);
+      // Woken three times within an hour: the next wake-up starts with a face.
+      if (lately(this.life, "wake", now, 3600000) >= 3) this.event("grumpyWake", now, true);
     }
   }
-  click(now: number) {
+  click(now: number, withStatus = true) {
     this.clicks = this.clicks.filter((t) => now - t < 6000);
     this.clicks.push(now);
     const poke = this.clicks.length >= 3;
     this.touch(poke ? "poke" : "click", now);
-    this.event(poke ? "poke" : "click", now, true);
+    note(this.life, poke ? "poke" : "click", now);
+    const said = this.event(poke ? "poke" : "click", now, true);
+    if (!withStatus) return;
+    // The reply stays; the status (level, money, what hurts) goes under it.
+    if (said && this.bubble && this.reaction?.event === (poke ? "poke" : "click"))
+      this.bubble = { ...this.bubble, sub: statusLine(this.game, now), until: Math.max(this.bubble.until, now + 6000) };
+    else this.status(now);
   }
-  dragged(now: number) {
+  /**
+   * Picked up. Returns how long (ms) the pet clings to its spot before it
+   * comes loose: 0 normally, up to 1.5 s when it has been dragged or
+   * thrown a lot lately.
+   */
+  grabbed(now: number, fromWindow: boolean): number {
+    const throws = lately(this.life, "throw", now, 20 * 60000);
+    const drags = lately(this.life, "drag", now, 10 * 60000);
+    const evicts = fromWindow ? lately(this.life, "evict", now, 10 * 60000) : 0;
+    if (throws >= 2) this.event("regrab", now, true, undefined, { n: String(count(this.life, "throw")) });
+    if (this.settings.mode !== "normal") return 0;
+    if (throws >= 2 || drags >= 4 || evicts >= 2)
+      return Math.min(1500, 600 + 250 * Math.max(throws, drags - 2, evicts) * this.temper.revenge);
+    return 0;
+  }
+  dragged(now: number, fromWindow = false) {
     this.touch("drag", now);
+    note(this.life, "drag", now);
+    if (fromWindow) note(this.life, "evict", now);
+    this.attend(now);
   }
-  summoned(now: number) {
+  /** Shaken while held (or tumbled after a throw). */
+  dizzy(now: number, amount: number) {
+    if (amount < 1) return false;
+    note(this.life, "dizzy", now);
+    this.game = { ...this.game, grudge: Math.min(100, this.game.grudge + amount * 2 * this.temper.revenge) };
+    return this.event("dizzy", now, true);
+  }
+  /** The window it rode on jerked around. */
+  seasick(now: number) {
+    note(this.life, "seasick", now);
+    return this.event("seasick", now, true);
+  }
+  /**
+   * The window under the pet vanished or was minimised. Remembers whose it
+   * was; a program that keeps doing it becomes a favourite perch, out of spite.
+   */
+  fell(now: number, app: string) {
+    note(this.life, "fall", now);
+    if (app) {
+      const a = app.toLowerCase();
+      this.life.closedUnder[a] = (this.life.closedUnder[a] ?? 0) + 1;
+      if (this.life.closedUnder[a] >= 3 && this.event("closedAgain", now, true, undefined, { app: appName(a) }))
+        return;
+    }
+    this.event("fall", now);
+  }
+  /** Programs whose windows keep vanishing under it (it seeks them out). */
+  spiteful(app: string) {
+    return (this.life.closedUnder[app.toLowerCase()] ?? 0) >= 3;
+  }
+  /** The user interrupted a walk or a climb; repeating it out of spite. */
+  cancelled(now: number): boolean {
+    note(this.life, "cancel", now);
+    return lately(this.life, "cancel", now, 5 * 60000) >= 2;
+  }
+  summoned(now: number): boolean {
     this.touch("summon", now);
+    // Offended or woken too often: pretends to be asleep for a moment.
+    const fake =
+      this.settings.mode === "normal" &&
+      (this.game.grudge >= 40 || lately(this.life, "wake", now, 3600000) >= 2) &&
+      this.random() < 0.6;
+    return fake;
   }
   // Someone launched a console / script host / system tool (trace.rs).
   trace(e: TraceEvent, now: number) {
     if (!this.settings.observeProcesses) return false;
-    if (e.speak === "alert") this.lastAlertAt = now;
-    const say = traceSpeech(e);
+    if (e.speak === "alert") {
+      this.lastAlertAt = now;
+      note(this.life, "alert", now);
+    }
+    const detail = skill(this.game, "vigilance") + (skill(this.game, "brain") >= 3 ? 1 : 0);
+    const say = traceSpeech(e, detail);
     if (!say) return false;
-    const ok = this.event(say.event, now, say.direct, undefined, say.vars);
+    // On guard duty even quiet background launches are reported.
+    const guard = this.life.role?.id === "guard" && this.life.role.until > now;
+    const ok = this.event(say.event, now, say.direct || guard, undefined, say.vars);
     if (ok && this.bubble) {
       const actions: BubbleAction[] = [];
       const target = revealTarget(e);
@@ -631,6 +1023,46 @@ export class Director {
         });
     }
   }
+  /** True inside the night-sleep window: an hour after "late" until 06:00. */
+  nightTime(now: number): boolean {
+    if (!this.settings.nightSleep) return false;
+    const h = new Date(now).getHours();
+    const from = (this.settings.lateHour + 1) % 24;
+    return from < 6 ? h >= from && h < 6 : h >= from || h < 6;
+  }
+  // Days, dates and the time of day: once-a-day lines, streaks, holidays.
+  private calendar(n: Snapshot, present: boolean) {
+    const now = n.now;
+    const today = new Date(now).toLocaleDateString("sv");
+    if (!present) return;
+    if (visitDay(this.life, now) && this.life.streak >= 2)
+      this.event("streak", now, false, undefined, { n: String(this.life.streak) });
+    const h = holiday(now, this.memory.birthday, this.life.since);
+    if (h && !this.seen("holiday", today)) {
+      const ok =
+        h.id === "birthday"
+          ? this.event("birthday", now, true)
+          : this.event("holiday", now, false, undefined, { holiday: h.name });
+      if (ok) this.once("holiday", today);
+    }
+    const part = dayPart(now);
+    if (part === "morning" && !this.seen("morning", today) && this.event("morning", now))
+      this.once("morning", today);
+    const hour = new Date(now).getHours();
+    if (hour >= 12 && hour < 14 && !this.seen("lunch", today) && this.event("lunch", now))
+      this.once("lunch", today);
+    if (weekend(now) && !this.seen("weekend", today) && this.event("weekend", now))
+      this.once("weekend", today);
+    // After one at night and still typing: counted, remarked once.
+    if (hour >= 1 && hour < 5 && now - this.lastBusy < 60000) {
+      const night = nightKey(now);
+      if (!this.seen("owl", night)) {
+        note(this.life, "owl", now);
+        this.once("owl", night);
+        this.event("nightOwl", now);
+      }
+    }
+  }
   observe(n: Snapshot) {
     const now = n.now,
       s = this.settings,
@@ -647,20 +1079,23 @@ export class Director {
     const occupied =
       n.media.playing || n.controller || cat === "game" || n.fullscreen;
     const idle = s.observeIdle && !occupied ? n.idle : 0;
+    const night = this.nightTime(now) && !occupied;
     this.base =
       working(this.game, now)
-        ? "sit"
+        ? "busy"
         : s.mode === "dnd"
-        ? "sleep"
-        : idle > s.sleepMinutes * 60000
           ? "sleep"
-          : idle > s.idleMinutes * 60000
-            ? "rest"
-            : n.media.playing
-              ? "sit"
-              : this.game.strength < 20
-                ? "rest"
-                : "idle";
+          : idle > s.sleepMinutes * 60000 || night
+            ? "sleep"
+            : idle > s.idleMinutes * 60000
+              ? "rest"
+              : n.media.playing
+                ? "sit"
+                : this.game.strength < 20
+                  ? "rest"
+                  : "idle";
+    // Somebody woke it up a moment ago: not straight back to sleep.
+    if (this.base === "sleep" && night && now - this.wokeAt < 5 * 60000) this.base = "idle";
     const elapsed = Math.min(5, Math.max(0, (now - (p?.now ?? now)) / 1000));
     this.energy += elapsed * (this.base === "sleep" ? 0.001 : -0.00005);
     this.energy = clamp(this.energy, 0.2, 1);
@@ -674,6 +1109,7 @@ export class Director {
     if (this.memory.lastGreeting !== today) {
       if (this.event("hello", now)) {
         this.memory.lastGreeting = today;
+        this.memoryDirty = true;
       }
     }
     if (s.mode === "dnd") {
@@ -685,17 +1121,21 @@ export class Director {
       this.switches = [];
       return;
     }
+    const present = n.idle < 60000 && !n.locked;
+    // The "ignored" clock starts with the session, not with the last pat.
+    if (!p) this.lastAttention = Math.max(this.lastAttention, now);
     if (p) {
       if (this.wasIdle && idle < 2000) this.event("return", now);
       if (!this.wasIdle && idle > s.idleMinutes * 60000)
         this.event("idle", now);
-      if (this.base === "sleep" && p.idle <= s.sleepMinutes * 60000)
+      if (this.base === "sleep" && p.idle <= s.sleepMinutes * 60000 && !night)
         this.event("sleep", now);
       if (n.monitors.length > p.monitors.length) this.event("monitor", now);
       if (s.observeApps && n.app && n.app !== this.currentApp) {
         const old = category(this.currentApp, s);
         this.switches = this.switches.filter((v) => now - v.time < 90000);
         this.switches.push({ app: n.app, time: now });
+        const feel = opinion(this.life, n.app);
         if (cat === "game") {
           this.editorBeforeGame = old === "editor";
           this.gameSeen = true;
@@ -706,7 +1146,11 @@ export class Director {
             now,
           );
           this.gameSeen = false;
-        } else if (["editor", "chat"].includes(cat)) this.event(cat, now);
+        } else if (feel <= -25)
+          this.event("judgeApp", now, false, undefined, { app: appName(n.app) });
+        else if (feel >= 40 && this.random() < 0.3)
+          this.event("likeApp", now, false, undefined, { app: appName(n.app) });
+        else if (["editor", "chat", "video"].includes(cat)) this.event(cat, now);
         this.currentApp = n.app;
         this.appSince = now;
         if (this.switches.filter((v) => now - v.time < 12000).length >= 7)
@@ -723,6 +1167,7 @@ export class Director {
         now - this.appSince > s.longSessionMinutes * 60000
       ) {
         this.event("long", now);
+        if (this.temper.jealous) judgeApp(this.life, n.app, -2);
         this.appSince = now;
       }
       if (s.observeMedia) {
@@ -771,12 +1216,14 @@ export class Director {
         else this.event("desktop", now);
       }
       // Focus moved to another big window on the pet's screen: sometimes
-      // climb onto it.
+      // climb onto it — almost always if it is a program whose windows keep
+      // vanishing under it.
       if (n.foreground !== p.foreground && s.walk && s.perch && !s.pinned) {
         const w = n.windows.find((x) => x.id === n.foreground);
         const m = n.monitors.find(
           (mm) => this.petX >= mm.bounds.left && this.petX < mm.bounds.right,
         );
+        const chance = this.spiteful(n.app) ? 0.85 : 0.35;
         if (
           w &&
           m &&
@@ -784,7 +1231,7 @@ export class Director {
           w.rect.right > m.work.left &&
           w.rect.top > m.work.top + s.size * m.scale * 1.3 &&
           w.rect.right - w.rect.left > 400 * m.scale &&
-          this.random() < 0.35 &&
+          this.random() < chance &&
           this.event("hop", now)
         )
           this.wantHop = {
@@ -802,9 +1249,30 @@ export class Director {
       const before = p.env?.drives ?? drives;
       if (drives & ~before) this.event("driveIn", now);
       else if (before & ~drives) this.event("driveOut", now);
+      // Ignored for 45 minutes while you are busy: walks right under the cursor.
+      if (
+        s.mode === "normal" &&
+        s.walk &&
+        !s.pinned &&
+        present &&
+        now - this.lastBusy < 5000 &&
+        now - this.lastAttention > 45 * 60000 &&
+        this.event("attention", now)
+      )
+        this.wantAnnoy = true;
+      // Asleep at night while you keep working: wakes, squints at the clock,
+      // lies back down.
+      if (night && this.base === "sleep" && now - this.lastBusy < 10000 && now >= this.nextNightCheck) {
+        this.nextNightCheck = now + (10 + this.random() * 15) * 60000;
+        this.event("nightCheck", now, false, undefined, {
+          time: new Date(now).toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+        });
+      }
     }
-    if (new Date(now).getHours() >= s.lateHour && this.lastNight !== today) {
-      if (this.event("night", now)) this.lastNight = today;
+    if (p) this.calendar(n, present);
+    const late = new Date(now).getHours() >= s.lateHour || new Date(now).getHours() < 5;
+    if (late && present && !this.seen("night", nightKey(now))) {
+      if (this.event("night", now)) this.once("night", nightKey(now));
     }
     if (p) this.desktop(n, p);
     // Cursor jitter does not wake a sleeping pet; it only twitches.
@@ -818,5 +1286,17 @@ export class Director {
     this.usage(n);
     this.wasIdle = idle > s.idleMinutes * 60000;
     this.last = n;
+  }
+  /** Rest spot habit: called when it settles down somewhere. */
+  settled(monitor: string, x: number) {
+    rememberSpot(this.life, monitor, x);
+  }
+  /** Time since the user last paid attention (clicks, petting, food), ms. */
+  ignoredFor(now: number) {
+    return now - this.lastAttention;
+  }
+  /** Minutes since `kind` last happened (for lines and tests). */
+  since(kind: string, now: number) {
+    return since(this.life, kind, now);
   }
 }

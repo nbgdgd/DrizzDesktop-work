@@ -66,7 +66,7 @@ fn load() -> Usage {
     }
 }
 fn with<T>(f: impl FnOnce(&mut Usage) -> T) -> T {
-    let mut guard = USAGE.lock().unwrap();
+    let mut guard = USAGE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if guard.is_none() {
         *guard = Some(load());
     }
@@ -112,14 +112,14 @@ fn write(u: &mut Usage) {
 /// Periodic flush from the observe loop so the last minute of a session is
 /// not lost when the user walks away before the next record.
 pub fn flush_if_stale() {
-    if let Some(u) = USAGE.lock().unwrap().as_mut() {
+    if let Some(u) = USAGE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
         if u.dirty && u.last_flush.elapsed() >= Duration::from_secs(60) {
             write(u);
         }
     }
 }
 pub fn flush() {
-    if let Some(u) = USAGE.lock().unwrap().as_mut() {
+    if let Some(u) = USAGE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
         write(u);
     }
 }

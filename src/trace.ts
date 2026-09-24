@@ -159,8 +159,11 @@ export const originLabel = (p: TraceProc | null) =>
   p ? appName(p.name) + (p.role ? ` (${p.role})` : "") : "";
 
 /// Director event name and phrase variables for a trace notification.
+/// `detail` (vigilance and brains upgrades) adds more flags and, from 2 up,
+/// the launch chain to the explanation.
 export function traceSpeech(
   e: TraceEvent,
+  detail = 0,
 ): { event: string; vars: Record<string, string>; direct: boolean } | null {
   if (e.speak === "none") return null;
   const o = e.origin;
@@ -168,13 +171,15 @@ export function traceSpeech(
     ? [whereLabel(o), signLabel(o)].filter(Boolean).join(", ")
     : "";
   const via = viaLabel(e);
+  const chain =
+    detail >= 2 && e.chain.length > 1 ? `; цепочка: ${e.chain.slice(0, 4).map(appName).join(" ← ")}` : "";
   const vars = {
     child: childName(e.child.name),
     origin: originLabel(o) + (via ? ` (${via})` : ""),
-    details: details ? `, ${details}` : "",
+    details: (details ? `, ${details}` : "") + chain,
     flags: e.flags
       .filter((f) => !["background", "flash"].includes(f))
-      .slice(0, 2)
+      .slice(0, 2 + Math.max(0, detail))
       .map((f) => flagLabels[f] ?? f)
       .join(", "),
   };
