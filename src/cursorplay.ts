@@ -85,6 +85,8 @@ export class CursorPlay {
   private lastGo = { x: NaN, t: 0 };
   private hitAt = 0;
   private pounced = false;
+  /** When this revenge started: retries after slips stop after a minute. */
+  private huntStart = 0;
   /** Ignore cursor speed right after we moved it ourselves. */
   private ownMoveUntil = 0;
   get busy() {
@@ -188,8 +190,9 @@ export class CursorPlay {
         return this.pounce(i, chase);
       case "slip":
         if (now >= this.until) {
-          // Clumsy keeps trying; everybody else gives up and watches.
-          if (chase === "clumsy" && this.swats < i.temper.swats && i.grudge >= i.temper.huntAt * 0.5) {
+          // Picks itself up and tries again while the revenge is not done
+          // (the lazy one does not bother).
+          if (chase !== "lazy" && this.swats < i.temper.swats && i.grudge >= i.temper.huntAt * 0.5 && now - this.huntStart < 60000) {
             this.enter("hunt", now, 15000);
             return {};
           }
@@ -283,6 +286,7 @@ export class CursorPlay {
     if (i.grudge >= i.temper.huntAt && i.wronged < 15 * 60000 && now >= this.nextHunt) {
       this.nextHunt = now + 90000;
       this.swats = 0;
+      this.huntStart = now;
       if (chase === "lecture") {
         this.enter("lecture", now, 4500);
         return { say: "cursorLecture", action: "judge", until: now + 4500, stop: true };

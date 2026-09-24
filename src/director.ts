@@ -339,6 +339,8 @@ export class Director {
   sulkUntil = 0;
   /** Coins taken by mischief, returned on petting. */
   stolen = 0;
+  /** Achievements unlocked but not yet shown. */
+  private announce: Achievement[] = [];
   private wokeAt = 0;
   private wokeFrom: Action = "idle";
   private lastAttention = 0;
@@ -632,8 +634,16 @@ export class Director {
     });
     for (const a of unlocked) {
       this.game = { ...this.game, money: this.game.money + a.prize };
-      this.event("achievement", now, true, undefined, { name: a.name, prize: String(a.prize) });
-      if (this.bubble) this.bubble.kind = "sign";
+      this.announce.push(a);
+    }
+    // Announced one at a time, when nothing more important is on screen.
+    const next = this.announce[0];
+    if (next && !this.hidden) {
+      this.reset("achievement");
+      if (this.event("achievement", now, true, undefined, { name: next.name, prize: String(next.prize) })) {
+        this.announce.shift();
+        if (this.bubble) this.bubble.kind = "sign";
+      }
     }
     if (!this.hidden) {
       this.chatter(now);
@@ -656,6 +666,13 @@ export class Director {
     const right = Math.max(0, cur.rightClicks - prev.rightClicks);
     const wheel = Math.max(0, cur.wheel - prev.wheel);
     if (keys || clicks || wheel) this.lastBusy = now;
+    // Asleep it does not see what you type or click.
+    if (this.base === "sleep") {
+      this.keyTimes = [];
+      this.clickTimes = [];
+      this.wheelTimes = [];
+      return;
+    }
     push(this.keyTimes, keys, 10000);
     push(this.clickTimes, clicks, 5000);
     push(this.wheelTimes, wheel, 8000);
