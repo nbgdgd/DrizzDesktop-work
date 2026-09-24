@@ -203,6 +203,11 @@ export interface Settings {
   earsMax: number;
   earsBreak: number;
   earsAutoLower: boolean;
+  /** Spike guard (guard.rs): a hard volume ceiling on headphones, percent. */
+  earsGuard: boolean;
+  earsCeiling: number;
+  /** Volume set when headphones are plugged in or the PC wakes, percent (0 = off). */
+  earsSafe: number;
   earsRest: boolean;
   earsRestMinutes: number;
   earsRestDim: number;
@@ -303,6 +308,9 @@ export const defaults: Settings = {
   earsMax: 100,
   earsBreak: 60,
   earsAutoLower: false,
+  earsGuard: false,
+  earsCeiling: 60,
+  earsSafe: 20,
   earsRest: false,
   earsRestMinutes: 20,
   earsRestDim: 50,
@@ -420,6 +428,9 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   if (s.earsDevice !== "always") s.earsDevice = "auto";
   s.earsMax = clamp(Number(s.earsMax) || 100, 85, 120);
   s.earsBreak = clamp(Number(s.earsBreak) || 60, 15, 180);
+  s.earsGuard = s.earsGuard === true;
+  s.earsCeiling = clamp(Math.round(Number(s.earsCeiling) || 60), 10, 95);
+  s.earsSafe = clamp(Math.round(Number.isFinite(Number(s.earsSafe)) ? Number(s.earsSafe) : 20), 0, 60);
   s.earsRestMinutes = clamp(Number(s.earsRestMinutes) || 20, 5, 120);
   s.earsRestDim = clamp(Number.isFinite(Number(s.earsRestDim)) ? Number(s.earsRestDim) : 50, 10, 90);
   s.balance = clamp(Math.round(Number(s.balance) || 0), -100, 100);

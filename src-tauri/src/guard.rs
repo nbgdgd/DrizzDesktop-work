@@ -1,0 +1,155 @@
+// Ear guard (ideas from EarGuard-style volume spike protectors): a hard
+// volume ceiling while headphones are on, checked every 15 ms, so a spike
+// (an app or a DAC jumping to 100 %) is cut back almost at once; and a safe
+// volume applied when headphones are plugged in or the PC wakes from sleep.
+// Works on the default output's master volume, i.e. the Windows slider.
+// Settings (percent): earsGuard, earsCeiling, earsSafe, earsDevice.
+use crate::{env, storage::{enabled, State}};
+use serde::Serialize;
+use serde_json::Value;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
+use tauri::Manager;
+use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+use windows::Win32::System::Com::CLSCTX_ALL;
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuardEvent {
+    /// "clamp" (a spike was cut), "plug" (headphones in), "wake" (after sleep).
+    pub kind: &'static str,
+    /// Volume before and after, percent.
+    pub from: u32,
+    pub to: u32,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+struct Config {
+    on: bool,
+    ceiling: f32,
+    safe: f32,
+    always: bool,
+}
+fn config(s: &Value) -> Config {
+    let pct = |k: &str, d: f64| (s.get(k).and_then(Value::as_f64).unwrap_or(d).clamp(0., 100.) / 100.) as f32;
+    Config {
+        on: enabled(s, "ears", true) && enabled(s, "earsGuard", false),
+        ceiling: pct("earsCeiling", 60.).max(0.05),
+        safe: pct("earsSafe", 20.),
+        always: s.get("earsDevice").and_then(Value::as_str) == Some("always"),
+    }
+}
+
+struct Device {
+    id: String,
+    volume: IAudioEndpointVolume,
+    headphones: bool,
+}
+fn open() -> Option<Device> {
+    let d = env::default_device()?;
+    let volume: IAudioEndpointVolume = unsafe { d.Activate(CLSCTX_ALL, None).ok()? };
+    Some(Device { id: env::device_id(&d), headphones: env::ears_device(&d).1, volume })
+}
+fn level(v: &IAudioEndpointVolume) -> Option<f32> {
+    unsafe { v.GetMasterVolumeLevelScalar().ok() }
+}
+fn set(v: &IAudioEndpointVolume, x: f32) {
+    unsafe {
+        let _ = v.SetMasterVolumeLevelScalar(x, std::ptr::null());
+    }
+}
+fn pct(x: f32) -> u32 {
+    (x * 100.).round() as u32
+}
+
+pub fn start(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        env::init();
+        let mut dev: Option<Device> = None;
+        let mut cfg: Option<Config> = None;
+        let mut checked = Instant::now() - Duration::from_secs(10);
+        let mut tick = Instant::now();
+        let mut last_note = Instant::now() - Duration::from_secs(60);
+        let mut first = true;
+        while !app.state::<State>().stop.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(15));
+            // A long gap between two 15 ms ticks = the PC was asleep.
+            let woke = tick.elapsed() > Duration::from_secs(5);
+            tick = Instant::now();
+            // Settings and the device once a second (enumeration is not free).
+            if checked.elapsed() >= Duration::from_secs(1) || woke {
+                checked = Instant::now();
+                let s = app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings.clone();
+                let c = config(&s);
+                cfg = Some(c);
+                if !c.on {
+                    dev = None;
+                    first = true;
+                    continue;
+                }
+                let before = dev.as_ref().map(|d| (d.id.clone(), d.headphones));
+                dev = open();
+                let now_on = dev.as_ref().is_some_and(|d| d.headphones);
+                let plugged = !first && now_on && before.as_ref().map_or(true, |(id, hp)| !hp || dev.as_ref().is_some_and(|d| &d.id != id));
+                first = false;
+                if let (Some(d), true) = (dev.as_ref(), (plugged || woke) && (now_on || c.always) && c.safe > 0.) {
+                    if let Some(x) = level(&d.volume) {
+                        if x > c.safe + 0.005 {
+                            set(&d.volume, c.safe);
+                            notify(&app, GuardEvent { kind: if woke { "wake" } else { "plug" }, from: pct(x), to: pct(c.safe) });
+                        }
+                    }
+                }
+            }
+            let (Some(c), Some(d)) = (cfg, dev.as_ref()) else { continue };
+            if !c.on || !(d.headphones || c.always) {
+                continue;
+            }
+            let Some(x) = level(&d.volume) else {
+                dev = None;
+                continue;
+            };
+            if x > c.ceiling + 0.005 {
+                set(&d.volume, c.ceiling);
+                // One line per burst, not one per tick while an app keeps pushing.
+                if last_note.elapsed() > Duration::from_secs(4) {
+                    last_note = Instant::now();
+                    notify(&app, GuardEvent { kind: "clamp", from: pct(x), to: pct(c.ceiling) });
+                }
+            }
+        }
+    });
+}
+fn notify(app: &tauri::AppHandle, e: GuardEvent) {
+    if let Some(w) = app.get_window("pet") {
+        let _ = w.emit("ear-guard", e);
+    }
+}
+
+/// The "check" button: pushes the volume 2 % over the ceiling and reports
+/// whether and how fast the guard pulled it back (milliseconds).
+#[tauri::command]
+pub fn ear_guard_test(state: tauri::State<State>) -> Result<u32, String> {
+    let c = config(&state.store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings);
+    if !c.on {
+        return Err("off".into());
+    }
+    env::init();
+    let d = open().ok_or("No audio output")?;
+    if !(d.headphones || c.always) {
+        return Err("no headphones".into());
+    }
+    let before = level(&d.volume).unwrap_or(c.ceiling).min(c.ceiling);
+    let t = Instant::now();
+    set(&d.volume, (c.ceiling + 0.02).min(1.));
+    while t.elapsed() < Duration::from_millis(600) {
+        std::thread::sleep(Duration::from_millis(2));
+        if level(&d.volume).is_some_and(|x| x <= c.ceiling + 0.005) {
+            let ms = t.elapsed().as_millis() as u32;
+            set(&d.volume, before);
+            return Ok(ms.max(1));
+        }
+    }
+    set(&d.volume, before);
+    Err("not clamped".into())
+}

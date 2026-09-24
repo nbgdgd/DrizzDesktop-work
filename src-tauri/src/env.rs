@@ -92,7 +92,7 @@ pub fn init() {
     }
 }
 
-fn default_device() -> Option<IMMDevice> {
+pub(crate) fn default_device() -> Option<IMMDevice> {
     unsafe {
         let enumerator: IMMDeviceEnumerator =
             CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
@@ -176,7 +176,7 @@ fn headphones_behind() -> Option<IMMDevice> {
     }
 }
 
-fn device_id(device: &IMMDevice) -> String {
+pub(crate) fn device_id(device: &IMMDevice) -> String {
     unsafe {
         device
             .GetId()
@@ -191,7 +191,7 @@ fn device_id(device: &IMMDevice) -> String {
 }
 
 /// The device the user actually hears and whether it is headphones.
-fn ears_device(default: &IMMDevice) -> (Option<IMMDevice>, bool) {
+pub(crate) fn ears_device(default: &IMMDevice) -> (Option<IMMDevice>, bool) {
     if is_headphones(default) {
         return (None, true);
     }

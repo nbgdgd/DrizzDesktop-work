@@ -354,6 +354,13 @@ export class PetScene extends Phaser.Scene {
       await this.subscribe<Motion>("motion", (m) => this.onMotion(m));
       await this.subscribe<Snapshot>("snapshot", (n) => this.onSnapshot(n));
       await this.subscribe("summon", () => this.summon());
+      // The spike guard cut the volume or set a safe one (guard.rs).
+      await this.subscribe<{ kind: string; from: number; to: number }>("ear-guard", (e) => {
+        const name = e.kind === "clamp" ? "earsGuardClamp" : e.kind === "wake" ? "earsGuardWake" : "earsGuardPlug";
+        this.brain.event(name, Date.now(), true, undefined, { from: String(e.from), to: String(e.to) });
+        if (e.kind === "clamp") this.voice.act("punch", 300);
+        this.game.loop.wake();
+      });
       await this.subscribe("recenter", () => this.recenter());
       await this.subscribe<TraceEvent>("trace", (e) => {
         this.diag.log(

@@ -2,6 +2,7 @@
 mod autoruns;
 mod chores;
 mod env;
+mod guard;
 mod integration;
 mod load;
 mod native;
@@ -646,6 +647,7 @@ fn main() {
             trace::start(a.clone());
             autoruns::start(a.clone());
             load::start(a.clone());
+            guard::start(a.clone());
             if storage::diag_enabled(&app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 let list = native::monitors();
                 storage::diag("rs", &format!("start {} monitors: {}", list.len(), list.iter().map(|m| format!("{} bounds {},{},{},{} work {},{},{},{} scale {} primary {}", m.id, m.bounds.left, m.bounds.top, m.bounds.right, m.bounds.bottom, m.work.left, m.work.top, m.work.right, m.work.bottom, m.scale, m.primary)).collect::<Vec<_>>().join("; ")));
@@ -692,6 +694,7 @@ fn main() {
             chat,
             set_balance,
             set_volume,
+            guard::ear_guard_test,
             diag_enabled,
             diag_log
         ])

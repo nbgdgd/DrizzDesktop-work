@@ -1,7 +1,7 @@
 // Ear care (ears.ts) and the language / swearing switch in dialogue.
 import { describe, expect, it } from "vitest";
 import { EarSample, allowedHours, dbVolume, earLevel, earTick, emptyEars, gains, levels, volumeDb, weekly } from "./ears";
-import { defaults, Settings } from "./model";
+import { cleanSettings, defaults, Settings } from "./model";
 import { Director } from "./director";
 import { emptyMemory } from "./model";
 import { newGame } from "./game";
@@ -177,5 +177,23 @@ describe("language and swearing", () => {
     expect(parse("go away")?.cmd).toBe("go");
     expect(parse("let's play")?.cmd).toBe("play");
     expect(parse("сядь")?.cmd).toBe("sit");
+  });
+});
+describe("spike guard settings", () => {
+  it("is off by default and keeps the ceiling and plug-in volume in range", () => {
+    const d = cleanSettings({});
+    expect(d.earsGuard).toBe(false);
+    expect(d.earsCeiling).toBe(60);
+    expect(d.earsSafe).toBe(20);
+    const s = cleanSettings({ earsGuard: true, earsCeiling: 200, earsSafe: -5 });
+    expect(s.earsGuard).toBe(true);
+    expect(s.earsCeiling).toBe(95);
+    expect(s.earsSafe).toBe(0);
+  });
+  it("has guard lines in both languages with the same variables", () => {
+    for (const k of ["earsGuardClamp", "earsGuardPlug", "earsGuardWake"]) {
+      expect(phrases[k]?.length).toBeGreaterThan(0);
+      expect(en[k]?.length).toBeGreaterThan(0);
+    }
   });
 });

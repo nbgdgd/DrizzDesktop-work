@@ -61,8 +61,8 @@ export const readTime = (text: string) => clamp(1200 + text.length * 55, 2500, 8
  * anything at priority 90 or above (direct touches, alerts, autostart).
  */
 /** Ear lines that must be said now, not queued behind the chatter budget. */
-const EARS_DIRECT = new Set(["earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
-export const WORK_ALLOWED = new Set(["earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
+const EARS_DIRECT = new Set(["earsGuardClamp", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
+export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
   "work",
   "workDone",
   "levelUp",
@@ -208,6 +208,10 @@ export const rules: Record<string, Rule> = {
   earsDose80: rule("judge", 70, 3600000, 3000),
   earsDose100: rule("pained", 85, 3600000, 3500),
   earsLowered: rule("busy", 86, 60000, 2500),
+  // Spike guard (guard.rs): a spike was cut / a safe volume was set.
+  earsGuardClamp: rule("swat", 88, 20000, 1200),
+  earsGuardPlug: rule("look", 70, 60000, 2000),
+  earsGuardWake: rule("stretch", 70, 60000, 2500),
   earsUneven: rule("look", 50, 3600000, 2500),
   earsRestSwap: rule("look", 42, 60000, 1800),
   earsThanks: rule("wave", 60, 5000, 1800),

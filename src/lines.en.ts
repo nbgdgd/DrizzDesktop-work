@@ -1606,6 +1606,19 @@ Object.assign(en, {
     "The weekly limit is spent. Seriously, turn down the volume or let your ears rest.",
     "You've listened through the weekly norm: {pct}%. Only quiet from now on, please.",
   ],
+  earsGuardClamp: [
+    "Volume jumped to {from}%, I cut it back to {to}%. Ears intact.",
+    "Whack — back to {to}%. Something tried to blast {from}%.",
+    "A spike to {from}% didn't get through. Holding {to}%.",
+  ],
+  earsGuardPlug: [
+    "Headphones on. Set a safe {to}%, turn it up yourself.",
+    "Headphones in — quiet first, {to}%. Then go for it.",
+  ],
+  earsGuardWake: [
+    "We're up. Sound at {to}% so you don't go deaf on the doorstep.",
+    "After sleep I set {to}%. Who knows what was playing.",
+  ],
   earsLowered: [
     "I turned the sound down myself. Your ears matter more than your track, damn it.",
     "Weekly allowance is gone — I turned the volume down. Don't thank me.",

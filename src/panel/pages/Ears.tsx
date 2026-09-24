@@ -28,6 +28,26 @@ export function Ears({ p }: { p: PanelState }) {
   }, []);
   useEffect(() => setBalance(p.store.settings.balance), [p.store.settings.balance]);
   const s = p.store.settings;
+  const [guardTest, setGuardTest] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const testGuard = async () => {
+    setTesting(true);
+    try {
+      const ms = await command<number>("ear_guard_test");
+      setGuardTest(tx("Работает: скачок срезан за {ms} мс.", { ms }));
+    } catch (e) {
+      const why = String(e);
+      setGuardTest(
+        why.includes("no headphones")
+          ? tx("Наушники не найдены — защита сейчас не действует.")
+          : why.includes("off")
+            ? tx("Защита выключена.")
+            : tx("Не сработало: {why}", { why }),
+      );
+    } finally {
+      setTesting(false);
+    }
+  };
   const apply = <K extends keyof Settings>(k: K, v: Settings[K]) =>
     p.run(command("save_settings", { settings: cleanSettings({ ...s, [k]: v }) }));
   const now = Date.now();
@@ -160,6 +180,49 @@ export function Ears({ p }: { p: PanelState }) {
               </SegmentedControl.Item>
             ))}
           </SegmentedControl.Root>
+        </Row>
+      </Section>
+      <Section
+        title={tx("Защита от скачков")}
+        description={tx("Потолок громкости в наушниках: если программа или звуковая карта резко выкрутит звук, питомец срежет его за доли секунды. Работает с ползунком громкости Windows.")}
+        action={<Switch checked={s.earsGuard} onCheckedChange={(v) => apply("earsGuard", v)} aria-label={tx("Защита от скачков")} />}
+      >
+        <Row label={tx("Потолок громкости")} hint={tx("Выше этого значения звук не поднимется, пока надеты наушники.")}>
+          <Flex align="center" gap="3" style={{ minWidth: 240 }}>
+            <Slider
+              value={[s.earsCeiling]}
+              min={10}
+              max={95}
+              step={5}
+              disabled={!s.earsGuard}
+              onValueChange={(v) => apply("earsCeiling", v[0])}
+              aria-label={tx("Потолок громкости")}
+            />
+            <Text size="2" weight="bold" style={{ minWidth: 40, textAlign: "right" }}>
+              {s.earsCeiling}%
+            </Text>
+          </Flex>
+        </Row>
+        <Row label={tx("Громкость при подключении")} hint={tx("Когда подключаешь наушники или компьютер просыпается, звук ставится на это значение (только вниз).")}>
+          <Flex align="center" gap="3" style={{ minWidth: 240 }}>
+            <Slider
+              value={[s.earsSafe]}
+              min={0}
+              max={60}
+              step={5}
+              disabled={!s.earsGuard}
+              onValueChange={(v) => apply("earsSafe", v[0])}
+              aria-label={tx("Громкость при подключении")}
+            />
+            <Text size="2" weight="bold" style={{ minWidth: 40, textAlign: "right" }}>
+              {s.earsSafe ? `${s.earsSafe}%` : tx("выкл")}
+            </Text>
+          </Flex>
+        </Row>
+        <Row label={tx("Проверка")} hint={guardTest ?? tx("Поднимет громкость на 2 % выше потолка и посмотрит, как быстро её срежет.")}>
+          <Button variant="soft" disabled={!s.earsGuard || testing} onClick={() => void testGuard()}>
+            {tx("Проверить")}
+          </Button>
         </Row>
       </Section>
       <Section title={tx("Настройки")}>
