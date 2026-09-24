@@ -9,8 +9,10 @@ use windows::Win32::Media::Audio::{
     eConsole, eRender,
     Endpoints::{IAudioEndpointVolume, IAudioMeterInformation},
     Headphones, Headset, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator,
-    PKEY_AudioEndpoint_FormFactor,
+    PKEY_AudioEndpoint_FormFactor, DEVICE_STATE_ACTIVE,
 };
+use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
+use windows::core::GUID;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
 use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, MAX_PATH, TRUE};
 use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
@@ -60,9 +62,18 @@ thread_local! {
     static AUDIO: RefCell<Option<Audio>> = const { RefCell::new(None) };
 }
 struct Audio {
+    /// The default output: the volume slider, mute and the peak meter.
     volume: IAudioEndpointVolume,
     meter: IAudioMeterInformation,
+    /// The device at the ears when it is not the default (a virtual output
+    /// such as FxSound or Voicemeeter sitting in front of real headphones).
+    ears: Option<IAudioEndpointVolume>,
     headphones: bool,
+    /// Default endpoint id and the time the choice was made: re-checked every
+    /// few seconds, because plugging headphones in often leaves the old
+    /// endpoint perfectly valid (or the default is a virtual device at all).
+    id: String,
+    at: std::time::Instant,
 }
 /// What the ear care needs from one sample: the device kind and the levels.
 #[derive(Clone, Copy)]
@@ -104,13 +115,105 @@ fn is_headphones(device: &IMMDevice) -> bool {
     }
 }
 
+fn form_factor(device: &IMMDevice) -> i32 {
+    unsafe {
+        let Ok(store) = device.OpenPropertyStore(STGM_READ) else {
+            return 0;
+        };
+        let Ok(value) = store.GetValue(&PKEY_AudioEndpoint_FormFactor) else {
+            return 0;
+        };
+        u32::try_from(&value).unwrap_or(0) as i32
+    }
+}
+
+/// Endpoint name plus its adapter name ("Speakers (FxSound Audio Enhancer)").
+fn device_names(device: &IMMDevice) -> String {
+    // PKEY_Device_FriendlyName and PKEY_DeviceInterface_FriendlyName.
+    const KEYS: [PROPERTYKEY; 2] = [
+        PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 },
+        PROPERTYKEY { fmtid: GUID::from_u128(0x026e516e_b814_414b_83cd_856d6fef4822), pid: 2 },
+    ];
+    unsafe {
+        let Ok(store) = device.OpenPropertyStore(STGM_READ) else {
+            return String::new();
+        };
+        KEYS.iter()
+            .filter_map(|k| store.GetValue(k).ok().map(|v| v.to_string()))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+/// Software outputs that pass the sound on to a real device.
+fn is_virtual(device: &IMMDevice) -> bool {
+    let n = device_names(device).to_lowercase();
+    ["fxsound", "voicemeeter", "vb-audio", "virtual", "cable", "sonar", "equalizer apo", "boom3d", "nahimic mirroring"]
+        .iter()
+        .any(|v| n.contains(v))
+}
+
+/// When the default output is a virtual device, the real headphones behind
+/// it: an active, non-virtual headphone endpoint (a Bluetooth hands-free
+/// headset only if there is nothing better).
+fn headphones_behind() -> Option<IMMDevice> {
+    unsafe {
+        let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+        let list = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).ok()?;
+        let mut headset = None;
+        for i in 0..list.GetCount().ok()? {
+            let Ok(d) = list.Item(i) else { continue };
+            if is_virtual(&d) {
+                continue;
+            }
+            match form_factor(&d) {
+                k if k == Headphones.0 => return Some(d),
+                k if k == Headset.0 && headset.is_none() => headset = Some(d),
+                _ => {}
+            }
+        }
+        headset
+    }
+}
+
+fn device_id(device: &IMMDevice) -> String {
+    unsafe {
+        device
+            .GetId()
+            .ok()
+            .map(|p| {
+                let s = p.to_string().unwrap_or_default();
+                windows::Win32::System::Com::CoTaskMemFree(Some(p.0 as *const _));
+                s
+            })
+            .unwrap_or_default()
+    }
+}
+
+/// The device the user actually hears and whether it is headphones.
+fn ears_device(default: &IMMDevice) -> (Option<IMMDevice>, bool) {
+    if is_headphones(default) {
+        return (None, true);
+    }
+    if is_virtual(default) {
+        if let Some(d) = headphones_behind() {
+            return (Some(d), true);
+        }
+    }
+    (None, false)
+}
+
 fn open_audio() -> Option<Audio> {
     unsafe {
         let device = default_device()?;
+        let (ears, headphones) = ears_device(&device);
         Some(Audio {
             volume: device.Activate(CLSCTX_ALL, None).ok()?,
             meter: device.Activate(CLSCTX_ALL, None).ok()?,
-            headphones: is_headphones(&device),
+            ears: ears.and_then(|d| d.Activate(CLSCTX_ALL, None).ok()),
+            headphones,
+            id: device_id(&device),
+            at: std::time::Instant::now(),
         })
     }
 }
@@ -132,6 +235,19 @@ fn ear_levels(volume: &IAudioEndpointVolume) -> (f32, f32, f32) {
 fn audio() -> (i32, bool, bool, Ears) {
     AUDIO.with(|cell| {
         let mut slot = cell.borrow_mut();
+        // Every 3 s: did the default output change, or did headphones
+        // appear behind a virtual one?
+        let stale = slot.as_ref().is_some_and(|a| {
+            a.at.elapsed().as_secs() >= 3
+                && default_device().map_or(true, |d| device_id(&d) != a.id || ears_device(&d).1 != a.headphones)
+        });
+        if stale {
+            *slot = None;
+        } else if let Some(a) = slot.as_mut() {
+            if a.at.elapsed().as_secs() >= 3 {
+                a.at = std::time::Instant::now();
+            }
+        }
         if slot.is_none() {
             *slot = open_audio();
         }
@@ -143,7 +259,14 @@ fn audio() -> (i32, bool, bool, Ears) {
         let peak = unsafe { a.meter.GetPeakValue() };
         match (level, muted, peak) {
             (Ok(level), Ok(muted), Ok(peak)) => {
-                let (db, left, right) = ear_levels(&a.volume);
+                let (mut db, mut left, mut right) = ear_levels(&a.volume);
+                // Behind a virtual output both volumes count (dB add up) and
+                // the ears are the real device's channels.
+                if let Some(e) = &a.ears {
+                    let (edb, el, er) = ear_levels(e);
+                    (left, right) = (db + el, db + er);
+                    db += edb;
+                }
                 (
                     (level * 100.).round() as i32,
                     muted.as_bool(),
@@ -167,7 +290,9 @@ fn audio() -> (i32, bool, bool, Ears) {
 /// there before, for putting them back.
 pub fn set_balance(left: f32, right: f32) -> Result<(f32, f32), String> {
     init();
-    let device = default_device().ok_or("No audio output")?;
+    let default = default_device().ok_or("No audio output")?;
+    // The balance goes where the ears are (the headphones behind FxSound etc.).
+    let device = ears_device(&default).0.unwrap_or(default);
     unsafe {
         let volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).map_err(|e| e.to_string())?;
         if volume.GetChannelCount().unwrap_or(0) < 2 {
@@ -304,6 +429,12 @@ mod probe_channels {
         unsafe {
             let v: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).expect("volume");
             println!("channels={:?} master_db={:?} headphones={}", v.GetChannelCount(), v.GetMasterVolumeLevel(), super::is_headphones(&device));
+            let (ears, headphones) = super::ears_device(&device);
+            println!("default={:?} virtual={} ears={:?} headphones={}", super::device_names(&device), super::is_virtual(&device), ears.as_ref().map(super::device_names), headphones);
+            if let Some(e) = ears {
+                let v: IAudioEndpointVolume = e.Activate(CLSCTX_ALL, None).expect("volume");
+                println!("ears channels={:?} db={:?}", v.GetChannelCount(), v.GetMasterVolumeLevel());
+            }
         }
     }
 }

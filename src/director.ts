@@ -333,8 +333,9 @@ export const rules: Record<string, Rule> = {
   cmdUnknown: rule("look", 96, 1000, 2000),
   peekBack: rule("look", 60, 60000, 3000),
   gameStart: rule("wave", 96, 1000, 2500),
-  gameWin: rule("celebrate", 96, 1000, 2500),
-  gameLose: rule("sulk", 96, 1000, 2500),
+  // Named from the user's side: the pet sulks when the user wins.
+  gameWin: rule("sulk", 96, 1000, 2500),
+  gameLose: rule("celebrate", 96, 1000, 2500),
   gameDraw: rule("sigh", 96, 1000, 2000),
   gameCatch: rule("swat", 96, 300, 400),
   roleGuard: rule("judge", 90, 1000, 3000),

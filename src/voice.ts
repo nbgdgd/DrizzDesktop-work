@@ -34,9 +34,27 @@ export class Voice {
       return undefined;
     }
   }
+  /**
+   * WebView2 parks an idle AudioContext; sounds scheduled on a suspended
+   * clock come out late or in a heap. Resume first, then play (dropped if
+   * waking the device took too long to still match the moment).
+   */
+  private deferred(again: () => void) {
+    const ctx = this.audio();
+    if (!ctx || ctx.state === "running") return false;
+    const t = Date.now();
+    void ctx
+      .resume()
+      .then(() => {
+        if (Date.now() - t < 500 && ctx.state === "running") again();
+      })
+      .catch(() => {});
+    return true;
+  }
   /** Babble for a line: one blip per syllable-ish, pitch follows the vowels. */
   say(text: string, pitch: number, wave: OscillatorType, mood = "normal") {
     if (!this.babble) return;
+    if (this.deferred(() => this.say(text, pitch, wave, mood))) return;
     const ctx = this.audio();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -72,6 +90,7 @@ export class Voice {
   }
   /** A short action sound; the same one within `gap` ms is dropped. */
   act(kind: Act, gap = 90) {
+    if (this.deferred(() => this.act(kind, gap))) return;
     const ms = Date.now();
     if (ms - (this.last.get(kind) ?? -Infinity) < gap) return;
     this.last.set(kind, ms);

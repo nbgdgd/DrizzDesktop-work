@@ -274,12 +274,24 @@ export class CursorPlay {
           this.cancel();
           return { stop: true };
         }
+        // A catch is a real hit, same as in a hunt: the cursor gets knocked.
         if (this.reachable(i) && now - this.hitAt > 800) {
           this.hitAt = now;
-          return { action: "swat", until: now + 420, caught: true, count: "gameCatch", say: "gameCatch" };
+          return { action: "swat", until: now + 420, caught: true, count: "gameCatch", say: "gameCatch", nudge: this.push(i, 0.8) };
         }
-        if (this.pounceable(i) && i.random() < 0.02) return { leap: { x: i.cursor.x, y: i.cursor.y + i.size * 0.35 } };
-        return this.goTo(i, i.cursor.x, i.temper.hurry * 1.1);
+        // Jumps for a cursor above it much more eagerly than in a hunt.
+        if (this.pounceable(i) && now - this.lastLeap > 1100 && i.random() < 0.15) {
+          this.lastLeap = now;
+          return { leap: { x: i.cursor.x, y: i.cursor.y + i.size * 0.35 } };
+        }
+        // Close but out of reach: a hop now and then, and it runs a little
+        // past the cursor so it turns around instead of creeping one way.
+        const dx = i.cursor.x - i.pet.x;
+        if (!i.pet.air && Math.abs(dx) < i.size * 1.6 && now - this.lastLeap > 1500 && i.random() < 0.03) {
+          this.lastLeap = now;
+          return { jump: true };
+        }
+        return this.goTo(i, i.cursor.x + Math.sign(dx) * 30 * i.k, i.temper.hurry * 1.3);
       }
       case "annoy": {
         if (now >= this.until) {

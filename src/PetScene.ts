@@ -204,6 +204,12 @@ export class PetScene extends Phaser.Scene {
       if (this.games.click(now)) {
         this.sfx.play("click");
         this.fx.glyph("+1", "#b4e62e", this.sizePx(), this.world.scale, this.dpr, (Math.random() - 0.5) * 0.6, 700);
+        // Every click lands: squash, a flinch, and a hop every fifth one.
+        this.squash = { t: now, kind: "floor", amt: 0.2 };
+        const n = this.games.round?.score ?? 0;
+        this.force(n % 5 === 0 ? "jump" : n % 2 ? "pained" : "shaken", n % 5 === 0 ? 450 : 260);
+        if (n % 5 === 0 && !this.store.settings.pinned) this.world.jump();
+        this.voice.act(n % 3 ? "pop" : "swat", 60);
         this.game.loop.wake();
         return;
       }
@@ -855,10 +861,18 @@ export class PetScene extends Phaser.Scene {
   }
   private startGame(kind: GameKind) {
     const now = Date.now();
+    // Asleep, sulking, off the screen or in "do not disturb": the user asked
+    // for a game, so it gets up and plays.
+    this.quick.close();
+    this.antics.recall();
+    this.brain.sulkUntil = 0;
+    this.brain.wake(now);
+    if (this.brain.base === "sleep" || this.brain.base === "rest") this.brain.base = "idle";
     const r = this.games.start(kind, now, Math.random);
     note(this.brain.life, "game", now);
     this.brain.reset("gameStart");
-    this.brain.event("gameStart", now, true, r.text);
+    if (!this.brain.event("gameStart", now, true, r.text))
+      this.brain.bubble = { text: r.text, until: now + r.ms, priority: 96, readUntil: now + 2500 };
     if (this.brain.bubble) {
       this.brain.bubble.actions = r.actions;
       this.brain.bubble.until = now + Math.min(r.ms, 30000);
@@ -1515,7 +1529,9 @@ export class PetScene extends Phaser.Scene {
     this.lastReaction = event;
     const b = this.brain.bubble;
     const text = b?.text ?? "";
-    if (text && text !== this.lastBubble) {
+    // Only a line that is actually on screen gets a voice (not while it is
+    // off the screen or the card covers the balloon).
+    if (text && text !== this.lastBubble && !this.antics.absent && !this.quick.open) {
       const s = this.store.settings;
       if (s.voice && b?.kind !== "sign") this.voice.say(text, this.brain.temper.pitch, this.brain.temper.wave, this.brain.mood(Date.now()));
       else this.sfx.play("talk", 400);
@@ -1713,6 +1729,8 @@ export class PetScene extends Phaser.Scene {
     this.inspectSpot(now);
     // A timed game ends on the frame it runs out, not on the next heartbeat.
     if (this.games.round) {
+      // No dozing off in the middle of a round.
+      if (this.brain.base === "sleep" || this.brain.base === "rest") this.brain.base = "idle";
       const done = this.games.tick(now);
       if (done) this.finishGame(done);
     }

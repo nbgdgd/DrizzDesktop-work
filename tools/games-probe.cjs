@@ -40,9 +40,10 @@ ${script}`], { windowsHide: true });
     const pend = new Map();
     ws.onmessage = (m) => { const d = JSON.parse(m.data); if (pend.has(d.id)) (pend.get(d.id)(d), pend.delete(d.id)); };
     const js = (e) => new Promise((r) => { const i = ++id; pend.set(i, (d) => r(d.result?.result?.value ?? d.result?.exceptionDetails?.exception?.description)); ws.send(JSON.stringify({ id: i, method: "Runtime.evaluate", params: { expression: e, returnByValue: true, awaitPromise: true } })); });
-    const state = () => js(`(() => { const s = window.__PET_SCENE__, b = s.brain.bubble; return { round: s.games.round && { kind: s.games.round.kind, score: s.games.round.score }, text: b ? b.text : "", sub: b ? b.sub || "" : "", buttons: b && b.actions ? b.actions.map(a => a.label + "=" + a.id) : [], money: s.brain.game.money, play: s.play.state }; })()`);
+    const state = () => js(`(() => { const s = window.__PET_SCENE__, b = s.brain.bubble; return { round: s.games.round && { kind: s.games.round.kind, score: s.games.round.score }, text: b ? b.text : "", sub: b ? b.sub || "" : "", buttons: b && b.actions ? b.actions.map(a => a.label + "=" + a.id) : [], money: s.brain.game.money, play: s.play.state, act: s.lastAction, base: s.brain.base }; })()`);
     const cmd = (c) => js(`window.__PET_SCENE__.onCommand(${JSON.stringify(c)})`);
-    const quiet = () => js(`(() => { const s = window.__PET_SCENE__; s.brain.bubble = undefined; s.brain.reaction = undefined; s.nextActivity = Date.now() + 600000; s.world.target = null; })()`);
+    // Every game starts from sleep: the pet must get up and play.
+    const quiet = () => js(`(() => { const s = window.__PET_SCENE__; s.brain.base = "sleep"; s.brain.bubble = undefined; s.brain.reaction = undefined; s.nextActivity = Date.now() + 600000; s.world.target = null; })()`);
     await delay(7000);
     // ---- rock-paper-scissors, three times
     const rps = [];
@@ -80,11 +81,15 @@ ${script}`], { windowsHide: true });
     const p = await js(`(() => { const s = window.__PET_SCENE__, w = s.world; return { x: Math.round(w.x), y: Math.round(w.y - s.sizePx() * 0.45) }; })()`);
     const clicks = [];
     for (let i = 0; i < 20; i++) clicks.push("[M]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 40; [M]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 260");
+    const clickActs = new Set();
+    let clicking = true;
+    (async () => { while (clicking) { const s = await state(); clickActs.add(s.act + "/" + s.base); await delay(100); } })();
     await mouse(`[M]::SetCursorPos(${p.x}, ${p.y}); Start-Sleep -Milliseconds 200\n${clicks.join("\n")}`);
+    clicking = false;
     const mid = await state();
     let endClick = await state();
     for (let i = 0; i < 60 && !endClick.sub; i++) { await delay(250); endClick = await state(); }
-    out.clicker = { scoreDuringRound: mid.round?.score, afterText: endClick.text, result: endClick.sub, roundLeft: !!endClick.round, petMovedDuring: null };
+    out.clicker = { acts: [...clickActs], scoreDuringRound: mid.round?.score, afterText: endClick.text, result: endClick.sub, roundLeft: !!endClick.round, petMovedDuring: null };
     // ---- catch the cursor: the cursor circles near the pet for 20 s
     await quiet();
     await cmd({ game: "catch" });
@@ -96,7 +101,7 @@ ${script}`], { windowsHide: true });
     }
     const states = new Set();
     let sampling = true;
-    (async () => { while (sampling) { const s = await state(); states.add(s.play); await delay(250); } })();
+    (async () => { while (sampling) { const s = await state(); states.add(s.play + ":" + s.act); await delay(150); } })();
     await mouse(moves.join("\n"));
     let endCatch = await state();
     for (let i = 0; i < 40 && !endCatch.sub; i++) { await delay(250); endCatch = await state(); }

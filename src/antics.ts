@@ -75,6 +75,11 @@ export class Antics {
     if (!e) return null;
     return h.world.x - e.left < e.right - h.world.x ? { x: e.left, side: -1 } : { x: e.right, side: 1 };
   }
+  /** The user wants to play: off the screen or hiding, it comes back now. */
+  recall() {
+    this.away = null;
+    this.hideUntil = 0;
+  }
   get absent() {
     return this.away?.phase === "gone";
   }
