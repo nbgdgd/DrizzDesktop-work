@@ -175,6 +175,7 @@ Object.assign(EN, {
   "Радуга": "Rainbow",
   "Ничего": "Nothing",
   "Кепка": "Cap",
+  "Наушники": "Headphones",
   "Бантик": "Bow",
   "Цилиндр": "Top hat",
   "Корона": "Crown",

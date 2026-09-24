@@ -12,6 +12,7 @@ export interface Accessory {
 }
 export const accessories: Accessory[] = [
   { id: "", name: "Ничего", level: 0 },
+  { id: "headphones", name: "Наушники", level: 1 },
   { id: "cap", name: "Кепка", level: 3 },
   { id: "bow", name: "Бантик", level: 5 },
   { id: "tophat", name: "Цилиндр", level: 8 },
@@ -256,7 +257,7 @@ export class Props {
       add(head.x - 55 * z, head.y - 60 * z, 110 * z, 66 * z);
     }
     // Headphones while music plays: a band over the head and two cups.
-    if (o.headphones && o.skull && !["tophat", "crown", "santa", "pumpkin"].includes(o.wear)) {
+    if (o.headphones && o.skull) {
       // Fitted to the skull: a band hugging the top, cups over the sides.
       const { left, right, top, mid } = o.skull;
       const cx = (left + right) / 2,

@@ -1963,7 +1963,8 @@ export class PetScene extends Phaser.Scene {
       angle,
       z,
       wear: hol?.wear ?? this.brain.life.wear,
-      headphones: (!!this.snapshot?.media.playing || (!!this.snapshot?.env?.headphones && !!this.snapshot?.env?.audio)) && !absent,
+      // Only when chosen in the wardrobe: automatic headphones looked like a bug.
+      headphones: (hol?.wear ?? this.brain.life.wear) === "headphones" && !absent,
       umbrella: this.weather?.kind === "rain" && now - this.weather.at < 3600000 && !this.world.dragging,
       flashlight: dayPart(now) === "night" && walking && !absent ? (action === "walkRight" ? 1 : -1) : 0,
       carry: this.antics.carry,
