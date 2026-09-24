@@ -1,3 +1,4 @@
+import { tx } from "./i18n";
 // What a drink does to the pet. Pure logic: the scene feeds the pet's state
 // in every frame and gets intents out (run there, jump, sway, hiccup, hit).
 //
@@ -150,7 +151,7 @@ export class Buzz {
     }
     if (now >= this.nextHic) {
       this.nextHic = now + 3500 + random() * 4500;
-      out.glyph = ["ик!", "#f3d27a"];
+      out.glyph = [tx("ик!"), "#f3d27a"];
       if (random() < 0.3) out.say = "hic";
     }
     if (now >= this.nextSmash && !i.pet.air) {

@@ -6,6 +6,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Badge, Box, Button, Callout, Flex, IconButton, ScrollArea, Separator, Text, Theme, Tooltip } from "@radix-ui/themes";
 import {
   BellRing,
+  Headphones,
   Briefcase,
   Brain,
   ChartColumn,
@@ -38,8 +39,11 @@ import { Chat } from "./pages/Chat";
 import { MemoryPage } from "./pages/MemoryPage";
 import { Behavior } from "./pages/Behavior";
 import { Privacy } from "./pages/Privacy";
+import { Welcome } from "./pages/Welcome";
+import { Ears } from "./pages/Ears";
 import { stage, stageNames } from "../chronicle";
 import { bondPct } from "../director";
+import { tx } from "../i18n";
 type Page = { id: string; name: string; icon: ReactNode; group: string };
 const pages: Page[] = [
   { id: "status", name: "Состояние", icon: <HeartPulse size={16} />, group: "Питомец" },
@@ -53,14 +57,17 @@ const pages: Page[] = [
   { id: "stats", name: "Статистика", icon: <ChartColumn size={16} />, group: "Компьютер" },
   { id: "trace", name: "Трассировка", icon: <Radar size={16} />, group: "Компьютер" },
   { id: "settings", name: "Поведение", icon: <SlidersHorizontal size={16} />, group: "Настройки" },
+  { id: "ears", name: "Уши", icon: <Headphones size={16} />, group: "Настройки" },
   { id: "privacy", name: "Доступ", icon: <ShieldCheck size={16} />, group: "Настройки" },
 ];
 export default function Panel({ initialTab }: { initialTab: string }) {
   const p = usePanel();
   const [tab, setTab] = useState(pages.some((x) => x.id === initialTab) ? initialTab : "status");
+  const [welcome, setWelcome] = useState(initialTab === "welcome");
   useEffect(() => {
     const t = p.tabEvent.split("|")[0];
-    if (t && pages.some((x) => x.id === t)) setTab(t);
+    if (t === "welcome") setWelcome(true);
+    else if (t && pages.some((x) => x.id === t)) setTab(t);
   }, [p.tabEvent]);
   const pet = pets.find((x) => x.id === p.draft.pet) ?? pets[0];
   const g = p.store.game;
@@ -69,6 +76,12 @@ export default function Panel({ initialTab }: { initialTab: string }) {
   const groups = [...new Set(pages.map((x) => x.group))];
   const current = pages.find((x) => x.id === tab)!;
   const saveable = ["settings", "privacy"].includes(tab);
+  if (welcome)
+    return (
+      <Theme appearance="dark" accentColor={accents[pet.id] ?? "lime"} grayColor="slate" radius="large" scaling="100%" panelBackground="solid">
+        {p.loaded ? <Welcome p={p} done={() => setWelcome(false)} /> : null}
+      </Theme>
+    );
   return (
     <Theme appearance="dark" accentColor={accents[pet.id] ?? "lime"} grayColor="slate" radius="medium" scaling="95%" panelBackground="solid">
       <div className="shell">
@@ -80,14 +93,14 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                 {pet.name}
               </Text>
               <Text as="div" size="1" color="gray" truncate>
-                {pet.trait}
+                {tx(pet.trait)}
               </Text>
             </Box>
           </Flex>
           <Flex gap="2" px="3" pb="3" wrap="wrap">
-            <Badge variant="soft">ур. {level(g.exp)}</Badge>
+            <Badge variant="soft">{tx("ур. {n}", { n: level(g.exp) })}</Badge>
             <Badge variant="soft" color="gray">
-              {stageNames[st]}
+              {tx(stageNames[st])}
             </Badge>
           </Flex>
           <Separator size="4" />
@@ -96,7 +109,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
               {groups.map((group) => (
                 <div key={group}>
                   <Text as="div" size="1" color="gray" className="nav-group">
-                    {group}
+                    {tx(group)}
                   </Text>
                   {pages
                     .filter((x) => x.group === group)
@@ -112,7 +125,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                         }}
                       >
                         {x.icon}
-                        <span>{x.name}</span>
+                        <span>{tx(x.name)}</span>
                       </button>
                     ))}
                 </div>
@@ -121,18 +134,18 @@ export default function Panel({ initialTab }: { initialTab: string }) {
           </ScrollArea>
           <Separator size="4" />
           <Flex gap="2" p="3" justify="between">
-            <Tooltip content="Позвать к курсору · Ctrl+Alt+D">
-              <IconButton variant="soft" aria-label="Позвать" onClick={() => void command("summon_pet")}>
+            <Tooltip content={tx("Позвать к курсору · Ctrl+Alt+D")}>
+              <IconButton variant="soft" aria-label={tx("Позвать")} onClick={() => void command("summon_pet")}>
                 <BellRing size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip content="Вернуть на экран">
-              <IconButton variant="soft" color="gray" aria-label="Вернуть на экран" onClick={() => void command("recenter_pet")}>
+            <Tooltip content={tx("Вернуть на экран")}>
+              <IconButton variant="soft" color="gray" aria-label={tx("Вернуть на экран")} onClick={() => void command("recenter_pet")}>
                 <LocateFixed size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip content="Скрыть питомца">
-              <IconButton variant="soft" color="gray" aria-label="Скрыть" onClick={() => void command("hide_pet")}>
+            <Tooltip content={tx("Скрыть питомца")}>
+              <IconButton variant="soft" color="gray" aria-label={tx("Скрыть")} onClick={() => void command("hide_pet")}>
                 <EyeOff size={16} />
               </IconButton>
             </Tooltip>
@@ -141,7 +154,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
         <main className="main">
           <header className="head">
             <Text size="5" weight="bold">
-              {current.name}
+              {tx(current.name)}
             </Text>
             <Money value={g.money} />
           </header>
@@ -152,11 +165,11 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                   <Callout.Icon>
                     <Info size={14} />
                   </Callout.Icon>
-                  <Callout.Text>Превью интерфейса. Системные функции работают только в приложении для Windows.</Callout.Text>
+                  <Callout.Text>{tx("Превью интерфейса. Системные функции работают только в приложении для Windows.")}</Callout.Text>
                 </Callout.Root>
               )}
               {!p.loaded ? (
-                <Text color="gray">Загрузка…</Text>
+                <Text color="gray">{tx("Загрузка…")}</Text>
               ) : (
                 <>
                   {tab === "status" && <Home p={p} go={setTab} />}
@@ -171,6 +184,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                   {tab === "memory" && <MemoryPage p={p} />}
                   {tab === "settings" && <Behavior p={p} />}
                   {tab === "privacy" && <Privacy p={p} />}
+                  {tab === "ears" && <Ears p={p} />}
                 </>
               )}
             </div>
@@ -183,12 +197,12 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                 </Text>
               ) : (
                 <Text size="2" color="gray" aria-live="polite">
-                  {p.status || "Есть несохранённые изменения"}
+                  {p.status || tx("Есть несохранённые изменения")}
                 </Text>
               )}
               {saveable && (
                 <Button disabled={p.saving || !p.dirty} onClick={() => void p.save()}>
-                  {p.saving ? "Сохраняю…" : "Сохранить"}
+                  {p.saving ? tx("Сохраняю…") : tx("Сохранить")}
                 </Button>
               )}
             </footer>

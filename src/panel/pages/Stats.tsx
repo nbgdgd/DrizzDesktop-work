@@ -3,6 +3,7 @@ import { Box, Button, Flex, SegmentedControl, Table, Text } from "@radix-ui/them
 import { command } from "../../bridge";
 import { appName, formatDuration } from "../../apps";
 import type { PanelState } from "../store";
+import { tx } from "../../i18n";
 interface UsageStats {
   today: { app: string; seconds: number }[];
   week: { app: string; seconds: number }[];
@@ -10,10 +11,10 @@ interface UsageStats {
   all: { app: string; seconds: number }[];
 }
 const periods = [
-  ["today", "Сегодня"],
-  ["week", "7 дней"],
-  ["month", "30 дней"],
-  ["all", "Всё время"],
+  ["today", tx("Сегодня")],
+  ["week", tx("7 дней")],
+  ["month", tx("30 дней")],
+  ["all", tx("Всё время")],
 ] as const;
 export function Stats({ p }: { p: PanelState }) {
   const [usage, setUsage] = useState<UsageStats | null>(null);
@@ -44,20 +45,20 @@ export function Stats({ p }: { p: PanelState }) {
             </SegmentedControl.Item>
           ))}
         </SegmentedControl.Root>
-        {rows.length > 0 && <Text size="2" color="gray">Всего: {formatDuration(total)}</Text>}
+        {rows.length > 0 && <Text size="2" color="gray">{tx("Всего: {t}", { t: formatDuration(total) })}</Text>}
       </Flex>
       {rows.length === 0 ? (
         <Text as="p" color="gray" size="2">
-          {usage ? "Пока пусто. Время считается, пока вы за компьютером." : "Загрузка…"}
+          {usage ? tx("Пока пусто. Время считается, пока вы за компьютером.") : tx("Загрузка…")}
         </Text>
       ) : (
         <Table.Root size="1" variant="surface" mb="4">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeaderCell>Программа</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>{tx("Программа")}</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell width="40%" />
-              <Table.ColumnHeaderCell justify="end">Время</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell justify="end">Питомец о ней</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell justify="end">{tx("Время")}</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell justify="end">{tx("Питомец о ней")}</Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -72,7 +73,7 @@ export function Stats({ p }: { p: PanelState }) {
                   <Table.Cell justify="end">{formatDuration(r.seconds)}</Table.Cell>
                   <Table.Cell justify="end">
                     <Text size="1" color={o <= -25 ? "red" : o >= 40 ? "green" : "gray"}>
-                      {o <= -25 ? "не любит" : o >= 40 ? "любит" : "—"}
+                      {o <= -25 ? tx("не любит") : o >= 40 ? tx("любит") : "—"}
                     </Text>
                   </Table.Cell>
                 </Table.Row>
@@ -84,9 +85,9 @@ export function Stats({ p }: { p: PanelState }) {
       <Button
         color="red"
         variant="soft"
-        onClick={() => p.run(command("usage_clear").then(() => setUsage({ today: [], week: [], month: [], all: [] })), "Статистика очищена")}
+        onClick={() => p.run(command("usage_clear").then(() => setUsage({ today: [], week: [], month: [], all: [] })), tx("Статистика очищена"))}
       >
-        Очистить статистику
+        {tx("Очистить статистику")}
       </Button>
     </>
   );

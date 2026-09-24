@@ -12,7 +12,8 @@ import type { Props, FloorItem } from "./props";
 import { monitorAt } from "./movement";
 import { favoriteSpot, lately } from "./chronicle";
 import { working } from "./game";
-import { phrases } from "./dialogue";
+import { linesFor } from "./dialogue";
+import { tx } from "./i18n";
 export interface Host {
   now: number;
   world: Movement;
@@ -153,7 +154,7 @@ export class Antics {
     if (this.away) return;
     const e = this.nearestEdge(h);
     if (!e) return;
-    const text = note ?? pick(phrases.noteLeft, h.random);
+    const text = note ?? pick(linesFor("noteLeft", h.brain.settings), h.random);
     this.away = { phase: "leaving", edge: e.x, note: text, ms, reason };
     h.world.support = null;
     h.world.go(e.x, true, reason === "go" ? 1.6 : 1);
@@ -166,7 +167,7 @@ export class Antics {
         // Straight away? Another note: "I did write it."
         if (now - it.born < 6000 && !this.away.again) {
           h.props.remove(it.id);
-          const again = h.props.drop("note", it.x, it.y, now, pick(phrases.noteAgain, h.random));
+          const again = h.props.drop("note", it.x, it.y, now, pick(linesFor("noteAgain", h.brain.settings), h.random));
           this.away = { ...this.away, note: again, again: true };
           h.brain.reset("noteAgain");
           return true;
@@ -178,7 +179,7 @@ export class Antics {
       if (it === this.sleepNote) {
         // "Не трогать." — clicked anyway: "I did write it."
         this.sleepNote =
-          it.label === "Не трогать." ? h.props.drop("note", it.x, it.y, now, pick(phrases.noteAgain, h.random)) : null;
+          ["Не трогать.", "Do not touch."].includes(it.label ?? "") ? h.props.drop("note", it.x, it.y, now, pick(linesFor("noteAgain", h.brain.settings), h.random)) : null;
         h.brain.life.counts.noteRead = (h.brain.life.counts.noteRead ?? 0) + 1;
       }
       return true;
@@ -306,7 +307,7 @@ export class Antics {
         if (base === "sleep" && s.mischief && h.random() < 0.25)
           this.later(now + 9500, () => {
             if (h.brain.base === "sleep" && !this.sleepNote)
-              this.sleepNote = h.props.drop("note", h.world.x + 45 * h.world.scale, h.world.y, h.now, "Не трогать.");
+              this.sleepNote = h.props.drop("note", h.world.x + 45 * h.world.scale, h.world.y, h.now, tx("Не трогать."));
           });
       }
     }
@@ -396,8 +397,8 @@ export class Antics {
       h.brain.bubble = {
         ...h.brain.bubble,
         actions: [
-          { id: "gift:take", label: "Взять" },
-          { id: "gift:no", label: "Не надо" },
+          { id: "gift:take", label: tx("Взять") },
+          { id: "gift:no", label: tx("Не надо") },
         ],
         until: h.now + 30000,
       };

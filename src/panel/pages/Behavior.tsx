@@ -3,6 +3,7 @@ import { temper } from "../../character";
 import { pets, Settings } from "../../model";
 import type { PanelState } from "../store";
 import { Portrait, Row, Section, ToggleRow } from "../ui";
+import { tx } from "../../i18n";
 const hours = Array.from({ length: 24 }, (_, h) => h);
 export function Behavior({ p }: { p: PanelState }) {
   const d = p.draft;
@@ -27,7 +28,7 @@ export function Behavior({ p }: { p: PanelState }) {
     <Select.Root value={String(d[k])} onValueChange={(v) => set(k, Number(v))}>
       <Select.Trigger aria-label={label} style={{ minWidth: 90 }} />
       <Select.Content>
-        {off && <Select.Item value="-1">выкл.</Select.Item>}
+        {off && <Select.Item value="-1">{tx("выкл.")}</Select.Item>}
         {hours.map((h) => (
           <Select.Item key={h} value={String(h)}>
             {String(h).padStart(2, "0")}:00
@@ -38,7 +39,16 @@ export function Behavior({ p }: { p: PanelState }) {
   );
   return (
     <>
-      <Section title="Персонаж">
+      <Section title={tx("Язык")}>
+        <Row label={tx("Язык интерфейса и реплик")}>
+          <SegmentedControl.Root value={d.lang} onValueChange={(v) => set("lang", v as Settings["lang"])}>
+            <SegmentedControl.Item value="ru">Русский</SegmentedControl.Item>
+            <SegmentedControl.Item value="en">English</SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Row>
+        {d.lang === "en" && t("swear", tx("Мат в английских репликах"), tx("По умолчанию питомец говорит по-английски без мата. Русские реплики не меняются."))}
+      </Section>
+      <Section title={tx("Персонаж")}>
         <RadioCards.Root value={d.pet} onValueChange={(v) => set("pet", v)} columns={{ initial: "1", sm: "2" }} size="1">
           {pets.map((x) => (
             <RadioCards.Item key={x.id} value={x.id}>
@@ -49,7 +59,7 @@ export function Behavior({ p }: { p: PanelState }) {
                     {x.name}
                   </Text>
                   <Text size="1" color="gray">
-                    {temper(x.id).trait}
+                    {tx(temper(x.id).trait)}
                   </Text>
                 </Flex>
               </Flex>
@@ -57,45 +67,45 @@ export function Behavior({ p }: { p: PanelState }) {
           ))}
         </RadioCards.Root>
       </Section>
-      <Section title="Поведение">
-        <Row label="Режим" hint="«Тихий» — без самостоятельных реплик, «Не мешать» — в угол и молча.">
+      <Section title={tx("Поведение")}>
+        <Row label={tx("Режим")} hint={tx("«Тихий» — без самостоятельных реплик, «Не мешать» — в угол и молча.")}>
           <SegmentedControl.Root value={d.mode} onValueChange={(v) => set("mode", v as Settings["mode"])} size="1">
-            <SegmentedControl.Item value="normal">Обычный</SegmentedControl.Item>
-            <SegmentedControl.Item value="quiet">Тихий</SegmentedControl.Item>
-            <SegmentedControl.Item value="dnd">Не мешать</SegmentedControl.Item>
+            <SegmentedControl.Item value="normal">{tx("Обычный")}</SegmentedControl.Item>
+            <SegmentedControl.Item value="quiet">{tx("Тихий")}</SegmentedControl.Item>
+            <SegmentedControl.Item value="dnd">{tx("Не мешать")}</SegmentedControl.Item>
           </SegmentedControl.Root>
         </Row>
-        <Row label="Активность">
+        <Row label={tx("Активность")}>
           <SegmentedControl.Root value={d.activity} onValueChange={(v) => set("activity", v as Settings["activity"])} size="1">
-            <SegmentedControl.Item value="calm">Спокойная</SegmentedControl.Item>
-            <SegmentedControl.Item value="balanced">Обычная</SegmentedControl.Item>
-            <SegmentedControl.Item value="active">Живая</SegmentedControl.Item>
+            <SegmentedControl.Item value="calm">{tx("Спокойная")}</SegmentedControl.Item>
+            <SegmentedControl.Item value="balanced">{tx("Обычная")}</SegmentedControl.Item>
+            <SegmentedControl.Item value="active">{tx("Живая")}</SegmentedControl.Item>
           </SegmentedControl.Root>
         </Row>
-        <Row label={`Размер · ${d.size}`} hint="Логические пиксели поверх масштаба Windows.">
-          <Slider value={[d.size]} min={56} max={176} step={4} onValueChange={([v]) => set("size", v)} style={{ width: 180 }} aria-label="Размер" />
+        <Row label={tx("Размер · {n}", { n: d.size })} hint={tx("Логические пиксели поверх масштаба Windows.")}>
+          <Slider value={[d.size]} min={56} max={176} step={4} onValueChange={([v]) => set("size", v)} style={{ width: 180 }} aria-label={tx("Размер")} />
         </Row>
-        {t("smooth", "Сглаживание", "Мягкие края при уменьшении; выключите ради чётких пикселей.")}
+        {t("smooth", tx("Сглаживание"), tx("Мягкие края при уменьшении; выключите ради чётких пикселей."))}
       </Section>
-      <Section title="Движение">
-        {t("walk", "Гулять по рабочему столу")}
-        {t("perch", "Сидеть и лазать по окнам", "Запрыгивает, карабкается по краю, катается на окне.")}
-        {t("pinned", "Закрепить на месте", "Перетаскивать всё равно можно.")}
-        <Row label="Экран" hint="«Где находится» — ходит между соседними мониторами.">
+      <Section title={tx("Движение")}>
+        {t("walk", tx("Гулять по рабочему столу"))}
+        {t("perch", tx("Сидеть и лазать по окнам"), tx("Запрыгивает, карабкается по краю, катается на окне."))}
+        {t("pinned", tx("Закрепить на месте"), tx("Перетаскивать всё равно можно."))}
+        <Row label={tx("Экран")} hint={tx("«Где находится» — ходит между соседними мониторами.")}>
           <Select.Root value={d.monitor} onValueChange={(v) => set("monitor", v)}>
-            <Select.Trigger aria-label="Экран" />
+            <Select.Trigger aria-label={tx("Экран")} />
             <Select.Content>
-              <Select.Item value="auto">Где находится питомец</Select.Item>
+              <Select.Item value="auto">{tx("Где находится питомец")}</Select.Item>
               {p.monitors.map((m, i) => (
                 <Select.Item key={m.id} value={m.id}>
-                  Экран {i + 1}
-                  {m.primary ? " · основной" : ""}
+                  {tx("Экран {n}", { n: i + 1 })}
+                  {m.primary ? tx(" · основной") : ""}
                 </Select.Item>
               ))}
             </Select.Content>
           </Select.Root>
         </Row>
-        <Row label="Любимое место для «Не мешать»" hint="Текущая позиция питомца.">
+        <Row label={tx("Любимое место для «Не мешать»")} hint={tx("Текущая позиция питомца.")}>
           <Button
             variant="soft"
             color="gray"
@@ -106,65 +116,65 @@ export function Behavior({ p }: { p: PanelState }) {
               void p.saveMemory({ favorite: { ...pos, monitor: d.monitor === "auto" ? (m?.id ?? "auto") : d.monitor } });
             }}
           >
-            Запомнить место
+            {tx("Запомнить место")}
           </Button>
         </Row>
       </Section>
-      <Section title="Характер">
-        {t("cursorPlay", "Игры с курсором", "Трогает, ловит и, если обидели, охотится на курсор.")}
-        {t("cursorPush", "Может толкать курсор", "После удара лапой курсор немного отъезжает. Никогда — пока зажата кнопка мыши.")}
-        {t("drunkWindows", "Пьяный бьёт окна", "После пива трясёт, толкает и сворачивает настоящие окна. Панель задач, рабочий стол и полноэкранные игры не трогает.")}
-        {t("drunkClose", "…и может закрыть окно", "Совсем в хлам — отправляет окну команду «закрыть». Программа успеет спросить про несохранённое. По умолчанию выключено.")}
-        {t("mumble", "Бормочет сам с собой", "Считает пиксели, напевает, вздыхает — когда ничего не происходит.")}
-        {t("mischief", "Шалости", "Приносит подарки, оставляет записки, иногда таскает мелочь.")}
-        {t("nightSleep", "Спит по ночам", "После «ночного часа» ложится спать, даже если вы работаете.")}
+      <Section title={tx("Характер")}>
+        {t("cursorPlay", tx("Игры с курсором"), tx("Трогает, ловит и, если обидели, охотится на курсор."))}
+        {t("cursorPush", tx("Может толкать курсор"), tx("После удара лапой курсор немного отъезжает. Никогда — пока зажата кнопка мыши."))}
+        {t("drunkWindows", tx("Пьяный бьёт окна"), tx("После пива трясёт, толкает и сворачивает настоящие окна. Панель задач, рабочий стол и полноэкранные игры не трогает."))}
+        {t("drunkClose", tx("…и может закрыть окно"), tx("Совсем в хлам — отправляет окну команду «закрыть». Программа успеет спросить про несохранённое. По умолчанию выключено."))}
+        {t("mumble", tx("Бормочет сам с собой"), tx("Считает пиксели, напевает, вздыхает — когда ничего не происходит."))}
+        {t("mischief", tx("Шалости"), tx("Приносит подарки, оставляет записки, иногда таскает мелочь."))}
+        {t("nightSleep", tx("Спит по ночам"), tx("После «ночного часа» ложится спать, даже если вы работаете."))}
       </Section>
-      <Section title="Реплики и звук">
-        {t("comments", "Реплики", "Мат и стёб сохранены. Текст исчезает сам.")}
-        <Row label="Самостоятельно — не чаще">
+      <Section title={tx("Реплики и звук")}>
+        {t("comments", tx("Реплики"), tx("Мат и стёб сохранены. Текст исчезает сам."))}
+        <Row label={tx("Самостоятельно — не чаще")}>
           <Select.Root value={String(d.commentMinutes)} onValueChange={(v) => set("commentMinutes", Number(v))}>
-            <Select.Trigger aria-label="Частота реплик" />
+            <Select.Trigger aria-label={tx("Частота реплик")} />
             <Select.Content>
               {[1, 3, 5, 7, 10, 15, 30, 60].map((n) => (
                 <Select.Item key={n} value={String(n)}>
-                  раз в {n} мин
+                  {tx("раз в {n} мин", { n })}
                 </Select.Item>
               ))}
             </Select.Content>
           </Select.Root>
         </Row>
-        {t("sounds", "Звуки", "Шаги, прыжки, еда, монеты (синтез и Kenney CC0).")}
-        {t("voice", "Бормотание вместо озвучки", "Каждая реплика — набор звуков, у каждого персонажа свой голос.")}
-        <Row label={`Громкость · ${d.soundVolume}%`}>
-          <Slider value={[d.soundVolume]} min={0} max={100} step={5} onValueChange={([v]) => set("soundVolume", v)} style={{ width: 180 }} aria-label="Громкость" />
+        {t("sounds", tx("Звуки"), tx("Шаги, прыжки, еда, монеты (синтез и Kenney CC0)."))}
+        {t("voice", tx("Бормотание вместо озвучки"), tx("Каждая реплика — набор звуков, у каждого персонажа свой голос."))}
+        <Row label={tx("Громкость · {n}%", { n: d.soundVolume })}>
+          <Slider value={[d.soundVolume]} min={0} max={100} step={5} onValueChange={([v]) => set("soundVolume", v)} style={{ width: 180 }} aria-label={tx("Громкость")} />
         </Row>
       </Section>
-      <Section title="Время">
-        {num("idleMinutes", "Отдых без ввода, мин", 1, 60)}
-        {num("sleepMinutes", "Сон без ввода, мин", 2, 120)}
-        {num("longSessionMinutes", "Долго в одной программе, мин", 10, 240)}
-        <Row label="Ночной час" hint="Позже — ворчит, что пора спать.">
-          {hourSelect("lateHour", "Ночной час")}
+      <Section title={tx("Время")}>
+        {num("idleMinutes", tx("Отдых без ввода, мин"), 1, 60)}
+        {num("sleepMinutes", tx("Сон без ввода, мин"), 2, 120)}
+        {num("longSessionMinutes", tx("Долго в одной программе, мин"), 10, 240)}
+        <Row label={tx("Ночной час")} hint={tx("Позже — ворчит, что пора спать.")}>
+          {hourSelect("lateHour", tx("Ночной час"))}
         </Row>
-        <Row label="Тихие часы" hint="Без реплик по своей инициативе в это время.">
+        <Row label={tx("Тихие часы")} hint={tx("Без реплик по своей инициативе в это время.")}>
           <Flex gap="2" align="center">
-            {hourSelect("quietFrom", "Тихие часы с", true)}
+            {hourSelect("quietFrom", tx("Тихие часы с"), true)}
             <Text size="2" color="gray">
               —
             </Text>
-            {hourSelect("quietTo", "Тихие часы до", true)}
+            {hourSelect("quietTo", tx("Тихие часы до"), true)}
           </Flex>
         </Row>
       </Section>
-      <Section title="Погода" description="Зонтик в дождь и реплики о снеге и жаре. Запрос к Open-Meteo (данные CC BY 4.0) раз в 30 минут, только с вашими координатами и только если включено.">
-        {t("weather", "Показывать погоду")}
+      <Section title={tx("Погода")} description={tx("Зонтик в дождь и реплики о снеге и жаре. Запрос к Open-Meteo (данные CC BY 4.0) раз в 30 минут, только с вашими координатами и только если включено.")}>
+        {t("weather", tx("Показывать погоду"))}
         {d.weather && (
-          <Row label="Координаты" hint="Широта и долгота через запятую, например 55.75,37.62.">
+          <Row label={tx("Координаты")} hint={tx("Широта и долгота через запятую, например 55.75,37.62.")}>
             <TextField.Root value={d.weatherPlace} placeholder="55.75,37.62" onChange={(e) => set("weatherPlace", e.target.value)} style={{ width: 160 }} />
           </Row>
         )}
       </Section>
-      <Section title="Запуск">{t("autostart", "Запускать с Windows", "По умолчанию выключено.")}</Section>
+      <Section title={tx("Запуск")}>{t("autostart", tx("Запускать с Windows"), tx("По умолчанию выключено."))}</Section>
     </>
   );
 }

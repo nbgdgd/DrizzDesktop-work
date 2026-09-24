@@ -4,6 +4,7 @@
 // pooled so a long session does not create objects per reaction.
 import Phaser from "phaser";
 import type { Rect } from "./model";
+import { tx } from "./i18n";
 export interface Particle {
   kind: "dust" | "glyph";
   x: number;
@@ -25,7 +26,7 @@ export class Effects {
   private hits: { x: number; y: number; born: number; word: string; dir: number }[] = [];
   private hitText: Phaser.GameObjects.Text | null = null;
   hit(x: number, y: number, dir: number, dpr: number) {
-    const words = ["БАХ!", "ТЫЩ!", "БУМ!", "ХРЯСЬ!", "НА!"];
+    const words = ["БАХ!", "ТЫЩ!", "БУМ!", "ХРЯСЬ!", "НА!"].map((w) => tx(w));
     this.hits.push({ x, y, born: Date.now(), word: words[Math.floor(Math.random() * words.length)], dir });
     if (this.hits.length > 3) this.hits.shift();
     if (!this.hitText) {

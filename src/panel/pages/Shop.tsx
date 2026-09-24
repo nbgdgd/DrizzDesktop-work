@@ -4,21 +4,22 @@ import { command, emitAll } from "../../bridge";
 import { Item, itemById, items } from "../../game";
 import type { PanelState } from "../store";
 import { Section, money } from "../ui";
+import { tx } from "../../i18n";
 const kinds: [Item["kind"] | "all", string][] = [
-  ["all", "Всё"],
-  ["meal", "Еда"],
-  ["snack", "Снеки"],
-  ["drink", "Напитки"],
-  ["functional", "Бодрящее"],
-  ["drug", "Аптека"],
+  ["all", tx("Всё")],
+  ["meal", tx("Еда")],
+  ["snack", tx("Снеки")],
+  ["drink", tx("Напитки")],
+  ["functional", tx("Бодрящее")],
+  ["drug", tx("Аптека")],
 ];
 const effects = (i: Item) =>
   [
-    i.food ? ["сытость", i.food] : null,
-    i.drink ? ["вода", i.drink] : null,
-    i.strength ? ["бодрость", i.strength] : null,
-    i.feeling ? ["настроение", i.feeling] : null,
-    i.health ? ["здоровье", i.health] : null,
+    i.food ? [tx("сытость"), i.food] : null,
+    i.drink ? [tx("вода"), i.drink] : null,
+    i.strength ? [tx("бодрость"), i.strength] : null,
+    i.feeling ? [tx("настроение"), i.feeling] : null,
+    i.health ? [tx("здоровье"), i.health] : null,
   ].filter(Boolean) as [string, number][];
 export function Shop({ p }: { p: PanelState }) {
   const [kind, setKind] = useState<Item["kind"] | "all">("all");
@@ -27,15 +28,14 @@ export function Shop({ p }: { p: PanelState }) {
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        Купите кнопкой или перетащите иконку из этого окна прямо на питомца — он съест сам. Деньги капают, пока вы за компьютером, и за
-        работу.
+        {tx("Купите кнопкой или перетащите иконку из этого окна прямо на питомца — он съест сам. Деньги капают, пока вы за компьютером, и за работу.")}
       </Text>
       {pantry.length > 0 && (
-        <Section title="Запасы" description="Подарки и то, что питомец утащил к себе. Бесплатно.">
+        <Section title={tx("Запасы")} description={tx("Подарки и то, что питомец утащил к себе. Бесплатно.")}>
           <Flex gap="2" wrap="wrap">
             {pantry.map(([id, n]) => (
               <Button key={id} variant="soft" color="gray" onClick={() => void emitAll("pet-command", { feed: id })}>
-                <img src={itemById(id)!.icon} alt="" width={20} height={20} /> {itemById(id)!.name} × {n}
+                <img src={itemById(id)!.icon} alt="" width={20} height={20} /> {tx(itemById(id)!.name)} × {n}
               </Button>
             ))}
           </Flex>
@@ -59,7 +59,7 @@ export function Shop({ p }: { p: PanelState }) {
                   src={i.icon}
                   alt=""
                   draggable={false}
-                  title="Перетащите на питомца"
+                  title={tx("Перетащите на питомца")}
                   onPointerDown={(e) => {
                     if (g.money < i.price) return;
                     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -69,14 +69,14 @@ export function Shop({ p }: { p: PanelState }) {
                 <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
                   <Flex justify="between" gap="2">
                     <Text size="2" weight="medium">
-                      {i.name}
+                      {tx(i.name)}
                     </Text>
                     <Text size="2" color={g.money < i.price ? "red" : undefined}>
                       {money(i.price)}
                     </Text>
                   </Flex>
                   <Text size="1" color="gray">
-                    {i.desc}
+                    {tx(i.desc)}
                   </Text>
                   <Flex gap="1" wrap="wrap" mt="1">
                     {effects(i).map(([name, v]) => (
@@ -93,7 +93,7 @@ export function Shop({ p }: { p: PanelState }) {
                     disabled={g.money < i.price}
                     onClick={() => p.run(command("buy_item", { id: i.id }))}
                   >
-                    Купить
+                    {tx("Купить")}
                   </Button>
                 </Flex>
               </Flex>
@@ -101,7 +101,7 @@ export function Shop({ p }: { p: PanelState }) {
           ))}
       </div>
       <Text as="p" size="1" color="gray" mt="4">
-        Иконки еды — VPet (LorisYounger), github.com/LorisYounger/VPet.
+        {tx("Иконки еды — VPet (LorisYounger), github.com/LorisYounger/VPet.")}
       </Text>
     </>
   );

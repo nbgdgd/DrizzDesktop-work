@@ -1,3 +1,4 @@
+import { tx } from "./i18n";
 // Time of day, weekends and the few dates the pet cares about. Local time;
 // the user's birthday comes from Memory ("MM-DD"), never from the network.
 export type DayPart = "night" | "morning" | "day" | "evening";
@@ -23,12 +24,12 @@ const md = (now: number) => {
 /** Today's occasion, if any. `birthday` is "MM-DD" or "". */
 export function holiday(now: number, birthday = "", since = 0): Holiday | null {
   const today = md(now);
-  if (birthday && today === birthday) return { id: "birthday", name: "твой день рождения", wear: "party" };
-  if (["12-31", "01-01", "01-02"].includes(today)) return { id: "newyear", name: "Новый год", wear: "santa" };
-  if (today === "10-31") return { id: "halloween", name: "Хэллоуин", wear: "pumpkin" };
-  if (today === "02-14") return { id: "valentine", name: "день всех влюблённых", wear: "bow" };
+  if (birthday && today === birthday) return { id: "birthday", name: tx("твой день рождения"), wear: "party" };
+  if (["12-31", "01-01", "01-02"].includes(today)) return { id: "newyear", name: tx("Новый год"), wear: "santa" };
+  if (today === "10-31") return { id: "halloween", name: tx("Хэллоуин"), wear: "pumpkin" };
+  if (today === "02-14") return { id: "valentine", name: tx("день всех влюблённых"), wear: "bow" };
   if (since && now - since > 300 * 86400000 && md(since) === today)
-    return { id: "petday", name: "годовщина знакомства", wear: "party" };
+    return { id: "petday", name: tx("годовщина знакомства"), wear: "party" };
   return null;
 }
 export function cleanBirthday(v: unknown): string {

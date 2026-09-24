@@ -58,8 +58,8 @@ import { parse, obeys } from "./commands";
 import { FRAME_H, FRAME_W, Placement, compact, headTop, regionRects, toCanvas } from "./pose";
 import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
-// The first-run card sits in canvas space, above where the pet stands.
-const CARD = { left: 74, top: 24, width: 212, height: 96 };
+import { getLang, money, setLang, tx } from "./i18n";
+import { MUSIC_GAP, SAFE_DB, dbVolume, levels, weekly } from "./ears";
 interface Motion {
   x: number;
   y: number;
@@ -98,9 +98,6 @@ export class PetScene extends Phaser.Scene {
   private lastGameSave = 0;
   private sfx = new Sound();
   private voice = new Voice();
-  // First-run card: drawn once, held for a few seconds, never again.
-  private card?: Phaser.GameObjects.Container;
-  private cardUntil = 0;
   private lastReaction = "";
   private lastBubble = "";
   private ready = false;
@@ -171,11 +168,11 @@ export class PetScene extends Phaser.Scene {
     this.props = new Props(this);
     this.fx = new Effects(this);
     this.hud = new WorkHud(this);
-    this.quick = new QuickCard(this, ["Покормить", "Поиграть", "Панель"], (i) => {
+    this.quick = new QuickCard(this, () => [tx("Покормить"), tx("Поиграть"), tx("Панель")], (i) => {
       if (!this.ready) return;
       this.quick.close();
       if (i === 0) this.quickFeed("food");
-      else if (i === 1) this.onCommand({ text: "играть" });
+      else if (i === 1) this.onCommand({ text: "play" });
       else void command("open_panel", { tab: "status" });
       this.game.loop.wake();
     });
@@ -335,6 +332,7 @@ export class PetScene extends Phaser.Scene {
       this.store = await command<Store>("load_store");
       if (this.disposed) return;
       this.store.settings = cleanSettings(this.store.settings);
+      setLang(this.store.settings.lang);
       this.store.memory = cleanMemory(this.store.memory);
       await this.diag.refresh();
       this.brain = new Director(
@@ -345,7 +343,7 @@ export class PetScene extends Phaser.Scene {
       );
       this.changePet();
       this.applySound();
-      if (!this.store.memory.cardShown) this.showCard();
+      if (!this.store.memory.cardShown) this.welcome();
       await this.subscribe<Store>("store", (s) => this.onStore(s));
       await this.subscribe<Motion>("motion", (m) => this.onMotion(m));
       await this.subscribe<Snapshot>("snapshot", (n) => this.onSnapshot(n));
@@ -422,7 +420,7 @@ export class PetScene extends Phaser.Scene {
       }
     } catch (e) {
       this.balloon.label
-        .setText("Не удалось запустить питомца. Откройте приложение заново.")
+        .setText(tx("Не удалось запустить питомца. Откройте приложение заново."))
         .setPosition(20, 50)
         .setVisible(true);
       console.error(String(e));
@@ -457,6 +455,7 @@ export class PetScene extends Phaser.Scene {
       game: this.brain.game,
     };
     void this.diag.refresh();
+    setLang(this.store.settings.lang);
     this.brain.updateSettings(this.store.settings);
     this.applySound();
     this.brain.memory = merged;
@@ -585,7 +584,43 @@ export class PetScene extends Phaser.Scene {
       this.saveMemory(true);
     }
     void this.checkWeather(now);
+    this.applyEars(now);
     if (this.brain.bubble || this.brain.reaction) this.game.loop.wake();
+  }
+  private lastGains = "1,1";
+  /** Balance / resting ear and the "turn it down" decision go to Windows. */
+  private applyEars(now: number) {
+    // Live state for the panel's "Уши" page.
+    const env = this.snapshot?.env;
+    const [ll, lr] = levels(
+      { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right },
+      this.store.settings.earsMax,
+    );
+    void emitAll("ears-live", {
+      headphones: !!env?.headphones,
+      playing: !!env?.audio && !env?.muted,
+      level: Math.max(ll, lr),
+      session: this.brain.game.ears.session,
+      gains: this.brain.earGains,
+    });
+    const key = this.brain.earGains.join(",");
+    if (key !== this.lastGains) {
+      this.lastGains = key;
+      const [left, right] = this.brain.earGains;
+      void command("set_balance", { left, right }).catch((e) => this.diag.log("ears", String(e)));
+    }
+    if (this.brain.earLower && now - this.brain.earLower < 5000) {
+      this.brain.earLower = 0;
+      this.lowerVolume();
+    }
+  }
+  /** Down to about SAFE_DB on average music, never up. */
+  private lowerVolume() {
+    const s = this.store.settings;
+    const target = dbVolume(SAFE_DB - s.earsMax + MUSIC_GAP);
+    const current = (this.snapshot?.env?.volume ?? 100) / 100;
+    if (current <= target) return;
+    void command("set_volume", { level: target }).catch((e) => this.diag.log("ears", String(e)));
   }
   // ------------------------------------------------------------ actions
   // Shop purchase requested from the settings panel. The pet owns the
@@ -608,10 +643,10 @@ export class PetScene extends Phaser.Scene {
     this.brain.reset("fed");
     const buzzKind = id === "energy" || id === "coffee" ? "energy" : id === "beer" ? "beer" : null;
     if (buzzKind) {
-      this.brain.event(buzzKind === "energy" ? "energyStart" : "beerStart", now, true, undefined, { item: item.name });
+      this.brain.event(buzzKind === "energy" ? "energyStart" : "beerStart", now, true, undefined, { item: tx(item.name) });
       // Kicks in once the can/bottle is empty.
       this.antics.later(now + 2600, () => this.buzz.start(buzzKind, Date.now(), id === "coffee" ? 0.5 : 1));
-    } else this.brain.event("fed", now, true, undefined, { item: item.name });
+    } else this.brain.event("fed", now, true, undefined, { item: tx(item.name) });
     this.antics.carry = "shop-" + id;
     this.antics.later(now + 2600, () => {
       if (this.antics.carry === "shop-" + id) this.antics.carry = "";
@@ -672,7 +707,7 @@ export class PetScene extends Phaser.Scene {
     }
     this.brain.game = next;
     this.sfx.play("work");
-    this.brain.event("work", now, true, undefined, { job: job.name });
+    this.brain.event("work", now, true, undefined, { job: tx(job.name) });
     this.saveGame(true);
     this.game.loop.wake();
   }
@@ -723,7 +758,7 @@ export class PetScene extends Phaser.Scene {
     if (c.wear !== undefined) {
       b.life.wear = c.wear;
       this.saveGame(true);
-      this.brain.event("upgrade", now, true, undefined, { skill: "гардероб" });
+      this.brain.event("upgrade", now, true, undefined, { skill: tx("гардероб") });
       return;
     }
     if (c.role === "guard") {
@@ -776,7 +811,7 @@ export class PetScene extends Phaser.Scene {
         break;
       case "go":
         say("cmdGo");
-        this.antics.leave(this.host(), "go", 60000 + Math.random() * 30000, "Ушёл. Сам сказал.");
+        this.antics.leave(this.host(), "go", 60000 + Math.random() * 30000, tx("Ушёл. Сам сказал."));
         break;
       case "jump":
         this.world.jump();
@@ -795,9 +830,9 @@ export class PetScene extends Phaser.Scene {
           b.bubble = {
             ...b.bubble,
             actions: [
-              { id: "start:rps", label: "Камень-ножницы" },
-              { id: "start:hand", label: "Угадай руку" },
-              { id: "start:clicker", label: "Кликер" },
+              { id: "start:rps", label: tx("Камень-ножницы") },
+              { id: "start:hand", label: tx("Угадай руку") },
+              { id: "start:clicker", label: tx("Кликер") },
             ],
             until: now + 20000,
           };
@@ -838,7 +873,7 @@ export class PetScene extends Phaser.Scene {
     if (o.event === "gameWin") note(this.brain.life, "win", now);
     this.brain.reset(o.event);
     this.brain.event(o.event, now, true, undefined, {});
-    if (this.brain.bubble) this.brain.bubble = { ...this.brain.bubble, sub: o.text + (o.prize ? ` +${o.prize} ₽` : "") };
+    if (this.brain.bubble) this.brain.bubble = { ...this.brain.bubble, sub: o.text + (o.prize ? ` +${money(o.prize)}` : "") };
     this.saveGame(true);
     void emitAll("pet-reply", { text: `${this.brain.bubble?.text ?? ""} ${o.text}` });
   }
@@ -867,8 +902,8 @@ export class PetScene extends Phaser.Scene {
         this.brain.bubble = {
           ...this.brain.bubble,
           actions: [
-            { id: "clean:yes", label: "Почистить" },
-            { id: "clean:no", label: "Не надо" },
+            { id: "clean:yes", label: tx("Почистить") },
+            { id: "clean:no", label: tx("Не надо") },
           ],
           until: now + 60000,
         };
@@ -899,58 +934,13 @@ export class PetScene extends Phaser.Scene {
       this.diag.log("weather", String(e));
     }
   }
-  // A paper card the pet holds up on the very first launch. Greeting, one
-  // time only: the flag goes into memory as soon as it is shown.
-  private showCard() {
-    const w = CARD.width;
-    const h = CARD.height;
-    const card = this.add.container(CARD.left, CARD.top);
-    const paper = this.add.graphics();
-    paper.fillStyle(0x0e0e12, 0.92);
-    paper.fillRoundedRect(0, 0, w, h, 10);
-    paper.lineStyle(2, 0xb4e62e, 0.9);
-    paper.strokeRoundedRect(0, 0, w, h, 10);
-    const text = this.add.text(w / 2, h / 2 - 4, "ПРИВЕТ, УЁБОК", {
-      fontFamily: "Segoe UI, sans-serif",
-      fontSize: "24px",
-      fontStyle: "bold",
-      color: "#b4e62e",
-      align: "center",
-    });
-    text.setOrigin(0.5, 0.5);
-    const sub = this.add.text(w / 2, h - 16, "теперь я живу у тебя на столе", {
-      fontFamily: "Segoe UI, sans-serif",
-      fontSize: "11px",
-      color: "#9a9aa2",
-      align: "center",
-    });
-    sub.setOrigin(0.5, 0.5);
-    card.add([paper, text, sub]);
-    card.setAngle(-4);
-    card.setDepth(50);
-    this.card = card;
-    this.cardUntil = Date.now() + 9000;
-    this.sfx.play("summon");
+  // First launch: the welcome screen (language, pet, key settings) opens in
+  // the panel window. Shown once; the flag goes into memory right away.
+  private welcome() {
     this.store.memory.cardShown = true;
     this.brain.memory.cardShown = true;
     this.saveMemory(true);
-    this.game.loop.wake();
-  }
-  /** Window region for the card while it is up (the region clips drawing). */
-  private cardRect() {
-    return this.card
-      ? {
-          left: CARD.left - 6,
-          top: CARD.top - 6,
-          right: CARD.left + CARD.width + 6,
-          bottom: CARD.top + CARD.height + 6,
-        }
-      : null;
-  }
-  private hideCard() {
-    this.card?.destroy(true);
-    this.card = undefined;
-    this.cardUntil = 0;
+    void command("open_panel", { tab: "welcome" }).catch(() => undefined);
   }
   private saveGame(force: boolean) {
     const now = Date.now();
@@ -1323,6 +1313,12 @@ export class PetScene extends Phaser.Scene {
       } else if (kind === "panel") {
         this.brain.bubble = undefined;
         await command("open_panel", { tab: arg });
+      } else if (kind === "ears") {
+        this.brain.bubble = undefined;
+        if (arg === "lower") {
+          this.lowerVolume();
+          this.brain.event("earsThanks", Date.now(), true);
+        }
       } else if (kind === "quickfeed") {
         this.brain.bubble = undefined;
         this.quickFeed(arg as "food" | "drink" | "drug");
@@ -1429,11 +1425,11 @@ export class PetScene extends Phaser.Scene {
       frames < CELLS
     ) {
       const reason = this.loadFailures.has(id)
-        ? `не удалось загрузить ${this.loadFailures.get(id)}`
+        ? tx("не удалось загрузить {what}", { what: String(this.loadFailures.get(id)) })
         : texture
-          ? `неверный размер атласа ${image?.width ?? 0}×${image?.height ?? 0}, кадров ${frames}`
-          : `текстура «${id}» отсутствует`;
-      this.assetError = `Спрайт не загружен: ${reason}`;
+          ? tx("неверный размер атласа {w}×{h}, кадров {n}", { w: image?.width ?? 0, h: image?.height ?? 0, n: frames })
+          : tx("текстура «{id}» отсутствует", { id });
+      this.assetError = tx("Спрайт не загружен: {reason}", { reason });
       this.actor.setVisible(false);
       console.error(this.assetError);
       this.diag.log("asset", `${id} ${url} FAILED: ${reason}`);
@@ -1639,10 +1635,6 @@ export class PetScene extends Phaser.Scene {
     this.brain.position(this.world.x, this.world.y);
     this.world.agility = skill(this.brain.game, "agility");
     this.reactSound();
-    if (this.card && now > this.cardUntil) {
-      this.hideCard();
-      this.lastPose = "";
-    }
     const s = this.store.settings;
     const k = this.world.scale;
     const size = this.sizePx();
@@ -1939,7 +1931,7 @@ export class PetScene extends Phaser.Scene {
       angle,
       z,
       wear: hol?.wear ?? this.brain.life.wear,
-      headphones: !!this.snapshot?.media.playing && !absent,
+      headphones: (!!this.snapshot?.media.playing || (!!this.snapshot?.env?.headphones && !!this.snapshot?.env?.audio)) && !absent,
       umbrella: this.weather?.kind === "rain" && now - this.weather.at < 3600000 && !this.world.dragging,
       flashlight: dayPart(now) === "night" && walking && !absent ? (action === "walkRight" ? 1 : -1) : 0,
       carry: this.antics.carry,
@@ -1977,7 +1969,7 @@ export class PetScene extends Phaser.Scene {
       job
         ? {
             id: job.id,
-            name: job.name,
+            name: tx(job.name),
             progress: jobProgress(g2, now),
             left: (g2.job?.endsAt ?? now) - now,
             earned: jobPay(g2, job) * jobProgress(g2, now),
@@ -1996,16 +1988,21 @@ export class PetScene extends Phaser.Scene {
           level: lvl,
           levelPct: Math.min(99, Math.max(0, (100 * (g2.exp - levelUpNeed(lvl - 1))) / Math.max(1, levelUpNeed(lvl) - levelUpNeed(lvl - 1)))),
           money: g2.money,
-          stage: stageNames[this.brain.stageNow(now)],
-          mood: { happy: "счастлив", normal: "норм", poor: "не в духе", ill: "болеет" }[mode(g2)],
+          stage: tx(stageNames[this.brain.stageNow(now)]),
+          mood: tx({ happy: "счастлив", normal: "норм", poor: "не в духе", ill: "болеет" }[mode(g2)]),
           bars: [
-            ["Настроение", g2.feeling],
-            ["Сытость", g2.food],
-            ["Вода", g2.drink],
-            ["Бодрость", g2.strength],
-            ["Здоровье", g2.health],
+            [tx("Настроение"), g2.feeling],
+            [tx("Сытость"), g2.food],
+            [tx("Вода"), g2.drink],
+            [tx("Бодрость"), g2.strength],
+            [tx("Здоровье"), g2.health],
           ],
-          job: job ? `${job.name}: ещё ${Math.max(1, Math.ceil(((g2.job?.endsAt ?? now) - now) / 60000))} мин` : g2.grudge >= 50 ? "Злится на тебя" : "",
+          job: job ? tx("{job}: ещё {n} мин", { job: tx(job.name), n: Math.max(1, Math.ceil(((g2.job?.endsAt ?? now) - now) / 60000)) }) : g2.grudge >= 50 ? tx("Злится на тебя") : "",
+          ears: (() => {
+            if (!s.ears) return "";
+            const w = weekly(g2.ears, now);
+            return w.min > 0 ? tx("Уши: {n}% недельной нормы", { n: Math.round(Math.max(w.l, w.r) * 100) }) : "";
+          })(),
         }
       : null;
     const cardRect = this.quick.render(cardData, this.layout.anchorX, headCanvas?.y ?? this.layout.anchorY - drawSize, this.layout.anchorY, accent);
@@ -2022,8 +2019,6 @@ export class PetScene extends Phaser.Scene {
     rects.push(...this.fx.rects(this.toScene, this.world.x, this.world.y, headCanvas, now, z * 2.4));
     rects.push(...propRects);
     if (carriedRect) rects.push(carriedRect);
-    const card = this.cardRect();
-    if (card) rects.push(card);
     if (bubbleRect) rects.push(bubbleRect);
     void this.renderPose(!this.brain.hidden, rects);
     this.saveMemory(false);
@@ -2182,7 +2177,7 @@ export class PetScene extends Phaser.Scene {
   }
 }
 function formatBytes(n: number) {
-  if (n >= 1073741824) return (n / 1073741824).toFixed(1).replace(".", ",") + " ГБ";
-  if (n >= 1048576) return Math.round(n / 1048576) + " МБ";
-  return Math.round(n / 1024) + " КБ";
+  if (n >= 1073741824) return tx("{n} ГБ", { n: (n / 1073741824).toFixed(1).replace(".", getLang() === "en" ? "." : ",") });
+  if (n >= 1048576) return tx("{n} МБ", { n: Math.round(n / 1048576) });
+  return tx("{n} КБ", { n: Math.round(n / 1024) });
 }

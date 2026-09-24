@@ -1,6 +1,6 @@
 # Drizz Desktop
 
-Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas renderer). UI text and pet lines are Russian; the pet swears on purpose — keep that tone, no slurs.
+Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas renderer). Russian and English (`settings.lang`). Russian lines swear on purpose — keep that tone, no slurs; English lines are written the same way and softened by `cleanEn` unless `settings.swear` is on.
 
 ## Commands
 - `npx tsc --noEmit` — typecheck (run after every change)
@@ -14,7 +14,8 @@ Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas 
 - `director.ts` — reactions, rules (priority/cooldown/duration), mood, daily flags, memory hooks. `dialogue.ts` + `lines.ts` — phrase banks (`event`, `event@mood`, `event~stage`).
 - `movement.ts` — physics, multi-monitor seams (`neighbor`/`span`), drag pendulum, climbing. `cursorplay.ts` — cursor games per temper. `antics.ts` — long behaviours (sulk, notes, gifts, hiding). `character.ts` — tempers.
 - `game.ts` + `chronicle.ts` — progression and long-term memory (`Game.life`); `PetScene.ts` wires it all and renders (`pose.ts`, `effects.ts`, `balloon.ts`, `props.ts`).
-- `src/panel/` — settings window (Radix Themes + Lucide). Rust: `main.rs` commands, `native.rs` Win32, `chores.rs` cursor nudge / temp / weather.
+- `src/panel/` — settings window (Radix Themes + Lucide), `pages/Welcome.tsx` first run, `pages/Ears.tsx` ear care. Rust: `main.rs` commands, `native.rs` Win32, `chores.rs` cursor nudge / temp / weather, `env.rs` sound (headphones, per-channel dB, balance).
+- `i18n.ts` + `i18n.en.ts` — `tx("русский текст", vars)` looked up by the Russian text; `lines.en.ts` — English banks; `swear.ts` — `cleanEn`. `ears.ts` — weekly sound dose per ear (WHO/ITU H.870), breaks, ear rest.
 
 ## Rules that are easy to break
 - The pet window owns game state; the panel only sends ids/commands (`buy_item`, `emitAll("pet-command")`). Pet-owned memory keys are whitelisted in `save_pet_memory`.
@@ -22,6 +23,7 @@ Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas 
 - Phaser runs in Canvas mode: no tint, no shaders.
 - JS `\b` is ASCII-only — never use it after Cyrillic words (see `commands.ts`).
 - New lines must not use variables the event does not pass; `{name}`/`{fact}` lines are filtered automatically.
+- Every new phrase bank needs an English twin in `lines.en.ts` with the same variables; every new UI string goes through `tx()` with an entry in `i18n.en.ts` (`i18n.test.ts`, `ears.test.ts` check both). Never call `tx()` at module level — the language is set later; translate data tables at display time (`tx(item.name)`).
 - Every new timer-driven behaviour goes through `Director.heartbeat` or `Antics.later`, not per-frame `setTimeout`.
 
 ## Compaction

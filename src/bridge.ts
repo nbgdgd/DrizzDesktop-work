@@ -48,7 +48,7 @@ export async function command<T = void>(
   args: Record<string, unknown> = {},
 ): Promise<T> {
   if (native) return invoke<T>(cmd, args);
-  if (demoHost && ["pose", "nudge_cursor", "window_act", "autorun_remove", "autorun_keep"].includes(cmd))
+  if (demoHost && ["pose", "nudge_cursor", "window_act", "autorun_remove", "autorun_keep", "set_balance", "set_volume"].includes(cmd))
     return demoHost(cmd, args) as T;
   if (cmd === "load_store") return previewStore() as T;
   if (cmd === "usage_stats")

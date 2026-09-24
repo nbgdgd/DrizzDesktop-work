@@ -5,6 +5,7 @@
 import Phaser from "phaser";
 import spinners from "cli-spinners";
 import type { Rect } from "./model";
+import { money, tx } from "./i18n";
 type Spin = { interval: number; frames: string[] };
 const spin = (name: string): Spin => (spinners as unknown as Record<string, Spin>)[name] ?? { interval: 100, frames: ["-", "\\", "|", "/"] };
 /** A spinner per job, from the same collection terminals use. */
@@ -21,17 +22,17 @@ export function jobStats(id: string, p: number, t: number): string[] {
   const w = Math.sin(t / 1700);
   switch (id) {
     case "flyers":
-      return [`Раздано флаеров: ${r(120 * p)}`, `Послали нахуй: ${r(31 * p)}`, `Взяли и выкинули: ${r(70 * p)}`];
+      return [tx("Раздано флаеров: {n}", { n: r(120 * p) }), tx("Послали нахуй: {n}", { n: r(31 * p) }), tx("Взяли и выкинули: {n}", { n: r(70 * p) })];
     case "stream":
-      return [`Зрителей: ${Math.max(1, r(8 + 140 * p + 6 * w))}`, `Донатов: ${r(900 * p)} ₽`, `Банов в чате: ${r(12 * p)}`];
+      return [tx("Зрителей: {n}", { n: Math.max(1, r(8 + 140 * p + 6 * w)) }), tx("Донатов: {n}", { n: money(900 * p) }), tx("Банов в чате: {n}", { n: r(12 * p) })];
     case "qa":
-      return [`Найдено багов: ${r(23 * p)}`, `«Это не баг, это фича»: ${r(9 * p)}`, `Кофе: ${1 + r(3 * p)} чашки`];
+      return [tx("Найдено багов: {n}", { n: r(23 * p) }), tx("«Это не баг, это фича»: {n}", { n: r(9 * p) }), tx("Кофе: {n} чашки", { n: 1 + r(3 * p) })];
     case "mining":
-      return [`Хэшрейт: ${(41 + 3 * w).toFixed(1)} MH/s`, `Видюха: ${62 + r(19 * p)}°C`, `Намайнено: ${(0.0004 * p).toFixed(5)} ETH`];
+      return [tx("Хэшрейт: {n} MH/s", { n: (41 + 3 * w).toFixed(1) }), tx("Видюха: {n}°C", { n: 62 + r(19 * p) }), tx("Намайнено: {n} ETH", { n: (0.0004 * p).toFixed(5) })];
     case "night":
-      return [`Обходов серверной: ${r(14 * p)}`, `Подозрительных пингов: ${r(6 * p)}`, `Выпито кофе: ${r(5 * p)}`];
+      return [tx("Обходов серверной: {n}", { n: r(14 * p) }), tx("Подозрительных пингов: {n}", { n: r(6 * p) }), tx("Выпито кофе: {n}", { n: r(5 * p) })];
     default:
-      return [`Готово: ${r(100 * p)}%`];
+      return [tx("Готово: {n}%", { n: r(100 * p) })];
   }
 }
 export const clock = (ms: number) => {
@@ -108,7 +109,7 @@ export class WorkHud {
     g.fillStyle(accent, 1).fillRoundedRect(bx, by, fw, bh, 4);
     const shine = bx + ((now / 12) % (bw + 30)) - 30;
     if (shine < bx + fw - 6) g.fillStyle(0xffffff, 0.22).fillRect(Math.max(bx, shine), by + 1, Math.min(14, bx + fw - Math.max(bx, shine)), bh - 2);
-    this.pay.setText(`+${Math.floor(job.earned)} ₽`).setPosition(bx + bw + 8, by - 3);
+    this.pay.setText(`+${money(job.earned)}`).setPosition(bx + bw + 8, by - 3);
     // Ticker: one stat at a time, changing every 3.5 s.
     const stats = jobStats(job.id, job.progress, now);
     this.ticker.setText(stats[Math.floor(now / 3500) % stats.length]).setPosition(left + 10, top + 46);

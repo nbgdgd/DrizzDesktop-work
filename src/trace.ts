@@ -2,6 +2,7 @@
 // load.rs). Kept apart from the director so the phrasing of "who launched
 // what" can be unit-tested without a snapshot.
 import { appName } from "./apps";
+import { tx } from "./i18n";
 
 export interface TraceProc {
   pid: number;
@@ -31,14 +32,14 @@ export interface TraceEvent {
   script?: string;
 }
 const scriptName = (s: string) =>
-  s.startsWith("(") || s.startsWith("модуль") ? s : s.split(/[\\/]/).pop() || s;
+  s.startsWith("(") ? tx(s) : s.startsWith("модуль ") ? tx("модуль {m}", { m: s.slice(7) }) : s.split(/[\\/]/).pop() || s;
 /// "скрипт bot.py через python" / "" — the middle of the chain in words.
 export function viaLabel(e: TraceEvent) {
   const interp = e.via ?? (e.script ? e.child : null);
   if (!interp && !e.script) return "";
   const who = interp ? appName(interp.name) : "";
-  if (e.script) return `скрипт ${scriptName(e.script)}${who ? " через " + who : ""}`;
-  return who ? "через " + who : "";
+  if (e.script) return who ? tx("скрипт {s} через {who}", { s: scriptName(e.script), who }) : tx("скрипт {s}", { s: scriptName(e.script) });
+  return who ? tx("через {who}", { who }) : "";
 }
 /// Best file to show for an event: the script if it is a real path, else
 /// the origin executable.
@@ -82,7 +83,7 @@ export interface AutorunChange {
   entry: AutorunEntry;
 }
 export const scopeLabel = (scope: string) =>
-  ({
+  tx(({
     "hkcu-run": "реестр пользователя (Run)",
     "hkcu-runonce": "реестр пользователя (RunOnce)",
     "hklm-run": "реестр для всех пользователей (Run)",
@@ -90,7 +91,7 @@ export const scopeLabel = (scope: string) =>
     "hklm32-run": "реестр для всех, 32-бит (Run)",
     "startup-user": "папка «Автозагрузка»",
     "startup-common": "общая папка «Автозагрузка»",
-  })[scope] ?? scope;
+  })[scope] ?? scope);
 export function autorunSpeech(c: AutorunChange) {
   const e = c.entry;
   const fake = { location: e.location, signed: e.signed } as TraceProc;
@@ -134,29 +135,30 @@ const childNames: Record<string, string> = {
   "cscript.exe": "консольный скрипт cscript",
   "mshta.exe": "HTML-приложение mshta",
 };
-export const childName = (exe: string) => childNames[exe] ?? exe;
+export const childName = (exe: string) => (childNames[exe] ? tx(childNames[exe]) : exe);
+export const flagLabel = (f: string) => (flagLabels[f] ? tx(flagLabels[f]) : f);
 
 export const whereLabel = (p: TraceProc) =>
-  ({
+  tx(({
     system: "из папки Windows",
     programs: "из Program Files",
     appdata: "из AppData",
     temp: "из временной папки",
     other: "",
     unknown: "",
-  })[p.location] ?? "";
+  })[p.location] ?? "");
 
 export const signLabel = (p: TraceProc) =>
-  p.signed === true
+  tx(p.signed === true
     ? "подписан"
     : p.signed === false
       ? "без подписи"
       : p.location === "system"
         ? "компонент Windows"
-        : "";
+        : "");
 
 export const originLabel = (p: TraceProc | null) =>
-  p ? appName(p.name) + (p.role ? ` (${p.role})` : "") : "";
+  p ? appName(p.name) + (p.role ? ` (${tx(p.role)})` : "") : "";
 
 /// Director event name and phrase variables for a trace notification.
 /// `detail` (vigilance and brains upgrades) adds more flags and, from 2 up,
@@ -172,7 +174,7 @@ export function traceSpeech(
     : "";
   const via = viaLabel(e);
   const chain =
-    detail >= 2 && e.chain.length > 1 ? `; цепочка: ${e.chain.slice(0, 4).map(appName).join(" ← ")}` : "";
+    detail >= 2 && e.chain.length > 1 ? tx("; цепочка: {chain}", { chain: e.chain.slice(0, 4).map(appName).join(" ← ") }) : "";
   const vars = {
     child: childName(e.child.name),
     origin: originLabel(o) + (via ? ` (${via})` : ""),
@@ -180,7 +182,7 @@ export function traceSpeech(
     flags: e.flags
       .filter((f) => !["background", "flash"].includes(f))
       .slice(0, 2 + Math.max(0, detail))
-      .map((f) => flagLabels[f] ?? f)
+      .map(flagLabel)
       .join(", "),
   };
   if (e.speak === "alert") return { event: "traceAlert", vars, direct: true };

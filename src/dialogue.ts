@@ -1,8 +1,10 @@
 import { Settings } from "./model";
 import { more } from "./lines";
+import { en } from "./lines.en";
+import { cleanEn } from "./swear";
 // Every line is deliberately rude: the pet swears at its owner. That is the
-// whole character. Keep new lines short, Russian, and aimed at the user, not
-// at anyone else; `{app}`, `{time}`, `{level}`, `{item}`, `{job}`, `{pay}`,
+// whole character. Keep new lines short and aimed at the user, not at anyone
+// else; every Russian bank has an English twin in lines.en.ts; `{app}`, `{time}`, `{level}`, `{item}`, `{job}`, `{pay}`,
 // `{pct}`, `{n}`, `{theme}`, `{child}`, `{origin}`, `{details}`, `{flags}`, `{top}`, `{share}`, `{base}`, `{name}`, `{scope}`, `{error}` are
 // substituted by the director.
 const base: Record<string, string[]> = {
@@ -828,6 +830,12 @@ const base: Record<string, string[]> = {
 // with the same name are joined, not replaced.
 export const phrases: Record<string, string[]> = { ...base };
 for (const [k, v] of Object.entries(more)) phrases[k] = [...(phrases[k] ?? []), ...v];
+/** The banks for the pet's language; English is softened unless swearing is on. */
+export function linesFor(event: string, s: Pick<Settings, "lang" | "swear">): string[] {
+  if (s.lang !== "en") return phrases[event] ?? [];
+  const bank = en[event] ?? [];
+  return s.swear ? bank : bank.map(cleanEn);
+}
 // Ambient remarks share the user's "not more often than N minutes" budget.
 // Everything else is a reaction to something that just happened and only
 // keeps a short anti-spam gap plus its own rule cooldown. Needs (hungry,
@@ -912,9 +920,9 @@ export class Dialogue {
           (!t.includes("{name}") || !!vars?.name) &&
           (!t.includes("{fact}") || !!vars?.fact),
       );
-    const moodBank = usable(phrases[`${event}@${mood}`]);
-    const stageBank = stage ? usable(phrases[`${event}~${stage}`]) : [];
-    const plain = usable(phrases[event]);
+    const moodBank = usable(linesFor(`${event}@${mood}`, s));
+    const stageBank = stage ? usable(linesFor(`${event}~${stage}`, s)) : [];
+    const plain = usable(linesFor(event, s));
     const bank =
       moodBank.length && this.random() < 0.75
         ? moodBank
@@ -936,6 +944,7 @@ export class Dialogue {
     if (vars)
       for (const [k, v] of Object.entries(vars))
         text = text.split(`{${k}}`).join(v);
-    return text;
+    // A line may start with a variable ("{side} ухо…"): capitalise it.
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 }

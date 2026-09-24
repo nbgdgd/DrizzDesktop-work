@@ -2,7 +2,9 @@
 // hand", a ten-second clicker and "catch the cursor" (the chase itself runs
 // in cursorplay.ts). Pure state; the scene shows the prompts and buttons.
 import type { BubbleAction } from "./director";
+import { money, tx } from "./i18n";
 export type GameKind = "rps" | "hand" | "clicker" | "catch";
+/** Shown translated: `tx(gameNames[kind])`. */
 export const gameNames: Record<GameKind, string> = {
   rps: "Камень, ножницы, бумага",
   hand: "В какой руке?",
@@ -35,27 +37,27 @@ export class MiniGames {
     this.round = { kind, since: now, until: now + ms, score: 0 };
     if (kind === "rps")
       return {
-        text: "Камень, ножницы, бумага! Выбирай.",
+        text: tx("Камень, ножницы, бумага! Выбирай."),
         actions: [
-          { id: "game:rock", label: "Камень" },
-          { id: "game:scissors", label: "Ножницы" },
-          { id: "game:paper", label: "Бумага" },
+          { id: "game:rock", label: tx("Камень") },
+          { id: "game:scissors", label: tx("Ножницы") },
+          { id: "game:paper", label: tx("Бумага") },
         ],
         ms,
       };
     if (kind === "hand") {
       this.round.coin = random() < 0.5 ? "left" : "right";
       return {
-        text: "Спрятал монетку. В какой лапе?",
+        text: tx("Спрятал монетку. В какой лапе?"),
         actions: [
-          { id: "game:left", label: "В левой" },
-          { id: "game:right", label: "В правой" },
+          { id: "game:left", label: tx("В левой") },
+          { id: "game:right", label: tx("В правой") },
         ],
         ms,
       };
     }
-    if (kind === "clicker") return { text: "Кликай по мне! Десять секунд, поехали!", actions: [], ms };
-    return { text: "Сейчас я поймаю твой курсор. Двадцать секунд. Убегай!", actions: [], ms };
+    if (kind === "clicker") return { text: tx("Кликай по мне! Десять секунд, поехали!"), actions: [], ms };
+    return { text: tx("Сейчас я поймаю твой курсор. Двадцать секунд. Убегай!"), actions: [], ms };
   }
   /** A balloon button was pressed during a round. */
   answer(id: string, random: () => number): Outcome | null {
@@ -65,7 +67,7 @@ export class MiniGames {
       const you = id as Rps;
       const me = (["rock", "scissors", "paper"] as Rps[])[Math.floor(random() * 3)];
       this.round = null;
-      const said = `Ты — ${rpsNames[you]}, я — ${rpsNames[me]}.`;
+      const said = tx("Ты — {you}, я — {me}.", { you: tx(rpsNames[you]), me: tx(rpsNames[me]) });
       if (you === me) return { event: "gameDraw", text: said, prize: 0, feeling: 1 };
       if (beats[you] === me) return { event: "gameWin", text: said, prize: 4, feeling: 2 };
       return { event: "gameLose", text: said, prize: 0, feeling: 5 };
@@ -73,7 +75,7 @@ export class MiniGames {
     if (r.kind === "hand" && (id === "left" || id === "right")) {
       const coin = r.coin ?? "left";
       this.round = null;
-      const said = `Монетка была в ${coin === "left" ? "левой" : "правой"}.`;
+      const said = tx(coin === "left" ? "Монетка была в левой." : "Монетка была в правой.");
       return id === coin
         ? { event: "gameWin", text: said, prize: 6, feeling: 2 }
         : { event: "gameLose", text: said, prize: 0, feeling: 4 };
@@ -99,15 +101,15 @@ export class MiniGames {
       const prize = Math.min(20, Math.floor(r.score / 2));
       return {
         event: r.score >= 25 ? "gameWin" : r.score >= 10 ? "gameDraw" : "gameLose",
-        text: `${r.score} кликов за 10 секунд. ${prize} ₽ твои.`,
+        text: tx("{n} кликов за 10 секунд. {prize} твои.", { n: r.score, prize: money(prize) }),
         prize,
         feeling: 3,
       };
     }
     if (r.kind === "catch")
       return r.score >= 3
-        ? { event: "gameLose", text: `Поймал тебя ${r.score} раз. Я чемпион.`, prize: 0, feeling: 6 }
-        : { event: "gameWin", text: `Поймал всего ${r.score}. Ты вёрткий.`, prize: 8, feeling: 2 };
-    return { event: "gameDraw", text: "Не дождался ответа. Ну и ладно.", prize: 0, feeling: -1 };
+        ? { event: "gameLose", text: tx("Поймал тебя {n} раз. Я чемпион.", { n: r.score }), prize: 0, feeling: 6 }
+        : { event: "gameWin", text: tx("Поймал всего {n}. Ты вёрткий.", { n: r.score }), prize: 8, feeling: 2 };
+    return { event: "gameDraw", text: tx("Не дождался ответа. Ну и ладно."), prize: 0, feeling: -1 };
   }
 }

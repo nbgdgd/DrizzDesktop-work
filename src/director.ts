@@ -60,7 +60,9 @@ export const readTime = (text: string) => clamp(1200 + text.length * 55, 2500, 8
  * During a shift the pet only speaks up for what matters: these events, and
  * anything at priority 90 or above (direct touches, alerts, autostart).
  */
-export const WORK_ALLOWED = new Set([
+/** Ear lines that must be said now, not queued behind the chatter budget. */
+const EARS_DIRECT = new Set(["earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
+export const WORK_ALLOWED = new Set(["earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
   "work",
   "workDone",
   "levelUp",
@@ -98,6 +100,8 @@ import {
   workTick,
   working,
 } from "./game";
+import { tx } from "./i18n";
+import { EarSample, earTick } from "./ears";
 /** Relationship in percent of the current likability cap. */
 export const bondPct = (g: Game) =>
   Math.round((100 * g.likability) / Math.max(1, likabilityMax(level(g.exp))));
@@ -191,6 +195,22 @@ export const rules: Record<string, Rule> = {
   mute: rule("look", 45, 90000),
   unmute: rule("wave", 45, 90000),
   loud: rule("jump", 45, 1800000),
+  // Ear care (ears.ts decides when; these only set the look and the weight).
+  earsOn: rule("look", 35, 1800000, 2000),
+  earsHello: rule("wave", 38, 3600000, 2500),
+  earsLoud: rule("judge", 72, 600000, 3000),
+  earsVeryLoud: rule("jump", 80, 300000, 2500),
+  earsBreak: rule("stretch", 62, 600000, 3500),
+  earsBreakLong: rule("pained", 68, 600000, 3500),
+  earsRested: rule("celebrate", 40, 600000, 2500),
+  earsNight: rule("sleep", 60, 3600000, 3000),
+  earsDose50: rule("look", 55, 3600000, 2500),
+  earsDose80: rule("judge", 70, 3600000, 3000),
+  earsDose100: rule("pained", 85, 3600000, 3500),
+  earsLowered: rule("busy", 86, 60000, 2500),
+  earsUneven: rule("look", 50, 3600000, 2500),
+  earsRestSwap: rule("look", 42, 60000, 1800),
+  earsThanks: rule("wave", 60, 5000, 1800),
   soundOn: rule("sit", 40, 600000),
   soundOff: rule("look", 30, 900000),
   copy: rule("look", 30, 420000),
@@ -358,6 +378,11 @@ export class Director {
   // Windows state from the previous snapshot, plus the timers a couple of the
   // desktop rules need (silence, memory pressure, copy bursts).
   private prevEnv?: Desktop;
+  /** Latest sound state for the ear care (sampled every snapshot). */
+  private earEnv?: { env: Desktop; playing: boolean };
+  private earAt = 0;
+  /** Per-ear gains the scene should apply (balance / resting ear). */
+  earGains: [number, number] = [1, 1];
   private audioSince = 0;
   private silenceSince = 0;
   private ramSince = 0;
@@ -452,7 +477,7 @@ export class Director {
     if (!r.done) return false;
     this.game = r.game;
     this.event("workDone", now, true, undefined, {
-      job: r.done.job.name,
+      job: tx(r.done.job.name),
       pay: String(r.done.pay),
     });
     return true;
@@ -652,7 +677,7 @@ export class Director {
       this.event("levelUp", now, true, undefined, { level: String(after) });
     else if (env.working) {
       const job = jobById(this.game.job?.id ?? "");
-      if (job) this.event("working", now, false, undefined, { job: job.name });
+      if (job) this.event("working", now, false, undefined, { job: tx(job.name) });
     } else if (this.settings.mode !== "dnd" && env.present) {
       const g = this.game;
       if (g.health < 50) this.needs("sick", now);
@@ -670,9 +695,9 @@ export class Director {
     this.bubble.actions = [
       {
         id: "quickfeed:" + (name === "sick" ? "drug" : name === "thirsty" ? "drink" : "food"),
-        label: name === "sick" ? "Дать лекарство" : name === "thirsty" ? "Напоить" : "Покормить",
+        label: tx(name === "sick" ? "Дать лекарство" : name === "thirsty" ? "Напоить" : "Покормить"),
       },
-      { id: "panel:shop", label: "Магазин" },
+      { id: "panel:shop", label: tx("Магазин") },
     ];
     this.bubble.until = Math.max(this.bubble.until, now + 12000);
   }
@@ -697,17 +722,51 @@ export class Director {
     const next = this.announce[0];
     if (next && !this.hidden) {
       this.reset("achievement");
-      if (this.event("achievement", now, true, undefined, { name: next.name, prize: String(next.prize) })) {
+      if (this.event("achievement", now, true, undefined, { name: tx(next.name), prize: String(next.prize) })) {
         this.announce.shift();
         if (this.bubble) this.bubble.kind = "sign";
       }
     }
+    const earsChanged = this.earCare(now);
     if (!this.hidden) {
       this.chatter(now);
       this.mumble(now);
     }
-    return { changed: paid || ticked || unlocked.length > 0, paid, unlocked };
+    return { changed: paid || ticked || unlocked.length > 0 || earsChanged, paid, unlocked };
   }
+  /** Ear care step (ears.ts): dose, breaks, warnings, balance gains. */
+  private earCare(now: number): boolean {
+    const dt = this.earAt ? now - this.earAt : 0;
+    this.earAt = now;
+    const src = this.earEnv;
+    const e = src?.env;
+    const sample: EarSample = {
+      headphones: !!e?.headphones,
+      playing: !!e && (e.audio || (src?.playing ?? false)) && !e.muted,
+      muted: !!e?.muted,
+      volume: e?.volume ?? -1,
+      db: e?.db,
+      left: e?.left,
+      right: e?.right,
+    };
+    const r = earTick(this.game.ears, sample, this.settings, now, dt, this.settings.lang);
+    const before = JSON.stringify(this.game.ears.days);
+    this.game = { ...this.game, ears: r.log };
+    this.earGains = r.gains;
+    if (!this.hidden)
+      for (const ev of r.events) {
+        if (ev.name === "earsOn" && !sample.playing) continue;
+        if (this.event(ev.name, now, EARS_DIRECT.has(ev.name), undefined, ev.vars) && this.bubble && ev.lower)
+          this.bubble.actions = [
+            { id: "ears:lower", label: tx("Убавить") },
+            { id: "panel:ears", label: tx("Уши") },
+          ];
+      }
+    if (r.events.some((x) => x.name === "earsLowered")) this.earLower = now;
+    return before !== JSON.stringify(r.log.days) && Math.floor(now / 60000) !== Math.floor((now - dt) / 60000);
+  }
+  /** Set when the pet decided to turn the volume down by itself. */
+  earLower = 0;
   private input(n: Snapshot) {
     const now = n.now;
     const cur = n.input ?? emptyInput;
@@ -1003,8 +1062,8 @@ export class Director {
     if (ok && this.bubble) {
       const actions: BubbleAction[] = [];
       const target = revealTarget(e);
-      if (target) actions.push({ id: "reveal:" + target, label: "Открыть путь" });
-      actions.push({ id: "journal", label: "Журнал" });
+      if (target) actions.push({ id: "reveal:" + target, label: tx("Открыть путь") });
+      actions.push({ id: "journal", label: tx("Журнал") });
       this.bubble.actions = actions;
       this.bubble.until = Math.max(this.bubble.until, now + 15000);
     }
@@ -1018,11 +1077,11 @@ export class Director {
     if (ok && this.bubble) {
       const id = c.entry.id;
       this.bubble.actions = [
-        { id: "autorun-remove:" + id, label: "Убрать" },
-        { id: "autorun-keep:" + id, label: "Оставить" },
+        { id: "autorun-remove:" + id, label: tx("Убрать") },
+        { id: "autorun-keep:" + id, label: tx("Оставить") },
       ];
       if (c.entry.target)
-        this.bubble.actions.push({ id: "reveal:" + c.entry.target, label: "Открыть путь" });
+        this.bubble.actions.push({ id: "reveal:" + c.entry.target, label: tx("Открыть путь") });
       this.bubble.until = now + 90000;
     }
     return ok;
@@ -1094,7 +1153,7 @@ export class Director {
     if (e.caps && !prev.caps) this.event("caps", now);
     if (e.dark !== prev.dark)
       this.event("theme", now, false, undefined, {
-        theme: e.dark ? "тёмную" : "светлую",
+        theme: tx(e.dark ? "тёмную" : "светлую"),
       });
     if (e.memory >= 90) {
       if (!this.ramSince) this.ramSince = now;
@@ -1363,6 +1422,7 @@ export class Director {
     if (late && present && !this.seen("night", nightKey(now))) {
       if (this.event("night", now)) this.once("night", nightKey(now));
     }
+    if (n.env) this.earEnv = { env: n.env, playing: n.media.playing };
     if (p) this.desktop(n, p);
     // Cursor jitter does not wake a sleeping pet; it only twitches.
     if (

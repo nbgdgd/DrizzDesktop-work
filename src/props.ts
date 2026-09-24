@@ -173,16 +173,26 @@ export class Props {
       back.fillStyle(0xb4e62e, 0.06 + 0.05 * pulse).fillCircle(o.feet.x, o.feet.y - 90 * z, 125 * z);
       add(o.feet.x - 127 * z, o.feet.y - 217 * z, 254 * z, 254 * z);
     }
-    // Night: a flashlight beam in the walking direction.
+    // Night: a small flashlight in the walking direction with a glowing
+    // lens and a soft pool of light on the floor ahead. No beam: a
+    // translucent cone on a transparent overlay reads as a grey wedge over a
+    // dark desktop (and its window region swallowed clicks).
     if (o.flashlight) {
       const dir = o.flashlight;
-      const x0 = o.feet.x + dir * 20 * z,
-        y0 = o.feet.y - 60 * z;
-      back.fillStyle(0xfff3b0, 0.18);
-      back.fillTriangle(x0, y0, x0 + dir * 150, y0 - 40, x0 + dir * 150, y0 + 55);
-      g.fillStyle(0x333333, 1).fillRect(x0 - 5, y0 - 3, 10, 6);
-      const lo = Math.min(x0, x0 + dir * 150);
-      add(lo, y0 - 42, 152, 100);
+      const x0 = o.feet.x + dir * 34 * z,
+        y0 = o.feet.y - 52 * z;
+      const spotX = o.feet.x + dir * 105 * z,
+        spotY = o.feet.y - 3 * z;
+      for (const [w, h, a] of [
+        [90, 16, 0.08],
+        [64, 12, 0.12],
+        [38, 8, 0.18],
+      ] as const)
+        back.fillStyle(0xffe9a8, a).fillEllipse(spotX, spotY, w * z, h * z);
+      g.fillStyle(0x3a3d44, 1).fillRoundedRect(x0 - (dir > 0 ? 16 * z : 0), y0 - 4 * z, 16 * z, 8 * z, 2 * z);
+      back.fillStyle(0xfff3c0, 0.25).fillCircle(x0, y0, 8 * z);
+      g.fillStyle(0xfff6c8, 1).fillCircle(x0, y0, 3.5 * z);
+      add(Math.min(x0 - 18 * z, spotX - 46 * z), Math.min(y0 - 9 * z, spotY - 9 * z), Math.abs(spotX - x0) + 64 * z, spotY - y0 + 20 * z);
     }
     // Hat on the head, turned with the body.
     const hat = (x: number, y: number) => {

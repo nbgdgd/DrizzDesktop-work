@@ -14,6 +14,7 @@ import {
   Store,
 } from "../model";
 import { cleanGame, newGame } from "../game";
+import { setLang, tx } from "../i18n";
 export function usePanel() {
   const [store, setStore] = useState<Store>({
     settings: defaults,
@@ -33,6 +34,7 @@ export function usePanel() {
   const [tabEvent, setTabEvent] = useState("");
   const latest = useRef<Memory>(emptyMemory);
   const accept = (s: Store) => {
+    setLang(cleanSettings(s.settings).lang);
     const m = cleanMemory(s.memory);
     latest.current = m;
     setStore({ ...s, settings: cleanSettings(s.settings), memory: m, game: cleanGame(s.game, Date.now()) });
@@ -76,7 +78,7 @@ export function usePanel() {
       const settings = cleanSettings(draft);
       await command("save_settings", { settings });
       setDraft(settings);
-      setStatus("Сохранено");
+      setStatus(tx("Сохранено"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -94,7 +96,7 @@ export function usePanel() {
       await command("save_memory", { memory: next });
       latest.current = next;
       setMemory(next);
-      setStatus("Память сохранена");
+      setStatus(tx("Память сохранена"));
     } catch (e) {
       setError(String(e));
     }

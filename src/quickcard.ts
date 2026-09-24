@@ -3,6 +3,7 @@
 // open the full panel). Closes on its own after a while or on any click.
 import Phaser from "phaser";
 import type { Rect } from "./model";
+import { money, tx } from "./i18n";
 export interface CardData {
   name: string;
   level: number;
@@ -12,6 +13,8 @@ export interface CardData {
   mood: string;
   bars: [string, number][];
   job: string;
+  /** "Уши: 34% недельной нормы", or "" when ear care is off / unused. */
+  ears: string;
 }
 const FONT = "Segoe UI, sans-serif";
 export const CARD_W = 236;
@@ -21,9 +24,9 @@ export class QuickCard {
   buttons: Phaser.GameObjects.Text[] = [];
   openUntil = 0;
   private dpr = 1;
-  constructor(private scene: Phaser.Scene, labels: string[], onButton: (i: number) => void) {
+  constructor(private scene: Phaser.Scene, private labels: () => string[], onButton: (i: number) => void) {
     this.g = scene.add.graphics().setDepth(45);
-    labels.forEach((label, i) => {
+    labels().forEach((label, i) => {
       const b = scene.add
         .text(0, 0, label, {
           fontFamily: FONT,
@@ -74,18 +77,18 @@ export class QuickCard {
       return null;
     }
     const rows = d.bars.length;
-    const h = 64 + rows * 17 + (d.job ? 16 : 0) + 34;
+    const h = 64 + rows * 17 + (d.job ? 16 : 0) + (d.ears ? 16 : 0) + 34;
     const left = Math.max(4, Math.min(356 - CARD_W, cx - CARD_W / 2));
     const top = headY - h - 10 >= 4 ? headY - h - 10 : Math.min(336 - h, feetY + 8);
     const g = this.g;
     g.clear();
-    g.fillStyle(0x121317, 0.97).lineStyle(1, accent, 0.7);
+    g.fillStyle(0x121317, 1).lineStyle(1, accent, 0.7);
     g.fillRoundedRect(left, top, CARD_W, h, 10).strokeRoundedRect(left, top, CARD_W, h, 10);
     let i = 0;
     this.text(i++, d.name, left + 12, top + 9, 14, "#e9e9eb", true);
-    const money = this.text(i++, `${Math.floor(d.money).toLocaleString("ru")} ₽`, 0, top + 11, 12, "#ffd75e");
-    money.setX(left + CARD_W - 12 - money.width);
-    this.text(i++, `${d.level} уровень · ${d.stage} · ${d.mood}`, left + 12, top + 29, 11, "#9aa0a8");
+    const cash = this.text(i++, money(d.money), 0, top + 11, 12, "#ffd75e");
+    cash.setX(left + CARD_W - 12 - cash.width);
+    this.text(i++, tx("{n} уровень", { n: d.level }) + ` · ${d.stage} · ${d.mood}`, left + 12, top + 29, 11, "#9aa0a8");
     // Level progress.
     const bx = left + 12,
       bw = CARD_W - 24;
@@ -107,9 +110,15 @@ export class QuickCard {
       this.text(i++, d.job, bx, y - 1, 11, "#b4e62e");
       y += 16;
     }
+    if (d.ears) {
+      this.text(i++, d.ears, bx, y - 1, 11, "#7fd3ff");
+      y += 16;
+    }
     for (let j = i; j < this.texts.length; j++) this.texts[j].setVisible(false);
     let x = bx;
-    for (const b of this.buttons) {
+    const labels = this.labels();
+    for (const [j, b] of this.buttons.entries()) {
+      if (b.text !== labels[j]) b.setText(labels[j]);
       b.setVisible(true).setPosition(x, y + 4);
       x += b.width + 6;
     }

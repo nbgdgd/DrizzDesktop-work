@@ -2,6 +2,7 @@
 import { ReactNode } from "react";
 import { Badge, Box, Card, Flex, Heading, Progress, Switch, Text } from "@radix-ui/themes";
 import type { ThemeProps } from "@radix-ui/themes";
+import { money as cash } from "../i18n";
 /** Radix accent colour per pet. */
 export const accents: Record<string, NonNullable<ThemeProps["accentColor"]>> = {
   drizz: "lime",
@@ -87,7 +88,7 @@ export function Meter({ label, value, max = 100, text, color }: { label: string;
     </Box>
   );
 }
-export const money = (v: number) => `${Math.floor(v).toLocaleString("ru")} ₽`;
+export const money = (v: number) => cash(v);
 export function Money({ value }: { value: number }) {
   return (
     <Badge size="2" variant="soft" color="amber">

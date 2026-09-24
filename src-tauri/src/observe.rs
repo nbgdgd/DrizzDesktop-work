@@ -146,7 +146,7 @@ pub fn start(app: tauri::AppHandle, on_hotkey: Box<dyn Fn(i32) + Send>) {
                     if last_env.elapsed() >= Duration::from_millis(450) {
                         last_env = Instant::now();
                         desktop = if enabled(&s, "observeDesktop", true) {
-                            env::sample(enabled(&s, "observeSound", true))
+                            env::sample(enabled(&s, "observeSound", true) || enabled(&s, "ears", true))
                         } else {
                             env::Desktop::default()
                         };

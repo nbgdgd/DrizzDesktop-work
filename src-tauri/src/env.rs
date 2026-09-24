@@ -8,9 +8,10 @@ use std::cell::RefCell;
 use windows::Win32::Media::Audio::{
     eConsole, eRender,
     Endpoints::{IAudioEndpointVolume, IAudioMeterInformation},
-    IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator,
+    Headphones, Headset, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator,
+    PKEY_AudioEndpoint_FormFactor,
 };
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
 use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, MAX_PATH, TRUE};
 use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 use windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber;
@@ -46,6 +47,13 @@ pub struct Desktop {
     pub windows: u32,
     /// Bitmask of drive letters (GetLogicalDrives): a new bit = a drive plugged in.
     pub drives: u32,
+    /// The default output is headphones or a headset (endpoint form factor).
+    pub headphones: bool,
+    /// Master and per-ear levels in dB (0 = full, negative = attenuated);
+    /// -100 when unknown. Mono devices report the same value for both ears.
+    pub db: f32,
+    pub left: f32,
+    pub right: f32,
 }
 
 thread_local! {
@@ -54,7 +62,17 @@ thread_local! {
 struct Audio {
     volume: IAudioEndpointVolume,
     meter: IAudioMeterInformation,
+    headphones: bool,
 }
+/// What the ear care needs from one sample: the device kind and the levels.
+#[derive(Clone, Copy)]
+struct Ears {
+    headphones: bool,
+    db: f32,
+    left: f32,
+    right: f32,
+}
+const NO_EARS: Ears = Ears { headphones: false, db: -100., left: -100., right: -100. };
 
 /// COM for this thread; call once before [`sample`].
 pub fn init() {
@@ -63,45 +81,116 @@ pub fn init() {
     }
 }
 
-fn open_audio() -> Option<Audio> {
+fn default_device() -> Option<IMMDevice> {
     unsafe {
         let enumerator: IMMDeviceEnumerator =
             CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
-        let device: IMMDevice = enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+        enumerator.GetDefaultAudioEndpoint(eRender, eConsole).ok()
+    }
+}
+
+/// Headphones or a headset by the endpoint's form factor. Bluetooth
+/// headphones usually report one of the two as well.
+fn is_headphones(device: &IMMDevice) -> bool {
+    unsafe {
+        let Ok(store) = device.OpenPropertyStore(STGM_READ) else {
+            return false;
+        };
+        let Ok(value) = store.GetValue(&PKEY_AudioEndpoint_FormFactor) else {
+            return false;
+        };
+        let kind = u32::try_from(&value).unwrap_or(0) as i32;
+        kind == Headphones.0 || kind == Headset.0
+    }
+}
+
+fn open_audio() -> Option<Audio> {
+    unsafe {
+        let device = default_device()?;
         Some(Audio {
             volume: device.Activate(CLSCTX_ALL, None).ok()?,
             meter: device.Activate(CLSCTX_ALL, None).ok()?,
+            headphones: is_headphones(&device),
         })
     }
 }
 
-/// Volume 0..100 (-1 unknown), muted, and whether sound is playing.
-fn audio() -> (i32, bool, bool) {
+fn ear_levels(volume: &IAudioEndpointVolume) -> (f32, f32, f32) {
+    unsafe {
+        let db = volume.GetMasterVolumeLevel().unwrap_or(-100.);
+        let channels = volume.GetChannelCount().unwrap_or(0);
+        if channels < 2 {
+            return (db, db, db);
+        }
+        let left = volume.GetChannelVolumeLevel(0).unwrap_or(db);
+        let right = volume.GetChannelVolumeLevel(1).unwrap_or(db);
+        (db, left, right)
+    }
+}
+
+/// Volume 0..100 (-1 unknown), muted, whether sound is playing, and the ear levels.
+fn audio() -> (i32, bool, bool, Ears) {
     AUDIO.with(|cell| {
         let mut slot = cell.borrow_mut();
         if slot.is_none() {
             *slot = open_audio();
         }
         let Some(a) = slot.as_ref() else {
-            return (-1, false, false);
+            return (-1, false, false, NO_EARS);
         };
         let level = unsafe { a.volume.GetMasterVolumeLevelScalar() };
         let muted = unsafe { a.volume.GetMute() };
         let peak = unsafe { a.meter.GetPeakValue() };
         match (level, muted, peak) {
-            (Ok(level), Ok(muted), Ok(peak)) => (
-                (level * 100.).round() as i32,
-                muted.as_bool(),
-                peak > 0.002 && !muted.as_bool(),
-            ),
+            (Ok(level), Ok(muted), Ok(peak)) => {
+                let (db, left, right) = ear_levels(&a.volume);
+                (
+                    (level * 100.).round() as i32,
+                    muted.as_bool(),
+                    peak > 0.002 && !muted.as_bool(),
+                    Ears { headphones: a.headphones, db, left, right },
+                )
+            }
             _ => {
                 // The default endpoint changed (headphones in or out): drop it
                 // and pick the new one up on the next sample.
                 *slot = None;
-                (-1, false, false)
+                (-1, false, false, NO_EARS)
             }
         }
     })
+}
+
+/// Per-ear gains (0..1, the louder ear at 1) applied to the default output:
+/// the channels keep the current master level and only their ratio changes,
+/// so Windows' own volume slider keeps working. Returns the gains that were
+/// there before, for putting them back.
+pub fn set_balance(left: f32, right: f32) -> Result<(f32, f32), String> {
+    init();
+    let device = default_device().ok_or("No audio output")?;
+    unsafe {
+        let volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).map_err(|e| e.to_string())?;
+        if volume.GetChannelCount().unwrap_or(0) < 2 {
+            return Err("Mono output".into());
+        }
+        let l0 = volume.GetChannelVolumeLevelScalar(0).map_err(|e| e.to_string())?;
+        let r0 = volume.GetChannelVolumeLevelScalar(1).map_err(|e| e.to_string())?;
+        let master = l0.max(r0).max(0.01);
+        let (l, r) = (left.clamp(0., 1.), right.clamp(0., 1.));
+        volume.SetChannelVolumeLevelScalar(0, master * l, std::ptr::null()).map_err(|e| e.to_string())?;
+        volume.SetChannelVolumeLevelScalar(1, master * r, std::ptr::null()).map_err(|e| e.to_string())?;
+        Ok((l0 / master, r0 / master))
+    }
+}
+
+/// Master volume 0..1 on the default output (the "make it safe" button).
+pub fn set_volume(level: f32) -> Result<(), String> {
+    init();
+    let device = default_device().ok_or("No audio output")?;
+    unsafe {
+        let volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None).map_err(|e| e.to_string())?;
+        volume.SetMasterVolumeLevelScalar(level.clamp(0., 1.), std::ptr::null()).map_err(|e| e.to_string())
+    }
 }
 
 fn registry_dword(path: &str, name: &str) -> Option<u32> {
@@ -176,10 +265,10 @@ fn window_count() -> u32 {
 }
 
 pub fn sample(audio_allowed: bool) -> Desktop {
-    let (volume, muted, playing) = if audio_allowed {
+    let (volume, muted, playing, ears) = if audio_allowed {
         audio()
     } else {
-        (-1, false, false)
+        (-1, false, false, NO_EARS)
     };
     Desktop {
         volume,
@@ -197,5 +286,9 @@ pub fn sample(audio_allowed: bool) -> Desktop {
         disk: disk_free(),
         windows: window_count(),
         drives: unsafe { windows_sys::Win32::Storage::FileSystem::GetLogicalDrives() },
+        headphones: ears.headphones,
+        db: ears.db,
+        left: ears.left,
+        right: ears.right,
     }
 }

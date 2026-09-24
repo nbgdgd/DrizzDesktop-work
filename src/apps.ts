@@ -1,3 +1,4 @@
+import { tx } from "./i18n";
 // Friendly program names for usage statistics and pet remarks.
 const names: Record<string, string> = {
   "chrome.exe": "Chrome",
@@ -37,14 +38,14 @@ const names: Record<string, string> = {
 };
 export function appName(exe: string): string {
   const key = exe.trim().toLowerCase();
-  if (!key) return "что-то";
-  return names[key] ?? key.replace(/\.exe$/, "");
+  if (!key) return tx("что-то");
+  return names[key] ? tx(names[key]) : key.replace(/\.exe$/, "");
 }
 export function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 1) return "меньше минуты";
+  if (minutes < 1) return tx("меньше минуты");
   const h = Math.floor(minutes / 60),
     m = minutes % 60;
-  if (!h) return `${m} мин`;
-  return m ? `${h} ч ${m} мин` : `${h} ч`;
+  if (!h) return tx("{m} мин", { m });
+  return m ? tx("{h} ч {m} мин", { h, m }) : tx("{h} ч", { h });
 }

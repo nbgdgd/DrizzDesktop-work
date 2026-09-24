@@ -2,6 +2,8 @@
 // level from exp, mood/stamina/food/drink/health/likability and a food shop.
 // Pure functions over a plain `Game` record; PetScene owns the live copy.
 import { Life, cleanLife, newLife } from "./chronicle";
+import { money, tx } from "./i18n";
+import { EarLog, cleanEars, emptyEars } from "./ears";
 export interface Game {
   exp: number;
   money: number;
@@ -28,6 +30,8 @@ export interface Game {
   throwsDay: string;
   /** Long-term memory: counters, habits, opinions, achievements. */
   life: Life;
+  /** Ear care: weekly sound dose per ear, the listening session. */
+  ears: EarLog;
 }
 export interface ActiveJob {
   id: string;
@@ -79,6 +83,7 @@ export const newGame = (now: number): Game => ({
   throwsToday: 0,
   throwsDay: "",
   life: newLife(now),
+  ears: emptyEars(),
 });
 export const level = (exp: number) =>
   exp < 0 ? 1 : Math.floor(Math.sqrt(exp) / 10) + 1;
@@ -280,12 +285,12 @@ export const jobs: Job[] = [
 export const jobById = (id: string) => jobs.find((j) => j.id === id);
 /** Why the job cannot be started right now, or "" when it can. */
 export function jobBlocked(g: Game, job: Job): string {
-  if (g.job) return "уже работаю";
-  if (level(g.exp) < job.level) return `нужен уровень ${job.level}`;
-  if (g.strength < job.strength) return "нет сил";
-  if (g.food < 15) return "сначала покорми";
-  if (g.drink < 15) return "сначала напои";
-  if (g.health < 30) return "болею";
+  if (g.job) return tx("уже работаю");
+  if (level(g.exp) < job.level) return tx("нужен уровень {n}", { n: job.level });
+  if (g.strength < job.strength) return tx("нет сил");
+  if (g.food < 15) return tx("сначала покорми");
+  if (g.drink < 15) return tx("сначала напои");
+  if (g.health < 30) return tx("болею");
   return "";
 }
 export const jobPay = (g: Game, job: Job) =>
@@ -533,6 +538,7 @@ export function cleanGame(raw: Partial<Game> | null | undefined, now: number): G
     throwsToday: num("throwsToday", 0, 1e6),
     throwsDay: typeof r.throwsDay === "string" ? r.throwsDay.slice(0, 10) : "",
     life: cleanLife(r.life, now),
+    ears: cleanEars(r.ears),
   };
   const rawSkills = (r.skills ?? {}) as Record<string, unknown>;
   for (const u of upgrades) {
@@ -617,15 +623,15 @@ export function statusLine(g: Game, now = Date.now()): string {
   const need = levelUpNeed(lvl) - levelUpNeed(lvl - 1);
   const have = g.exp - levelUpNeed(lvl - 1);
   const pct = Math.max(0, Math.min(99, Math.floor((have / Math.max(1, need)) * 100)));
-  const parts = [`${lvl} уровень (${pct}%)`, `${Math.floor(g.money)} ₽`];
+  const parts = [tx("{lvl} уровень ({pct}%)", { lvl, pct }), money(g.money)];
   if (working(g, now)) {
     const left = Math.max(1, Math.ceil((g.job!.endsAt - now) / 60000));
-    parts.push(`на работе, ещё ${left} мин`);
-  } else if (g.health < 50) parts.push("болею");
-  else if (g.food < 25) parts.push("жрать хочу");
-  else if (g.drink < 25) parts.push("пить хочу");
-  else if (g.strength < 20) parts.push("сил нет");
-  else if (g.feeling < 30) parts.push("настроение дно");
-  else parts.push(`настроение ${Math.round(g.feeling)}`);
+    parts.push(tx("на работе, ещё {n} мин", { n: left }));
+  } else if (g.health < 50) parts.push(tx("болею"));
+  else if (g.food < 25) parts.push(tx("жрать хочу"));
+  else if (g.drink < 25) parts.push(tx("пить хочу"));
+  else if (g.strength < 20) parts.push(tx("сил нет"));
+  else if (g.feeling < 30) parts.push(tx("настроение дно"));
+  else parts.push(tx("настроение {n}", { n: Math.round(g.feeling) }));
   return parts.join(", ");
 }

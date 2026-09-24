@@ -4,13 +4,13 @@ import { command } from "../../bridge";
 import { jobBlocked, jobById, jobPay, jobProgress, jobs, skill, upgradePrice, upgrades, working } from "../../game";
 import type { PanelState } from "../store";
 import { Meter, money } from "../ui";
+import { tx } from "../../i18n";
 export function Skills({ p }: { p: PanelState }) {
   const g = p.store.game;
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        Прокачка действует всё время: меняет, как быстро питомец голодает, устаёт и зарабатывает, как высоко прыгает и как подробно
-        объясняет процессы.
+        {tx("Прокачка действует всё время: меняет, как быстро питомец голодает, устаёт и зарабатывает, как высоко прыгает и как подробно объясняет процессы.")}
       </Text>
       <div className="grid-cards">
         {upgrades.map((u) => {
@@ -21,9 +21,9 @@ export function Skills({ p }: { p: PanelState }) {
               <Flex direction="column" gap="2">
                 <Flex justify="between" align="center">
                   <Text size="2" weight="medium">
-                    {u.name}
+                    {tx(u.name)}
                   </Text>
-                  <Flex gap="1" aria-label={`Уровень ${lvl} из ${u.max}`}>
+                  <Flex gap="1" aria-label={tx("Уровень {n} из {max}", { n: lvl, max: u.max })}>
                     {Array.from({ length: u.max }, (_, i) => (
                       <span
                         key={i}
@@ -38,7 +38,7 @@ export function Skills({ p }: { p: PanelState }) {
                   </Flex>
                 </Flex>
                 <Text size="1" color="gray">
-                  {u.desc} Каждый уровень: {u.step}.
+                  {tx(u.desc)} {tx("Каждый уровень: {step}.", { step: tx(u.step) })}
                 </Text>
                 <Button
                   size="1"
@@ -46,7 +46,7 @@ export function Skills({ p }: { p: PanelState }) {
                   disabled={price === null || g.money < price}
                   onClick={() => p.run(command("buy_upgrade", { id: u.id }))}
                 >
-                  {price === null ? "Максимум" : `Прокачать за ${money(price)}`}
+                  {price === null ? tx("Максимум") : `Прокачать за ${money(price)}`}
                 </Button>
               </Flex>
             </Card>
@@ -66,14 +66,14 @@ export function Work({ p }: { p: PanelState }) {
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        Смена идёт в реальном времени, даже если вы отошли, и тратит бодрость, еду и воду. Отработано смен: {g.jobsDone ?? 0}.
+        {tx("Смена идёт в реальном времени, даже если вы отошли, и тратит бодрость, еду и воду. Отработано смен: {n}.", { n: g.jobsDone ?? 0 })}
       </Text>
       {working(g, now) && (
         <Card mb="4">
           <Meter
-            label={`Сейчас: ${jobById(g.job?.id ?? "")?.name ?? ""}`}
+            label={tx("Сейчас: {job}", { job: tx(jobById(g.job?.id ?? "")?.name ?? "") })}
             value={jobProgress(g, now) * 100}
-            text={`${Math.max(1, Math.ceil(((g.job?.endsAt ?? now) - now) / 60000))} мин осталось`}
+            text={tx("{n} мин осталось", { n: Math.max(1, Math.ceil(((g.job?.endsAt ?? now) - now) / 60000)) })}
             color="gray"
           />
         </Card>
@@ -86,20 +86,20 @@ export function Work({ p }: { p: PanelState }) {
               <Flex direction="column" gap="2">
                 <Flex justify="between">
                   <Text size="2" weight="medium">
-                    {j.name}
+                    {tx(j.name)}
                   </Text>
                   <Badge variant="soft" color="gray">
-                    {j.minutes} мин
+                    {tx("{m} мин", { m: j.minutes })}
                   </Badge>
                 </Flex>
                 <Text size="1" color="gray">
-                  {j.desc}
+                  {tx(j.desc)}
                 </Text>
                 <Text size="1">
-                  {money(jobPay(g, j))} · опыт +{j.exp} · бодрость −{j.strength}
+                  {money(jobPay(g, j))} · {tx("опыт +{e} · бодрость −{s}", { e: j.exp, s: j.strength })}
                 </Text>
                 <Button size="1" variant="soft" disabled={!!why} onClick={() => p.run(command("start_job", { id: j.id }))}>
-                  {why ? why[0].toUpperCase() + why.slice(1) : "На смену"}
+                  {why ? why[0].toUpperCase() + why.slice(1) : tx("На смену")}
                 </Button>
               </Flex>
             </Card>

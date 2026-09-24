@@ -78,6 +78,11 @@ export interface Desktop {
   disk: number;
   windows: number;
   drives?: number;
+  /** Default output is headphones/headset; master and per-ear levels, dB. */
+  headphones?: boolean;
+  db?: number;
+  left?: number;
+  right?: number;
 }
 export const emptyDesktop: Desktop = {
   volume: -1,
@@ -118,8 +123,13 @@ export interface Snapshot {
   jitter?: number;
   gpu?: number | null;
 }
+export type Lang = "ru" | "en";
 export interface Settings {
   pet: string;
+  /** Language of the pet's lines and of the whole interface. */
+  lang: Lang;
+  /** English only: lets the pet swear. Russian lines are never softened. */
+  swear: boolean;
   mode: Mode;
   size: number;
   smooth: boolean;
@@ -184,6 +194,20 @@ export interface Settings {
   /** Quiet hours: no lines of its own from…to (hours), -1 = off. */
   quietFrom: number;
   quietTo: number;
+  /** Ear care (ears.ts): weekly sound dose on headphones, breaks, warnings. */
+  ears: boolean;
+  /** 80 dBA·40 h (adults) or 75 (gentle), WHO / ITU-T H.870. */
+  earsNorm: number;
+  earsDevice: "auto" | "always";
+  /** Loudest level of the headphones, dB SPL at full volume. */
+  earsMax: number;
+  earsBreak: number;
+  earsAutoLower: boolean;
+  earsRest: boolean;
+  earsRestMinutes: number;
+  earsRestDim: number;
+  /** Left/right balance, -100 (left only) … 100 (right only). */
+  balance: number;
 }
 export interface Memory {
   address: string;
@@ -210,6 +234,8 @@ export interface Store {
 }
 export const defaults: Settings = {
   pet: "aqua-wisp",
+  lang: "ru",
+  swear: false,
   mode: "normal",
   size: 76,
   smooth: true,
@@ -271,6 +297,16 @@ export const defaults: Settings = {
   weatherPlace: "",
   quietFrom: -1,
   quietTo: -1,
+  ears: true,
+  earsNorm: 80,
+  earsDevice: "auto",
+  earsMax: 100,
+  earsBreak: 60,
+  earsAutoLower: false,
+  earsRest: false,
+  earsRestMinutes: 20,
+  earsRestDim: 50,
+  balance: 0,
 };
 export const emptyMemory: Memory = {
   address: "",
@@ -349,6 +385,7 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
       : defaults[k];
   }
   if (!["normal", "quiet", "dnd"].includes(s.mode)) s.mode = "normal";
+  if (s.lang !== "en") s.lang = "ru";
   if (!["calm", "balanced", "active"].includes(s.activity))
     s.activity = "balanced";
   for (const key of Object.keys(defaults) as (keyof Settings)[]) {
@@ -379,6 +416,13 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
     : 23;
   for (const k of ["quietFrom", "quietTo"] as const)
     s[k] = Number.isInteger(Number(s[k])) ? clamp(Number(s[k]), -1, 23) : -1;
+  s.earsNorm = Number(s.earsNorm) === 75 ? 75 : 80;
+  if (s.earsDevice !== "always") s.earsDevice = "auto";
+  s.earsMax = clamp(Number(s.earsMax) || 100, 85, 120);
+  s.earsBreak = clamp(Number(s.earsBreak) || 60, 15, 180);
+  s.earsRestMinutes = clamp(Number(s.earsRestMinutes) || 20, 5, 120);
+  s.earsRestDim = clamp(Number.isFinite(Number(s.earsRestDim)) ? Number(s.earsRestDim) : 50, 10, 90);
+  s.balance = clamp(Math.round(Number(s.balance) || 0), -100, 100);
   s.weatherPlace =
     typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())
       ? s.weatherPlace.trim()

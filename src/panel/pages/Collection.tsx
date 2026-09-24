@@ -5,7 +5,8 @@ import { achievements } from "../../chronicle";
 import { level } from "../../game";
 import { accessories, accessoryUnlocked } from "../../props";
 import type { PanelState } from "../store";
-import { Section } from "../ui";
+import { Section, money } from "../ui";
+import { getLang, tx } from "../../i18n";
 export function Collection({ p }: { p: PanelState }) {
   const g = p.store.game;
   const life = g.life;
@@ -14,7 +15,7 @@ export function Collection({ p }: { p: PanelState }) {
   const got = achievements.filter((a) => life.achievements[a.id]);
   return (
     <>
-      <Section title="Гардероб" description="Открывается уровнями. В праздники питомец наряжается сам.">
+      <Section title={tx("Гардероб")} description={tx("Открывается уровнями. В праздники питомец наряжается сам.")}>
         <RadioCards.Root
           value={life.wear}
           onValueChange={(v) => void emitAll("pet-command", { wear: v })}
@@ -29,10 +30,10 @@ export function Collection({ p }: { p: PanelState }) {
                 <RadioCards.Item key={a.id} value={a.id} disabled={!open}>
                   <Flex direction="column" gap="1">
                     <Text size="2" weight="medium">
-                      {a.name}
+                      {tx(a.name)}
                     </Text>
                     <Text size="1" color="gray">
-                      {a.id === "" ? "без шапки" : open ? `с ${a.level} уровня` : <><Lock size={11} /> {a.level} уровень</>}
+                      {a.id === "" ? tx("без шапки") : open ? tx("с {n} уровня", { n: a.level }) : <><Lock size={11} /> {tx("{n} уровень", { n: a.level })}</>}
                     </Text>
                   </Flex>
                 </RadioCards.Item>
@@ -40,7 +41,7 @@ export function Collection({ p }: { p: PanelState }) {
             })}
         </RadioCards.Root>
       </Section>
-      <Section title={`Достижения · ${got.length} из ${achievements.length}`}>
+      <Section title={tx("Достижения · {got} из {all}", { got: got.length, all: achievements.length })}>
         <div className="grid-cards">
           {achievements.map((a) => {
             const at = life.achievements[a.id];
@@ -48,18 +49,18 @@ export function Collection({ p }: { p: PanelState }) {
               <Card key={a.id} variant={at ? "surface" : "ghost"} style={{ opacity: at ? 1 : 0.55 }}>
                 <Flex justify="between" gap="2">
                   <Text size="2" weight="medium">
-                    {a.name}
+                    {tx(a.name)}
                   </Text>
                   <Badge size="1" color={at ? "amber" : "gray"} variant="soft">
-                    +{a.prize} ₽
+                    +{money(a.prize)}
                   </Badge>
                 </Flex>
                 <Text as="div" size="1" color="gray" mt="1">
-                  {a.desc}
+                  {tx(a.desc)}
                 </Text>
                 {at && (
                   <Text as="div" size="1" color="gray" mt="1">
-                    {new Date(at).toLocaleDateString("ru")}
+                    {new Date(at).toLocaleDateString(getLang())}
                   </Text>
                 )}
               </Card>
@@ -67,18 +68,18 @@ export function Collection({ p }: { p: PanelState }) {
           })}
         </div>
       </Section>
-      <Section title="Стикеры" description="Питомец иногда приносит их в подарок, если вы с ним ладите.">
+      <Section title={tx("Стикеры")} description={tx("Питомец иногда приносит их в подарок, если вы с ним ладите.")}>
         {stickers.length ? (
           <Flex gap="2" wrap="wrap">
             {stickers.map(([k, n]) => (
               <Badge key={k} size="2" variant="surface">
-                {k.slice(8)} × {n}
+                {tx(k.slice(8))} × {n}
               </Badge>
             ))}
           </Flex>
         ) : (
           <Text size="2" color="gray">
-            Пока пусто.
+            {tx("Пока пусто.")}
           </Text>
         )}
       </Section>

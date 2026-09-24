@@ -4,20 +4,20 @@
 import type { Temper } from "./character";
 export type Command = "sit" | "come" | "sleep" | "go" | "jump" | "dance" | "play" | "rps" | "hand" | "clicker" | "catch" | "wake" | "guard" | "clean";
 const words: [RegExp, Command][] = [
-  [/^(сядь|сиди|сесть|садись|sit)/i, "sit"],
-  [/^(иди сюда|ко мне|сюда|к ноге|come|here)/i, "come"],
-  [/^(спать|спи|усни|ложись|баиньки|sleep)/i, "sleep"],
-  [/^(отвали|уйди|свали|пошёл вон|пошел вон|уходи|брысь|go away)/i, "go"],
-  [/^(прыгни|прыгай|прыг|jump)/i, "jump"],
+  [/^(сядь|сиди|сесть|садись|sit down|sit)/i, "sit"],
+  [/^(иди сюда|ко мне|сюда|к ноге|come here|come|here)/i, "come"],
+  [/^(спать|спи|усни|ложись|баиньки|go to sleep|go to bed|sleep|bed)/i, "sleep"],
+  [/^(отвали|уйди|свали|пошёл вон|пошел вон|уходи|брысь|go away|get lost|leave|scram|shoo)/i, "go"],
+  [/^(прыгни|прыгай|прыг|jump|hop)/i, "jump"],
   [/^(танцуй|потанцуй|танец|dance)/i, "dance"],
-  [/^(играть|поиграем|давай играть|игра|play)/i, "play"],
-  [/^(камень|ножницы|бумага|кнб)/i, "rps"],
-  [/^(угадай|в какой руке)/i, "hand"],
-  [/^(кликер|кликай)/i, "clicker"],
-  [/^(поймай|догони|лови|поймай курсор)/i, "catch"],
-  [/^(проснись|подъём|подъем|вставай|wake)/i, "wake"],
+  [/^(играть|поиграем|давай играть|игра|let's play|lets play|play|game)/i, "play"],
+  [/^(камень|ножницы|бумага|кнб|rock|paper|scissors|rps)/i, "rps"],
+  [/^(угадай|в какой руке|which hand|guess)/i, "hand"],
+  [/^(кликер|кликай|clicker)/i, "clicker"],
+  [/^(поймай|догони|лови|поймай курсор|catch me|catch)/i, "catch"],
+  [/^(проснись|подъём|подъем|вставай|wake up|get up|wake)/i, "wake"],
   [/^(охраняй|сторожи|на пост|guard)/i, "guard"],
-  [/^(уберись|почисти|уборка|clean)/i, "clean"],
+  [/^(уберись|почисти|уборка|clean up|clean)/i, "clean"],
 ];
 // `\b` in JS regexps only knows ASCII letters, so it never matches after a
 // Cyrillic word: the end of a command word is checked by hand instead.
