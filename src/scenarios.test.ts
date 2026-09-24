@@ -541,3 +541,72 @@ describe("mini-games", () => {
     expect(out?.prize).toBe(15);
   });
 });
+describe("second round of fixes", () => {
+  it("a cursor above the head but within a jump gets jumped at and hit", () => {
+    const r = chase("drizz", { cx: 900, cy: 1040 - 76 * 2.2, grudge: 60, ms: 12000, random: () => 0.5 });
+    expect(r.log).toContain("cursorPounce");
+    expect(r.log.some((x) => x === "#pounce" || x === "#swat")).toBe(true);
+  });
+  it("a cursor far out of reach: glares, then an angry hop and a shout — not endless standing", () => {
+    const r = chase("drizz", { cx: 850, cy: 300, grudge: 60, ms: 12000, random: () => 0.5 });
+    expect(r.log).toContain("cursorTooHigh");
+    expect(r.play.state).toBe("watch");
+  });
+  it("at work only priority lines get through", () => {
+    const d = brain();
+    d.game = { ...d.game, job: { id: "flyers", startedAt: T0, endsAt: T0 + 5 * 60000 } };
+    expect(d.event("chatter", T0 + 1000)).toBe(false);
+    expect(d.event("typing", T0 + 1000)).toBe(false);
+    expect(d.event("traceAlert", T0 + 2000, true, "тревога")).toBe(true);
+    d.reaction = undefined;
+    expect(d.event("battery", T0 + 3000)).toBe(true);
+  });
+  it("a line being read is not cut off by a weaker one, a stronger one wins", () => {
+    const d = brain();
+    d.event("traceVisible", T0, true, "Вылезла консоль, её запустил кто-то мутный.");
+    d.reaction = undefined;
+    // A cursor slap a second later: animation yes, words no.
+    expect(d.event("cursorSwat", T0 + 1000, false)).toBe(true);
+    expect(said(d)).toBe("Вылезла консоль, её запустил кто-то мутный.");
+    // Even a direct but weaker line (an unprovoked tease) keeps quiet.
+    d.reaction = undefined;
+    d.event("tease", T0 + 1500, true);
+    expect(said(d)).toBe("Вылезла консоль, её запустил кто-то мутный.");
+    // An alert is stronger.
+    d.reaction = undefined;
+    d.event("traceAlert", T0 + 2000, true, "Тревога!");
+    expect(said(d)).toBe("Тревога!");
+    // After the read time anyone may talk again.
+    d.reaction = undefined;
+    d.event("click", T0 + 20000, true);
+    expect(said(d)).not.toBe("Тревога!");
+  });
+  it("lines last long enough to be typed and read", async () => {
+    const { lineTime, readTime } = await import("./director");
+    expect(lineTime("Бац!")).toBeGreaterThanOrEqual(5000);
+    expect(lineTime("x".repeat(120))).toBeGreaterThan(lineTime("x".repeat(20)));
+    expect(readTime("Бац!")).toBeGreaterThanOrEqual(2500);
+  });
+  it("a far click makes it go and remembers the spot to inspect", () => {
+    const d = new Director({ ...defaults }, { ...emptyMemory, lastGreeting: day, daily: { morning: day, lunch: day, weekend: day, holiday: day } }, () => 0.1, newGame(T0));
+    d.position(100, 1040);
+    const input = (clicks: number, lastClick: { x: number; y: number; t: number } | null) => ({ clicks, rightClicks: 0, wheel: 0, keys: 0, shots: 0, lastClick });
+    d.observe(snap(T0, { input: input(0, null) }));
+    d.observe(snap(T0 + 1000, { input: input(1, { x: 1500, y: 700, t: 5 }) }));
+    expect(d.wantGo).toBe(1500);
+    expect(d.wantInspect).toMatchObject({ x: 1500, y: 700 });
+  });
+});
+describe("work status panel", () => {
+  it("stats grow with the shift, the clock counts down", async () => {
+    const { jobStats, clock, jobSpinner } = await import("./workhud");
+    const a = jobStats("flyers", 0.1, 0)[0],
+      b = jobStats("flyers", 0.9, 0)[0];
+    expect(Number(a.match(/\d+/)![0])).toBeLessThan(Number(b.match(/\d+/)![0]));
+    expect(clock(125000)).toBe("02:05");
+    for (const id of ["flyers", "stream", "qa", "mining", "night"]) {
+      expect(jobSpinner[id].frames.length).toBeGreaterThan(1);
+      expect(jobStats(id, 0.5, 1000).length).toBeGreaterThan(1);
+    }
+  });
+});

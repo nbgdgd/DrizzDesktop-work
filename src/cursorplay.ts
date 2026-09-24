@@ -54,6 +54,8 @@ export interface PlayIntent {
   count?: string;
   /** Stop walking. */
   stop?: boolean;
+  /** Hop in place (an angry jump at a cursor it cannot reach). */
+  jump?: boolean;
 }
 type State =
   | "idle"
@@ -85,6 +87,9 @@ export class CursorPlay {
   private lastGo = { x: NaN, t: 0 };
   private hitAt = 0;
   private pounced = false;
+  /** Standing right under a cursor that is out of reach since then. */
+  private glareSince = 0;
+  private lastLeap = 0;
   /** When this revenge started: retries after slips stop after a minute. */
   private huntStart = 0;
   /** Ignore cursor speed right after we moved it ourselves. */
@@ -133,19 +138,23 @@ export class CursorPlay {
   /** Horizontal and vertical reach of one swat. */
   private reachable(i: PlayInput) {
     const dx = Math.abs(i.cursor.x - i.pet.x);
-    const top = i.pet.y - i.size * 1.2,
-      bottom = i.pet.y + 12 * i.k;
-    return dx < i.size * 0.62 && i.cursor.y > top && i.cursor.y < bottom;
+    // A swat reaches a little above the head (it stretches up for it).
+    const top = i.pet.y - i.size * 1.45,
+      bottom = i.pet.y + 16 * i.k;
+    return dx < i.size * 0.8 && i.cursor.y > top && i.cursor.y < bottom;
+  }
+  /** Highest point one jump gets the paws to. */
+  private jumpMax(i: PlayInput) {
+    return Math.min(470 * i.k, i.size + 260 * i.k * (1 + 0.12 * i.agility));
   }
   /** Close enough above for one jump. */
   private pounceable(i: PlayInput) {
     const rise = i.pet.y - i.cursor.y;
-    const max = i.size + 200 * i.k * (1 + 0.12 * i.agility);
     return (
       !i.pet.air &&
-      Math.abs(i.cursor.x - i.pet.x) < 280 * i.k &&
-      rise > i.size * 1.1 &&
-      rise < max
+      Math.abs(i.cursor.x - i.pet.x) < 320 * i.k &&
+      rise > i.size * 1.2 &&
+      rise < this.jumpMax(i)
     );
   }
   private near(i: PlayInput, r: number) {
@@ -352,21 +361,42 @@ export class CursorPlay {
       this.pounced = false;
       return { action: "swat", until: now + 480, stop: true };
     }
-    const jumpy = { aggressive: 0.02, stalk: 0.008, clumsy: 0.012, lecture: 0.004, lazy: 0 }[chase];
-    if (this.pounceable(i) && i.random() < jumpy) {
+    // Above the head but within a jump: it jumps at it — for sure once it is
+    // close, now and then from further away (Nezuko more often).
+    const dx = Math.abs(i.cursor.x - i.pet.x);
+    const jumpy = { aggressive: 0.05, stalk: 0.02, clumsy: 0.03, lecture: 0.01, lazy: 0 }[chase];
+    if (
+      chase !== "lazy" &&
+      this.pounceable(i) &&
+      now - this.lastLeap > 1400 &&
+      (dx < 170 * i.k || i.random() < jumpy)
+    ) {
       this.enter("pounce", now, 2500);
       this.pounced = false;
+      this.lastLeap = now;
+      this.glareSince = 0;
       return {
         leap: { x: i.cursor.x, y: i.cursor.y + i.size * 0.35 },
         say: "cursorPounce",
       };
     }
     const hurry = i.temper.hurry * (chase === "aggressive" ? 1 : 0.85);
-    // Too high to reach: stand under it and glare.
+    // Out of reach even for a jump: runs under it, glares for a moment, then
+    // an angry hop with a swipe and a shout — and it lets the cursor be.
     if (i.pet.y - i.cursor.y > i.size * 1.2 && !this.pounceable(i)) {
-      if (Math.abs(i.pet.x - i.cursor.x) > 60 * i.k) return this.goTo(i, i.cursor.x, hurry);
+      if (dx > 60 * i.k) {
+        this.glareSince = 0;
+        return this.goTo(i, i.cursor.x, hurry);
+      }
+      if (!this.glareSince) this.glareSince = now;
+      if (now - this.glareSince > 2200 && !i.pet.air) {
+        this.glareSince = 0;
+        this.enter("watch", now, 12000);
+        return { say: "cursorTooHigh", jump: true, action: "swat", until: now + 700, stop: true };
+      }
       return { action: "judge", until: now + 300 };
     }
+    this.glareSince = 0;
     return this.goTo(i, i.cursor.x, hurry);
   }
   private swat(i: PlayInput, chase: Chase): PlayIntent {
@@ -424,8 +454,17 @@ export class CursorPlay {
         this.enter("slip", now, 1800);
         return { slip: true, say: "cursorMiss", action: "pained", until: now + 1500, count: "miss" };
       }
+      // Missed in the air: it lands and goes again while the anger lasts.
+      if (!this.pounced) {
+        if (now - this.huntStart < 25000) {
+          this.enter("hunt", now, 12000);
+          return {};
+        }
+        this.enter("watch", now, 15000);
+        return { say: "cursorWatch" };
+      }
       this.swats++;
-      if (chase === "aggressive" && this.swats < i.temper.swats) {
+      if (this.swats < i.temper.swats && (chase === "aggressive" || i.grudge > i.temper.huntAt * 0.4)) {
         this.enter("hunt", now, 15000);
         return {};
       }

@@ -11,6 +11,7 @@ import type { Director } from "./director";
 import type { Props, FloorItem } from "./props";
 import { monitorAt } from "./movement";
 import { favoriteSpot, lately } from "./chronicle";
+import { working } from "./game";
 import { phrases } from "./dialogue";
 export interface Host {
   now: number;
@@ -139,6 +140,7 @@ export class Antics {
   }
   /** Something scary (trace alert, risky autostart): hide at the edge and shiver. */
   scare(h: Host) {
+    if (working(h.brain.game, h.now)) return;
     if (!h.settings.walk || h.settings.pinned || h.world.support) return;
     const e = this.nearestEdge(h);
     if (!e) return;
@@ -243,7 +245,8 @@ export class Antics {
     const due = this.jobs.filter((j) => j.at <= now);
     this.jobs = this.jobs.filter((j) => j.at > now);
     for (const j of due) j.run();
-    const free = s.mode === "normal" && s.walk && !s.pinned && !w.dragging && !h.brain.hidden;
+    // At work it stays at its desk: no gifts, notes, climbing or dancing.
+    const free = s.mode === "normal" && s.walk && !s.pinned && !w.dragging && !h.brain.hidden && !working(h.brain.game, now);
     // Away (a note in its place).
     if (this.away) {
       const a = this.away;

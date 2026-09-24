@@ -872,6 +872,10 @@ export class Dialogue {
     const soft = ["claude", "aqua-wisp"].includes(s.pet) ? 1.6 : 1;
     return ambient.has(event) ? s.commentMinutes * 60000 * soft : REACTION_GAP;
   }
+  /** Ambient and need lines try again later instead of being dropped. */
+  retryable(event: string) {
+    return ambient.has(event) || RETRY.has(event);
+  }
   /**
    * True when a line for `event` would be refused only because of timing:
    * the comment budget for ambient lines, the short gap for needs. Such a

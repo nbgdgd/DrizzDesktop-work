@@ -28,7 +28,14 @@ import {
   startJob,
   upgradeById,
   working,
+  jobPay,
+  jobProgress,
+  mode,
+  levelUpNeed,
 } from "./game";
+import { WorkHud } from "./workhud";
+import { QuickCard, CardData } from "./quickcard";
+import { stageNames } from "./chronicle";
 import { BASE_HEIGHT, BASE_WIDTH, canvasSize, canvasZoom } from "./dpi";
 import {
   Action,
@@ -63,6 +70,10 @@ const CELLS = 72;
 export class PetScene extends Phaser.Scene {
   private actor!: Phaser.GameObjects.Sprite;
   private balloon!: Balloon;
+  private hud!: WorkHud;
+  private quick!: QuickCard;
+  /** Went to look where the user clicked: what to do on arrival. */
+  private inspect: { x: number; y: number; until: number } | null = null;
   private fx!: Effects;
   private props!: Props;
   private animator!: Animator;
@@ -159,6 +170,15 @@ export class PetScene extends Phaser.Scene {
       .setInteractive({ pixelPerfect: true, alphaTolerance: 64 });
     this.props = new Props(this);
     this.fx = new Effects(this);
+    this.hud = new WorkHud(this);
+    this.quick = new QuickCard(this, ["Покормить", "Поиграть", "Панель"], (i) => {
+      if (!this.ready) return;
+      this.quick.close();
+      if (i === 0) this.quickFeed("food");
+      else if (i === 1) this.onCommand({ text: "играть" });
+      else void command("open_panel", { tab: "status" });
+      this.game.loop.wake();
+    });
     this.balloon = new Balloon(
       this,
       (i) => {
@@ -173,9 +193,16 @@ export class PetScene extends Phaser.Scene {
     this.actor.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (!this.ready || this.antics.absent) return;
       if (p.rightButtonDown()) {
-        void command("open_panel", { tab: "status" });
+        // A small card with the essentials; the full panel is one button away.
+        this.quick.toggle(Date.now());
+        if (this.quick.open) {
+          this.brain.bubble = undefined;
+          this.sfx.play("click");
+        }
+        this.game.loop.wake();
         return;
       }
+      this.quick.close();
       const now = Date.now();
       if (this.games.click(now)) {
         this.sfx.play("click");
@@ -254,6 +281,8 @@ export class PetScene extends Phaser.Scene {
     // copies the value to the texture source in the constructor; without this
     // the renderer would draw the text dpr× too large.
     this.balloon.setDpr(dpr);
+    this.hud?.setDpr(dpr);
+    this.quick?.setDpr(dpr);
     this.props.setDpr(dpr);
     this.applySmoothing();
     this.lastPose = "";
@@ -1566,6 +1595,7 @@ export class PetScene extends Phaser.Scene {
     if (p.stop) this.world.target = this.world.goal = null;
     if (p.go && !s.pinned) this.world.go(p.go.x, false, p.go.hurry);
     if (p.leap && !s.pinned) this.world.leap(p.leap.x, p.leap.y);
+    if (p.jump && !s.pinned) this.world.jump();
     if (p.action) this.forced = { action: p.action, until: p.until ?? now + 400 };
     if (p.say) this.brain.event(p.say, now, false);
     if (p.count) note(this.brain.life, p.count, now);
@@ -1634,7 +1664,9 @@ export class PetScene extends Phaser.Scene {
       stage: this.brain.stageNow(now),
       temper,
       enabled:
-        s.cursorPlay && s.mode === "normal" && s.walk && !s.pinned && !this.brain.hidden && !this.antics.absent && !this.world.climb,
+        s.cursorPlay && s.mode === "normal" && s.walk && !s.pinned && !this.brain.hidden && !this.antics.absent && !this.world.climb &&
+        // At work it does not get distracted by the cursor.
+        !working(g, now),
       asleep: ["sleep", "rest"].includes(this.brain.base) && this.play.state !== "game",
       agility: skill(g, "agility"),
       random: Math.random,
@@ -1681,7 +1713,10 @@ export class PetScene extends Phaser.Scene {
         this.fx.dust(this.world.x, this.world.y, k, 6, false);
         this.world.travelTo(there, goal, s.size);
       } else this.world.go(goal);
+      if (this.brain.wantInspect) this.inspect = this.brain.wantInspect;
+      this.brain.wantInspect = null;
     }
+    this.inspectSpot(now);
     const quietIdle = !this.brain.reaction && base === "idle" && !this.world.dragging && !this.play.busy && !this.forced && !this.antics.carry && !this.buzz.active(now);
     if (quietIdle) {
       if (now > this.nextActivity) {
@@ -1737,7 +1772,14 @@ export class PetScene extends Phaser.Scene {
           // Only when the cursor is within a jump: otherwise he would just stand and glare.
           const rise = this.world.y - this.cursor.y;
           const cursorNear = Math.abs(this.cursor.x - this.world.x) < 700 * k && rise > -12 * k && rise < this.sizePx() + 180 * k;
-          const teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < 0.18 && this.brain.event("tease", now) && this.play.tease(now);
+          let teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < 0.18 && this.brain.event("tease", now) && this.play.tease(now);
+          // A window within a jump: now and then it climbs up there instead
+          // of strolling on the floor.
+          const perchOn = !teased && Math.random() < 0.25 ? this.hopTarget() : null;
+          if (perchOn && this.brain.event("hop", now)) {
+            this.brain.wantHop = { ...perchOn, until: now + 12000 };
+            teased = true;
+          }
           // A stroll: away from the screen edges, bouncing off them instead
           // of walking into the corner and standing there pressed to it.
           const margin = Math.max(150 * k, (m.work.right - m.work.left) * 0.1);
@@ -1908,7 +1950,7 @@ export class PetScene extends Phaser.Scene {
     });
     // Food dragged in from the panel follows the cursor over the window.
     const carriedRect = this.drawCarried();
-    const text = this.assetError || (absent ? "" : (this.brain.bubble?.text ?? ""));
+    const text = this.assetError || (absent || this.quick.open ? "" : (this.brain.bubble?.text ?? ""));
     const bubble = text
       ? {
           text,
@@ -1927,8 +1969,50 @@ export class PetScene extends Phaser.Scene {
       this.layout.below,
       Phaser.Display.Color.HexStringToColor(pet?.color ?? "#545c39").color,
     );
+    const accent = Phaser.Display.Color.HexStringToColor(pet?.color ?? "#b4e62e").color;
+    // Shift status above the pet (over the balloon when it talks).
+    const g2 = this.brain.game;
+    const job = working(g2, now) && !absent && !this.brain.hidden ? jobById(g2.job?.id ?? "") : undefined;
+    const hudRect = this.hud.render(
+      job
+        ? {
+            id: job.id,
+            name: job.name,
+            progress: jobProgress(g2, now),
+            left: (g2.job?.endsAt ?? now) - now,
+            earned: jobPay(g2, job) * jobProgress(g2, now),
+          }
+        : null,
+      now,
+      this.layout.anchorX,
+      (bubbleRect && !this.layout.below ? bubbleRect.top : (headCanvas?.y ?? this.layout.anchorY - drawSize) - 6) - 4,
+      accent,
+    );
+    // Right-click card: the essentials at a glance.
+    const lvl = level(g2.exp);
+    const cardData: CardData | null = this.quick.open
+      ? {
+          name: pet?.name ?? "",
+          level: lvl,
+          levelPct: Math.min(99, Math.max(0, (100 * (g2.exp - levelUpNeed(lvl - 1))) / Math.max(1, levelUpNeed(lvl) - levelUpNeed(lvl - 1)))),
+          money: g2.money,
+          stage: stageNames[this.brain.stageNow(now)],
+          mood: { happy: "счастлив", normal: "норм", poor: "не в духе", ill: "болеет" }[mode(g2)],
+          bars: [
+            ["Настроение", g2.feeling],
+            ["Сытость", g2.food],
+            ["Вода", g2.drink],
+            ["Бодрость", g2.strength],
+            ["Здоровье", g2.health],
+          ],
+          job: job ? `${job.name}: ещё ${Math.max(1, Math.ceil(((g2.job?.endsAt ?? now) - now) / 60000))} мин` : g2.grudge >= 50 ? "Злится на тебя" : "",
+        }
+      : null;
+    const cardRect = this.quick.render(cardData, this.layout.anchorX, headCanvas?.y ?? this.layout.anchorY - drawSize, this.layout.anchorY, accent);
     this.fx.draw(now, k, this.world.x, this.world.y, this.toScene, headCanvas, z * 2.4);
     const rects: Rect[] = [];
+    if (hudRect) rects.push(hudRect);
+    if (cardRect) rects.push(cardRect);
     const body = !this.assetError && !absent ? compact(regionRects(p, mask), 240) : [];
     rects.push(...body);
     // Bounding box of the body alone, canvas px (diagnostics and probes).
@@ -1943,6 +2027,79 @@ export class PetScene extends Phaser.Scene {
     if (bubbleRect) rects.push(bubbleRect);
     void this.renderPose(!this.brain.hidden, rects);
     this.saveMemory(false);
+  }
+  /**
+   * Arrived where the user clicked ("я тоже хочу"): climbs onto the window
+   * that was clicked, slaps the spot if it is within reach, or looks around
+   * and says there is nothing there — never just stands.
+   */
+  private inspectSpot(now: number) {
+    const t = this.inspect;
+    if (!t || this.world.dragging || this.world.air) return;
+    const k = this.world.scale;
+    const size = this.sizePx();
+    if (now > t.until || working(this.brain.game, now)) {
+      this.inspect = null;
+      return;
+    }
+    const arrived = Math.abs(this.world.x - t.x) < 40 * k || this.world.target === null;
+    if (!arrived) return;
+    this.inspect = null;
+    const s = this.store.settings;
+    const m = monitorAt(this.monitors, this.world.x, this.world.y, s.monitor);
+    const win = this.snapshot?.windows.find(
+      (w) =>
+        t.x >= w.rect.left &&
+        t.x <= w.rect.right &&
+        t.y >= w.rect.top &&
+        t.y <= w.rect.bottom &&
+        w.rect.top < this.world.y - size * 1.2 &&
+        this.world.y - w.rect.top < 470 * k &&
+        (!m || w.rect.top > m.work.top + size * 1.3),
+    );
+    if (win && s.perch && !s.pinned) {
+      this.brain.reset("hop");
+      this.brain.event("hop", now, true);
+      this.brain.wantHop = { id: win.id, x: t.x, top: win.rect.top, until: now + 10000 };
+      return;
+    }
+    if (this.world.y - t.y < size * 1.5 && Math.abs(this.world.x - t.x) < size) {
+      this.force("swat", 500);
+      this.brain.event("inspectHit", now, true);
+      this.fx.hit(t.x, t.y, Math.sign(t.x - this.world.x) || 1, this.dpr);
+      this.voice.act("punch", 200);
+      return;
+    }
+    this.force("judge", 2600);
+    this.brain.event("inspect", now, true);
+  }
+  /** A window near enough to jump on, for a spontaneous hop. */
+  private hopTarget(): { id: number; x: number; top: number } | null {
+    const s = this.store.settings;
+    if (!s.perch || !this.snapshot || this.world.support) return null;
+    const k = this.world.scale,
+      size = this.sizePx();
+    const m = monitorAt(this.monitors, this.world.x, this.world.y, s.monitor);
+    if (!m) return null;
+    const list = this.snapshot.windows.filter((w, i, all) => {
+      const r = w.rect;
+      const rise = this.world.y - r.top;
+      const x = Math.max(r.left + 70 * k, Math.min(r.right - 70 * k, this.world.x));
+      // Its top edge must be visible (not under a window in front of it).
+      const covered = all.slice(0, i).some((f) => x > f.rect.left && x < f.rect.right && r.top > f.rect.top && r.top < f.rect.bottom);
+      return (
+        !covered &&
+        r.right - r.left > 220 * k &&
+        rise > size * 1.3 &&
+        rise < 470 * k &&
+        r.top > m.work.top + size * 1.3 &&
+        r.left < this.world.x + 600 * k &&
+        r.right > this.world.x - 600 * k
+      );
+    });
+    const w = list[Math.floor(Math.random() * list.length)];
+    if (!w) return null;
+    return { id: w.id, x: Math.max(w.rect.left + 80 * k, Math.min(w.rect.right - 80 * k, this.world.x)), top: w.rect.top };
   }
   private drawCarried(): Rect | null {
     const c = this.carrying;

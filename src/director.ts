@@ -44,7 +44,43 @@ export interface Bubble {
   sub?: string;
   /** "mumble": muttered to itself; "sign": held up on a placard. */
   kind?: "say" | "mumble" | "sign";
+  /** Priority of the event that said it: weaker lines wait their turn. */
+  priority?: number;
+  /** Until this time only a stronger line may replace it (typing + reading). */
+  readUntil?: number;
 }
+/**
+ * How long a line stays: it is typed out (≤1.8 s, see balloon.ts), then
+ * read at ~15 characters a second, never less than 5 s.
+ */
+export const lineTime = (text: string) => clamp(1800 + text.length * 70, 5000, 12000);
+/** The part of that time nobody weaker may interrupt. */
+export const readTime = (text: string) => clamp(1200 + text.length * 55, 2500, 8000);
+/**
+ * During a shift the pet only speaks up for what matters: these events, and
+ * anything at priority 90 or above (direct touches, alerts, autostart).
+ */
+export const WORK_ALLOWED = new Set([
+  "work",
+  "workDone",
+  "levelUp",
+  "achievement",
+  "traceAlert",
+  "traceVisible",
+  "traceFlash",
+  "autorunAdded",
+  "autorunRisky",
+  "autorunChanged",
+  "battery",
+  "ram",
+  "disk",
+  "offline",
+  "sick",
+  "cpuSpike",
+  "gpuSpike",
+  "monitor",
+  "resume",
+]);
 import {
   Game,
   Interaction,
@@ -126,6 +162,11 @@ export const rules: Record<string, Rule> = {
   rightClick: rule("look", 30, 300000),
   glance: rule("look", 10, 8000, 1200),
   curious: rule("look", 45, 120000, 2500),
+  // Arrived where you clicked: inspects the spot, finds nothing, complains.
+  inspect: rule("judge", 47, 20000, 2600),
+  inspectHit: rule("swat", 47, 20000, 500),
+  // The cursor hangs out of reach: an angry hop and a shout, then it gives up.
+  cursorTooHigh: rule("swat", 66, 20000, 900),
   chatter: rule(null, 15, 60000, 2500),
   stats: rule("look", 30, 3600000),
   statsDay: rule("wave", 40, 43200000),
@@ -333,6 +374,8 @@ export class Director {
   private petX = 0;
   private petY = 0;
   wantGo: number | null = null;
+  /** Where the user clicked when it went to have a look (what to do on arrival). */
+  wantInspect: { x: number; y: number; until: number } | null = null;
   /** Window the pet wants to climb onto (set when focus moves to it). */
   wantHop: { id: number; x: number; top: number; until: number } | null = null;
   /** Run to this x fast (show desktop, excitement). */
@@ -718,8 +761,10 @@ export class Director {
         n.monitors.some(
           (m) => inside(click.x, click.y, m) && !inside(this.petX, this.petY, m),
         );
-      if (far && this.random() < 0.2 && this.event("curious", now))
+      if (far && this.random() < 0.2 && this.event("curious", now)) {
         this.wantGo = click.x;
+        this.wantInspect = { x: click.x, y: click.y, until: now + 30000 };
+      }
       else if (this.random() < 0.25) this.event("glance", now);
     }
   }
@@ -771,7 +816,18 @@ export class Director {
       this.reaction.rule.priority > r.priority
     )
       return false;
-    const quiet = !direct && quietNow(this.settings, now);
+    // At work: only priority matters (the status panel speaks for the rest).
+    if (working(this.game, now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return false;
+    // A line still being read is not cut off by a weaker one: the weaker
+    // event still happens (animation), but says nothing — or, if it is a
+    // retryable ambient line, waits for its turn.
+    const protectedLine =
+      !!this.bubble &&
+      this.bubble.until > now &&
+      (this.bubble.readUntil ?? 0) > now &&
+      (this.bubble.priority ?? 0) >= r.priority;
+    if (protectedLine && !direct && this.dialogue.retryable(name)) return false;
+    const quiet = (!direct && quietNow(this.settings, now)) || (protectedLine && text === undefined);
     const phrase =
       text ??
       (quiet
@@ -804,10 +860,12 @@ export class Director {
       this.bubble?.actions?.some((a) => a.id.startsWith("autorun-")) &&
       this.bubble.until > now &&
       r.priority < 96;
-    if (phrase && !asking) {
+    if (phrase && !asking && !(protectedLine && text !== undefined && r.priority < (this.bubble?.priority ?? 0))) {
       this.bubble = {
         text: phrase,
-        until: now + clamp(phrase.length * 65, 4500, 10000),
+        until: now + lineTime(phrase),
+        priority: r.priority,
+        readUntil: now + readTime(phrase),
       };
       this.memory.recent = this.dialogue.recent;
     }
