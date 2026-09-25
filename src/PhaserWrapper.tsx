@@ -35,7 +35,12 @@ export function PhaserWrapper() {
       transparent: true,
       pixelArt: false,
       banner: false,
-      fps: { target: 30, forceSetTimeOut: true },
+      // setTimeout, not rAF (a transparent WebView2 window gets its rAF
+      // paused when Windows thinks it is covered). The step must stay under
+      // 32 ms: Chromium on Windows only uses the precise timer for shorter
+      // delays, 33.3 ms (30 fps) was rounded to the 15.6 ms system tick,
+      // i.e. ~47 ms, and the pet ran at 15-21 fps. 32 fps = 31.25 ms.
+      fps: { target: 32, forceSetTimeOut: true },
       scene: PetScene,
       audio: { noAudio: true },
       // Images are loaded as <img> elements: no XHR/blob step, so only

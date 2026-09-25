@@ -19,7 +19,7 @@
       "shortDescription": "Desktop pet companion",
       "copyright": "Drizz Desktop contributors. Characters and icons: see Credits in the app.",
       "windows": {
-        "nsis": { "displayLanguageSelector": false, "languages": ["English", "Russian"] }
+        "nsis": { "template": "installer.nsi", "displayLanguageSelector": false, "languages": ["English", "Russian"] }
       }
     },
     "security": {

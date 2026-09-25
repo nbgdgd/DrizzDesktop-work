@@ -32,6 +32,6 @@ describe("pet volume and limits", () => {
     d.reaction = undefined;
     d.reset("click");
     expect(d.event("click", T0 + 3500000, true)).toBe(true);
-    expect(d.bubble?.text).toBeTruthy();
+    expect((d.bubble as { text?: string } | undefined)?.text).toBeTruthy();
   });
 });

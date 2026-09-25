@@ -602,6 +602,15 @@ async fn chat(
         .ok_or_else(|| "Пустой ответ".into())
 }
 fn main() {
+    // The uninstaller calls this before deleting the files: every app's
+    // mixer balance back to full, the device balance of old versions back,
+    // then quit without starting the pet.
+    if std::env::args().any(|a| a == "--reset-audio") {
+        // Only what the pet itself changed (marker files), not balances the
+        // user set elsewhere.
+        restore_stale_balance();
+        return;
+    }
     // A panic in any thread (input hooks, tracing, the ear guard) would
     // otherwise end that feature without a trace: log it, then let the
     // default hook print as usual.

@@ -603,6 +603,8 @@ export class PetScene extends Phaser.Scene {
       this.saveMemory(true);
     }
     void this.checkWeather(now);
+    // Frame rate in the diagnostic log (rounded: one line per change).
+    this.diag.log("fps", `${Math.round(this.game.loop.actualFps / 2) * 2}`, 30000);
     this.applyEars(now);
     if (this.brain.bubble || this.brain.reaction) this.game.loop.wake();
   }
