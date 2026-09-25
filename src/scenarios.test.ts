@@ -277,6 +277,22 @@ describe("achievements", () => {
     expect(d.bubble?.kind).toBe("sign");
     expect(d.life.achievements.dizzy).toBeGreaterThan(0);
   });
+  it("a delayed achievement is announced exactly once", () => {
+    const d = brain();
+    d.game = { ...d.game, lastTick: T0 };
+    d.dizzy(T0, 3);
+    let shown = 0,
+      last = "";
+    for (let t = T0 + 100; t < T0 + 60000; t += 700) {
+      d.tick(t);
+      d.heartbeat(t, { present: true, resting: false, music: false });
+      if (ev(d) === "achievement" && d.bubble && d.bubble.text !== last) {
+        shown++;
+        last = d.bubble.text;
+      }
+    }
+    expect(shown).toBe(1);
+  });
 });
 describe("time", () => {
   it("a night with the app closed: the pet slept, got hungry, earned nothing", () => {

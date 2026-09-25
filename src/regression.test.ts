@@ -156,3 +156,31 @@ describe("diagnostics never repeat an unchanged value", () => {
     info.mockRestore();
   });
 });
+
+describe("news is never lost behind another line", () => {
+  const T = Date.UTC(2026, 8, 25, 12, 0, 0);
+  it("a finished shift waits for the status line and is said after it", () => {
+    const d = new Director({ ...defaults }, { ...emptyMemory }, () => 0);
+    expect(d.status(T)).toBe(true);
+    const status = d.bubble!.text;
+    // Paid while the status line is still being read: said nothing yet.
+    d.event("workDone", T + 500, true, undefined, { job: "Флаеры", pay: "45 ₽" });
+    expect(d.bubble!.text).toBe(status);
+    expect(d.pending.map((p) => p.name)).toEqual(["workDone"]);
+    // Once the status line has been read, the news comes out.
+    const later = (d.bubble!.readUntil ?? T) + 10;
+    d.tick(later);
+    expect(d.bubble?.text).toContain("45 ₽");
+    expect(d.pending).toEqual([]);
+  });
+  it("gives up on news older than ten minutes", () => {
+    const d = new Director({ ...defaults }, { ...emptyMemory }, () => 0);
+    d.status(T);
+    d.event("levelUp", T + 100, true, undefined, { level: "5" });
+    d.hidden = true;
+    d.tick(T + 11 * 60000);
+    d.hidden = false;
+    d.tick(T + 11 * 60000 + 10);
+    expect(d.pending).toEqual([]);
+  });
+});

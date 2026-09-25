@@ -1,4 +1,4 @@
-﻿// Visual check while walking, on a copy of the user's profile (same pet,
+// Visual check while walking, on a copy of the user's profile (same pet,
 // worn items and settings): captures the pet window from the screen several
 // times while it walks and reports what is drawn on top of the sprite.
 // Usage: node tools/dot-probe.cjs [--exe PATH]

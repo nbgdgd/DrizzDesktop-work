@@ -5,7 +5,8 @@ import { Item, itemById, items } from "../../game";
 import type { PanelState } from "../store";
 import { Section, money } from "../ui";
 import { tx } from "../../i18n";
-const kinds: [Item["kind"] | "all", string][] = [
+// A function: translated when drawn (see Games.tsx).
+const kinds = (): [Item["kind"] | "all", string][] => [
   ["all", tx("Всё")],
   ["meal", tx("Еда")],
   ["snack", tx("Снеки")],
@@ -42,7 +43,7 @@ export function Shop({ p }: { p: PanelState }) {
         </Section>
       )}
       <SegmentedControl.Root value={kind} onValueChange={(v) => setKind(v as Item["kind"] | "all")} mb="4" size="1">
-        {kinds.map(([id, name]) => (
+        {kinds().map(([id, name]) => (
           <SegmentedControl.Item key={id} value={id}>
             {name}
           </SegmentedControl.Item>

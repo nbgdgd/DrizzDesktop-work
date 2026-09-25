@@ -10,7 +10,9 @@ interface UsageStats {
   month: { app: string; seconds: number }[];
   all: { app: string; seconds: number }[];
 }
-const periods = [
+// Ids only; the labels are translated when drawn (see Games.tsx).
+const periodIds = ["today", "week", "month", "all"] as const;
+const periods = () => [
   ["today", tx("Сегодня")],
   ["week", tx("7 дней")],
   ["month", tx("30 дней")],
@@ -18,7 +20,7 @@ const periods = [
 ] as const;
 export function Stats({ p }: { p: PanelState }) {
   const [usage, setUsage] = useState<UsageStats | null>(null);
-  const [period, setPeriod] = useState<(typeof periods)[number][0]>("today");
+  const [period, setPeriod] = useState<(typeof periodIds)[number]>("today");
   useEffect(() => {
     let gone = false;
     const load = () =>
@@ -39,7 +41,7 @@ export function Stats({ p }: { p: PanelState }) {
     <>
       <Flex justify="between" align="center" mb="3" gap="3" wrap="wrap">
         <SegmentedControl.Root value={period} onValueChange={(v) => setPeriod(v as typeof period)} size="1">
-          {periods.map(([id, name]) => (
+          {periods().map(([id, name]) => (
             <SegmentedControl.Item key={id} value={id}>
               {name}
             </SegmentedControl.Item>

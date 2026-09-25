@@ -651,6 +651,10 @@ export class PetScene extends Phaser.Scene {
       return;
     }
     this.brain.game = next;
+    // Food or a drink wakes it up: a sleeping pet sprinting on an energy
+    // drink (or ignoring the beer) looked broken.
+    this.brain.wake(now);
+    if (this.brain.base === "sleep" || this.brain.base === "rest") this.brain.base = "idle";
     this.sfx.play(item.kind === "drink" ? "drink" : "eat");
     this.voice.act("eat", 400);
     this.brain.fed(now);
@@ -945,7 +949,7 @@ export class PetScene extends Phaser.Scene {
    */
   private async checkWeather(now: number) {
     const s = this.store.settings;
-    if (this.weatherSay && now < this.weatherSay.until && this.brain.event(this.weatherSay.event, now, false, undefined, this.weatherSay.vars))
+    if (this.weatherSay && now < this.weatherSay.until && this.brain.event(this.weatherSay.event, now, this.weatherSay.event !== "rain" && this.weatherSay.event !== "snow", undefined, this.weatherSay.vars))
       this.weatherSay = null;
     if (this.weatherSay && now >= this.weatherSay.until) this.weatherSay = null;
     if (!s.weather || !s.weatherPlace) {
@@ -965,7 +969,11 @@ export class PetScene extends Phaser.Scene {
       const announce = moved || (!prev && this.brain.once("weatherNow", new Date(now).toDateString()));
       this.weather = { ...reading, at: now, place: s.weatherPlace };
       const [line] = weatherLines(prev, reading, place, announce);
-      if (line && !this.brain.event(line.event, now, false, undefined, line.vars)) this.weatherSay = { ...line, until: now + 10 * 60000 };
+      // A change of weather is news, not chatter: said directly (the director
+      // keeps it for later if the balloon is busy, see MUST_SAY). "Still
+      // raining" stays ambient.
+      const news = !!line && line.event !== "rain" && line.event !== "snow";
+      if (line && !this.brain.event(line.event, now, news, undefined, line.vars)) this.weatherSay = { ...line, until: now + 10 * 60000 };
     } catch (e) {
       this.diag.log("weather", String(e));
     }
@@ -1752,6 +1760,10 @@ export class PetScene extends Phaser.Scene {
     if (this.games.round) {
       // No dozing off in the middle of a round.
       if (this.brain.base === "sleep" || this.brain.base === "rest") this.brain.base = "idle";
+    }
+    // Nor on an energy drink or drunk.
+    if (this.buzz.active(now) && (this.brain.base === "sleep" || this.brain.base === "rest")) this.brain.base = "idle";
+    if (this.games.round) {
       const done = this.games.tick(now);
       if (done) this.finishGame(done);
     }

@@ -60,6 +60,43 @@ export const readTime = (text: string) => clamp(1200 + text.length * 55, 2500, 8
  * During a shift the pet only speaks up for what matters: these events, and
  * anything at priority 90 or above (direct touches, alerts, autostart).
  */
+/**
+ * One-off news the user must not miss: money paid, a level, an upgrade, an
+ * achievement, what the ear care or the volume guard did. When such a line
+ * cannot be said right now (another line is being read, a stronger reaction
+ * is on, the pet is hidden or at work) it waits in `pending` and is said at
+ * the first free moment instead of being lost.
+ */
+export const MUST_SAY = new Set([
+  "workDone",
+  "levelUp",
+  "upgrade",
+  "achievement",
+  "giveBack",
+  "cleanDone",
+  "autorunRemoved",
+  "autorunFailed",
+  "earsGuardClamp",
+  "earsGuardPlug",
+  "earsGuardWake",
+  "earsLowered",
+  "earsDose80",
+  "earsDose100",
+  "earsBreak",
+  "earsBreakLong",
+  "earsVeryLoud",
+  // Weather changes: rare, and the whole point is to hear them.
+  "weatherNow",
+  "rainStart",
+  "rainStop",
+  "storm",
+  "snowStart",
+  "fog",
+  "frost",
+  "heat",
+]);
+/** How long a pending line stays worth saying. */
+const PENDING_MS = 10 * 60000;
 /** Ear lines that must be said now, not queued behind the chatter budget. */
 const EARS_DIRECT = new Set(["earsGuardClamp", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
 export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
@@ -100,7 +137,7 @@ import {
   workTick,
   working,
 } from "./game";
-import { tx } from "./i18n";
+import { money, tx } from "./i18n";
 import { EarEvent, EarSample, earTick } from "./ears";
 /** Relationship in percent of the current likability cap. */
 export const bondPct = (g: Game) =>
@@ -491,7 +528,7 @@ export class Director {
     this.game = r.game;
     this.event("workDone", now, true, undefined, {
       job: tx(r.done.job.name),
-      pay: String(r.done.pay),
+      pay: money(r.done.pay),
     });
     return true;
   }
@@ -575,7 +612,7 @@ export class Director {
       const back = this.stolen;
       this.stolen = 0;
       this.game = { ...this.game, money: this.game.money + back };
-      this.event("giveBack", now, true, undefined, { n: String(Math.round(back)) });
+      this.event("giveBack", now, true, undefined, { n: money(back) });
     } else this.event("pet", now, true);
     if (this.sulkUntil > now) this.sulkUntil = 0;
     if (this.last?.app) judgeApp(this.life, this.last.app, 0.5);
@@ -735,12 +772,14 @@ export class Director {
     const next = this.announce[0];
     if (next && !this.hidden) {
       this.reset("achievement");
-      if (this.event("achievement", now, true, undefined, { name: tx(next.name), prize: String(next.prize) })) {
-        this.announce.shift();
-        if (this.bubble) this.bubble.kind = "sign";
-      }
+      // Said now or kept in `pending` (MUST_SAY): either way it is announced
+      // exactly once. (Retrying here as well announced it twice.)
+      this.event("achievement", now, true, undefined, { name: tx(next.name), prize: money(next.prize) });
+      this.announce.shift();
     }
     const earsChanged = this.earCare(now);
+    // The frame loop may be asleep (nothing moving): news goes out from here too.
+    this.flushPending(now);
     if (!this.hidden) {
       this.chatter(now);
       this.mumble(now);
@@ -893,21 +932,17 @@ export class Director {
     vars?: Record<string, string>,
   ): boolean {
     const r = rules[name];
-    if (
-      !r ||
-      this.settings.mode === "dnd" ||
-      (this.hidden && !direct) ||
-      now - (this.cooldown.get(name) ?? -Infinity) < r.cooldown
-    )
-      return false;
+    if (!r || now - (this.cooldown.get(name) ?? -Infinity) < r.cooldown) return false;
+    const wait = () => (this.later(name, now, text, vars), false);
+    if (this.settings.mode === "dnd" || (this.hidden && !direct)) return wait();
     if (
       this.reaction &&
       this.reaction.until > now &&
       this.reaction.rule.priority > r.priority
     )
-      return false;
+      return wait();
     // At work: only priority matters (the status panel speaks for the rest).
-    if (working(this.game, now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return false;
+    if (working(this.game, now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return wait();
     // A line still being read is not cut off by a weaker one: the weaker
     // event still happens (animation), but says nothing — or, if it is a
     // retryable ambient line, waits for its turn.
@@ -952,12 +987,17 @@ export class Director {
       this.bubble?.actions?.some((a) => a.id.startsWith("autorun-")) &&
       this.bubble.until > now &&
       r.priority < 96;
-    if (phrase && !asking && !(protectedLine && text !== undefined && r.priority < (this.bubble?.priority ?? 0))) {
+    const shown = !!phrase && !asking && !(protectedLine && text !== undefined && r.priority < (this.bubble?.priority ?? 0));
+    // The news could not get into the balloon: keep it for later.
+    if (!shown && (protectedLine || asking) && MUST_SAY.has(name)) this.later(name, now, text, vars);
+    if (shown && phrase) {
       this.bubble = {
         text: phrase,
         until: now + lineTime(phrase),
         priority: r.priority,
         readUntil: now + readTime(phrase),
+        // An achievement is held up on a placard, whenever it gets said.
+        ...(name === "achievement" ? { kind: "sign" as const } : {}),
       };
       this.memory.recent = this.dialogue.recent;
     }
@@ -986,6 +1026,31 @@ export class Director {
   tick(now: number) {
     if (this.bubble && now >= this.bubble.until) this.bubble = undefined;
     if (this.reaction && now >= this.reaction.until) this.reaction = undefined;
+    this.flushPending(now);
+  }
+  /** News waiting for a free balloon (see MUST_SAY). */
+  pending: { name: string; text?: string; vars?: Record<string, string>; until: number }[] = [];
+  private later(name: string, now: number, text?: string, vars?: Record<string, string>) {
+    if (!MUST_SAY.has(name) || !this.settings.comments) return;
+    // A retry that fails again keeps its original deadline.
+    const until = this.pending.find((p) => p.name === name)?.until ?? now + PENDING_MS;
+    this.pending = [...this.pending.filter((p) => p.name !== name), { name, text, vars, until }].slice(-6);
+  }
+  private flushPending(now: number) {
+    if (!this.pending.length) return;
+    this.pending = this.pending.filter((p) => p.until > now);
+    const busy =
+      this.hidden ||
+      this.settings.mode === "dnd" ||
+      (this.bubble && this.bubble.until > now && ((this.bubble.readUntil ?? 0) > now || this.bubble.actions?.length)) ||
+      (this.reaction && this.reaction.until > now && this.reaction.rule.priority >= 90);
+    if (busy) return;
+    // The first line that may speak now (a shift still blocks the minor ones).
+    const i = this.pending.findIndex((p) => !working(this.game, now) || (rules[p.name]?.priority ?? 0) >= 90 || WORK_ALLOWED.has(p.name));
+    if (i < 0) return;
+    const [p] = this.pending.splice(i, 1);
+    this.cooldown.delete(p.name);
+    this.event(p.name, now, true, p.text, p.vars);
   }
   // A direct touch (click/drag) ends rest or sleep immediately instead of
   // waiting for the next idle snapshot; the "return" line still follows.

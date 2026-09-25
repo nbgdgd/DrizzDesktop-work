@@ -12,7 +12,19 @@ const ps = (script) =>
     encoding: "utf8",
     windowsHide: true,
   });
-const exe = path.resolve("src-tauri/target/release/Drizz Desktop.exe");
+const argv = process.argv.slice(2);
+const exe = path.resolve(argv.includes("--exe") ? argv[argv.indexOf("--exe") + 1] : "src-tauri/target/release/Drizz Desktop.exe");
+// The user's clipboard text is put back afterwards; PrintScreen (which opens
+// the Snipping Tool on Windows 11) only with --screenshot.
+const clipBefore = (() => {
+  try {
+    return ps("Get-Clipboard -Raw");
+  } catch {
+    return null;
+  }
+})();
+// Only the Explorer window this probe opens is closed, never the user's own.
+const explorerBefore = ps("(New-Object -ComObject Shell.Application).Windows() | % { $_.HWND }").split(/\r?\n/).filter(Boolean);
 const qa = path.join(__dirname, "qa-env-" + Date.now());
 fs.mkdirSync(qa, { recursive: true });
 const port = 9331 + Math.floor(Math.random() * 50);
@@ -101,11 +113,13 @@ const app = cp.spawn(exe, ["--background", "--diag"], {
       ["unmute", "$s=New-Object -ComObject WScript.Shell; $s.SendKeys([char]173)"],
       ["caps lock", "$s=New-Object -ComObject WScript.Shell; $s.SendKeys('{CAPSLOCK}')"],
       ["caps off", "$s=New-Object -ComObject WScript.Shell; $s.SendKeys('{CAPSLOCK}')"],
-      ["screenshot", "Add-Type -Name K -Namespace W -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte b, byte s, uint f, int e);'; [W.K]::keybd_event(0x2C,0,0,0); [W.K]::keybd_event(0x2C,0,2,0)"],
+      ...(argv.includes("--screenshot") ? [] : [["(screenshot skipped, pass --screenshot)", ""]]),
+      [argv.includes("--screenshot") ? "screenshot" : "", "Add-Type -Name K -Namespace W -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte b, byte s, uint f, int e);'; [W.K]::keybd_event(0x2C,0,0,0); [W.K]::keybd_event(0x2C,0,2,0)"],
       ["new window", "Start-Process explorer.exe -ArgumentList 'C:\' ; Start-Sleep -Seconds 3"],
-      ["close window", "$s=New-Object -ComObject Shell.Application; $s.Windows() | %{ $_.Quit() }"],
+      ["close window", `$keep = @(${explorerBefore.map((h) => "'" + h + "'").join(",") || "''"}); (New-Object -ComObject Shell.Application).Windows() | ?{ $keep -notcontains [string]$_.HWND } | %{ $_.Quit() }`],
     ];
     for (const [name, script] of steps) {
+      if (!name || !script) continue;
       try {
         ps(script);
       } catch (e) {
@@ -125,6 +139,12 @@ const app = cp.spawn(exe, ["--background", "--diag"], {
     console.error("FAIL", e.message);
     process.exitCode = 1;
   } finally {
+    if (clipBefore !== null) {
+      try {
+        fs.writeFileSync(path.join(qa, "clip.txt"), clipBefore.replace(/\r?\n$/, ""), "utf8");
+        ps(`Set-Clipboard -Value (Get-Content -Raw -Encoding UTF8 '${path.join(qa, "clip.txt")}')`);
+      } catch {}
+    }
     if (ws) ws.close();
     try {
       cp.execFileSync("taskkill", ["/pid", String(app.pid), "/t", "/f"], {

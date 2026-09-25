@@ -11,6 +11,7 @@ import { Director } from "./director";
 import { defaults, emptyMemory, Settings, Snapshot } from "./model";
 import { cleanGame, newGame } from "./game";
 import { cleanLife } from "./chronicle";
+import { setLang } from "./i18n";
 function rng(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -129,7 +130,11 @@ describe("a day of life (soak)", () => {
     ["ru, quiet mode", { mode: "quiet" as const }, 4],
   ] as const)
     it(name, () => {
+      // The app switches tx() and money() with the settings; so must the test,
+      // or names and sums inside English lines stay Russian.
+      setLang("lang" in patch ? patch.lang : "ru");
       const { d, said, end } = day(patch, seed);
+      setLang("ru");
       // Rust refuses a game over 64 000 bytes and memory over 20 000.
       const game = JSON.stringify(d.game);
       expect(game.length).toBeLessThan(40000);

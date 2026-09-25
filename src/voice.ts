@@ -2,9 +2,12 @@
 // character its own pitch and timbre, tempo from the length of the text)
 // and small action sounds — steps, jump, landing, snoring, crunching, a
 // swat, a sigh, dizziness. WebAudio only, nothing recorded, no files.
+import { bus } from "./audio";
 export type Act = "step" | "jump" | "land" | "snore" | "eat" | "swat" | "sigh" | "dizzy" | "pop" | "punch";
 export class Voice {
   private ctx?: AudioContext;
+  /** Where every sound goes: the shared bus (gain + limiter), see audio.ts. */
+  private out?: AudioNode;
   private noise?: AudioBuffer;
   private busyUntil = 0;
   private last = new Map<Act, number>();
@@ -20,9 +23,10 @@ export class Voice {
     if (!this.enabled || this.volume <= 0) return;
     try {
       if (!this.ctx) {
-        const C = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!C) return;
-        this.ctx = new C();
+        const b = bus();
+        if (!b) return;
+        this.ctx = b.ctx;
+        this.out = b.input;
         const n = this.ctx.sampleRate;
         this.noise = this.ctx.createBuffer(1, n, n);
         const d = this.noise.getChannelData(0);
@@ -68,7 +72,7 @@ export class Voice {
     const moodShift = mood === "angry" ? 0.85 : mood === "sad" || mood === "sleepy" ? 0.8 : mood === "friendly" ? 1.1 : 1;
     const out = ctx.createGain();
     out.gain.value = this.volume * 0.22;
-    out.connect(ctx.destination);
+    out.connect(this.out ?? ctx.destination);
     for (let i = 0; i < n; i++) {
       const ch = letters[Math.floor((i / n) * letters.length)] ?? "а";
       const v = vowels.indexOf(ch);
@@ -98,7 +102,7 @@ export class Voice {
     if (!ctx || !this.noise) return;
     const t = ctx.currentTime;
     const out = ctx.createGain();
-    out.connect(ctx.destination);
+    out.connect(this.out ?? ctx.destination);
     const v = this.volume;
     const tone = (type: OscillatorType, f0: number, f1: number, dur: number, gain: number, at = t) => {
       const o = ctx.createOscillator();

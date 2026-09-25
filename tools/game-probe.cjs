@@ -5,7 +5,7 @@ const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-const exe = path.resolve("src-tauri/target/release/Drizz Desktop.exe");
+const exe = path.resolve(process.argv.includes("--exe") ? process.argv[process.argv.indexOf("--exe") + 1] : "src-tauri/target/release/Drizz Desktop.exe");
 const qa = path.join(__dirname, "qa-game-" + Date.now());
 fs.mkdirSync(qa, { recursive: true });
 const port = 9411 + Math.floor(Math.random() * 50);

@@ -1,6 +1,7 @@
 // Live check of drinks on the real desktop.
 //  1. Energy drink: the pet must sprint around (distance, top speed, jumps).
-//  2. Beer: a test window (our own WinForms form, never a user window) is
+//  2. Beer: a test window (our own WinForms form; the pet is made blind to
+//     every other window, so a user window can never be hit) is
 //     opened behind the pet; punches must crack the "glass", shake/shove/
 //     minimise that window, and the pet must go after the cursor.
 // Usage: node tools/drinks-probe.cjs [--exe PATH]
@@ -77,7 +78,10 @@ const shot = (name) =>
     // ---- 2. beer with a test window behind the pet
     const p = await js(`(() => { const s = window.__PET_SCENE__, w = s.world, m = s.monitors.find(m => w.x >= m.bounds.left && w.x < m.bounds.right); return { x: Math.round(w.x), y: Math.round(w.y), size: Math.round(s.sizePx()), left: m.work.left, right: m.work.right }; })()`);
     const log = path.join(qa, "form.log");
-    form = cp.spawn("powershell", ["-NoProfile", "-Command", `
+    // Not windowsHide: a hidden start makes Windows hide the form's first
+    // ShowWindow too, and the pet never saw its target (it then hit a user
+    // window). The console itself is hidden by -WindowStyle.
+    form = cp.spawn("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", `
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 Add-Type -TypeDefinition @'
 using System;using System.Runtime.InteropServices;
@@ -94,8 +98,22 @@ while ([DateTime]::UtcNow -lt $end -and -not $f.IsDisposed) {
   Add-Content -Path '${log.replace(/\\/g, "\\\\")}' -Value ("{0} {1} {2}" -f $f.Left, $f.Top, $f.WindowState)
   Start-Sleep -Milliseconds 100
 }
-if (-not $f.IsDisposed) { $f.Close() }`], { windowsHide: true });
+if (-not $f.IsDisposed) { $f.Close() }`], { windowsHide: false });
     await delay(2500);
+    // The drunk pet chases the real cursor and hits whatever window is under
+    // it; the user may be working on another monitor. For the probe the pet
+    // only sees the test form, so no user window can be shaken or minimised.
+    const fx = p.left + 40, fy = p.y - 560, fw = p.right - p.left - 80, fh = 545;
+    await js(`(() => {
+      const s = window.__PET_SCENE__;
+      let ownId = 0;
+      // Found by its rectangle once, then by id (a shove moves it).
+      const own = (w) => ownId ? w.id === ownId : (Math.abs(w.rect.left - ${fx}) < 16 && Math.abs(w.rect.top - ${fy}) < 16 && Math.abs(w.rect.right - w.rect.left - ${fw}) < 24 && Math.abs(w.rect.bottom - w.rect.top - ${fh}) < 24) && !!(ownId = w.id);
+      let snap = s.snapshot;
+      const only = (v) => { if (v) window.__seen = { want: [${fx}, ${fy}, ${fw}, ${fh}], top: (v.windows || []).slice(0, 4).map((w) => [w.rect.left, w.rect.top, w.rect.right - w.rect.left, w.rect.bottom - w.rect.top]) }; return v && { ...v, windows: (v.windows || []).filter(own) }; };
+      Object.defineProperty(s, "snapshot", { configurable: true, get: () => snap, set: (v) => { snap = only(v); } });
+      snap = only(snap);
+    })()`);
     await js(`(() => { const s = window.__PET_SCENE__; s.brain.bubble = undefined; s.brain.reaction = undefined; s.world.x = ${p.x}; s.world.target = null; s.buy("beer", true); })()`);
     let crackShot = false, hitShot = false, hitsSeen = 0;
     const huntStates = new Set();
@@ -113,6 +131,7 @@ if (-not $f.IsDisposed) { $f.Close() }`], { windowsHide: true });
     const xs = pos.map((p) => +p[0]);
     out.beer = {
       smashes: await js(`window.__PET_SCENE__.buzz.smashes`),
+      seen: await js(`window.__seen`),
       cursorHitSamples: hitsSeen,
       playStates: [...huntStates],
       formSamples: lines.length,

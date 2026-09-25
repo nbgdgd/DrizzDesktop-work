@@ -46,7 +46,7 @@ export function Skills({ p }: { p: PanelState }) {
                   disabled={price === null || g.money < price}
                   onClick={() => p.run(command("buy_upgrade", { id: u.id }))}
                 >
-                  {price === null ? tx("Максимум") : `Прокачать за ${money(price)}`}
+                  {price === null ? tx("Максимум") : tx("Прокачать за {price}", { price: money(price) })}
                 </Button>
               </Flex>
             </Card>

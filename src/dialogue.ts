@@ -706,11 +706,11 @@ const base: Record<string, string[]> = {
     "Работаю за нас двоих, долбоёб.",
   ],
   workDone: [
-    "Смена окончена. {job} — {pay} ₽, блядь. Учись, долбоёб.",
-    "Отработал. {pay} ₽ в кассу, сука. Теперь корми меня.",
-    "{job}: {pay} ₽. Я заработал больше, чем ты за сегодня, уёбок.",
+    "Смена окончена. {job} — {pay}, блядь. Учись, долбоёб.",
+    "Отработал. {pay} в кассу, сука. Теперь корми меня.",
+    "{job}: {pay}. Я заработал больше, чем ты за сегодня, уёбок.",
     "Всё, {job} сделана. Плати мне едой, придурок.",
-    "{pay} ₽, блядь. Гони еду, я заслужил.",
+    "{pay}, блядь. Гони еду, я заслужил.",
   ],
   workFail: [
     "Не могу работать, сука. Сначала покорми и напои.",
@@ -914,11 +914,15 @@ export class Dialogue {
         if (now - this.lastMumble < MUMBLE_GAP) return;
       } else if (now - this.last < this.gap(event, s)) return;
     }
+    // A line is usable only when every {variable} in it has a value: a
+    // caller that forgets one gets another line, never a literal "{app}".
+    // {name} and {fact} also need to be non-empty.
     const usable = (bank?: string[]) =>
       (bank ?? []).filter(
         (t) =>
           (!t.includes("{name}") || !!vars?.name) &&
-          (!t.includes("{fact}") || !!vars?.fact),
+          (!t.includes("{fact}") || !!vars?.fact) &&
+          [...t.matchAll(/\{(\w+)\}/g)].every((m) => vars?.[m[1]] !== undefined),
       );
     const moodBank = usable(linesFor(`${event}@${mood}`, s));
     const stageBank = stage ? usable(linesFor(`${event}~${stage}`, s)) : [];

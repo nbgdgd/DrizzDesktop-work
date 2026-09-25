@@ -623,3 +623,13 @@ mod jitter_tests {
         assert!(real_motion(140, 9, 110.));
     }
 }
+#[cfg(test)]
+mod probe_windows {
+    #[test]
+    #[ignore]
+    fn print_windows() {
+        for s in super::windows() {
+            println!("{} {},{} {}x{}", s.id, s.rect.left, s.rect.top, s.rect.right - s.rect.left, s.rect.bottom - s.rect.top);
+        }
+    }
+}

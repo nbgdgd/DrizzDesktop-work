@@ -172,13 +172,20 @@ export function traceSpeech(
   const details = o
     ? [whereLabel(o), signLabel(o)].filter(Boolean).join(", ")
     : "";
-  const via = viaLabel(e);
+  // "Claude через python (код из командной строки, из AppData, подписан)":
+  // the interpreter joins the origin, everything descriptive goes into one
+  // pair of brackets (it used to be "Claude (скрипт (код …) через python),
+  // из AppData, подписан запустил …").
+  const interp = e.via ?? (e.script ? e.child : null);
+  const who = interp && interp !== e.child ? appName(interp.name) : "";
+  const script = e.script ? (e.script.startsWith("(") ? tx("код из командной строки") : tx("скрипт {s}", { s: scriptName(e.script) })) : "";
   const chain =
-    detail >= 2 && e.chain.length > 1 ? tx("; цепочка: {chain}", { chain: e.chain.slice(0, 4).map(appName).join(" ← ") }) : "";
+    detail >= 2 && e.chain.length > 1 ? tx("цепочка: {chain}", { chain: e.chain.slice(0, 4).map(appName).join(" ← ") }) : "";
+  const inside = [script, details, chain].filter(Boolean).join(", ");
   const vars = {
     child: childName(e.child.name),
-    origin: originLabel(o) + (via ? ` (${via})` : ""),
-    details: (details ? `, ${details}` : "") + chain,
+    origin: originLabel(o) + (who ? " " + tx("через {who}", { who }) : ""),
+    details: inside ? ` (${inside})` : "",
     flags: e.flags
       .filter((f) => !["background", "flash"].includes(f))
       .slice(0, 2 + Math.max(0, detail))

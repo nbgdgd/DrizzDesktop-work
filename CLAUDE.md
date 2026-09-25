@@ -15,14 +15,15 @@ Desktop pet for Windows 10/11 x64: Tauri 1 (Rust) + React 18 + Phaser 3 (Canvas 
 - `movement.ts` — physics, multi-monitor seams (`neighbor`/`span`), drag pendulum, climbing. `cursorplay.ts` — cursor games per temper. `antics.ts` — long behaviours (sulk, notes, gifts, hiding). `character.ts` — tempers.
 - `game.ts` + `chronicle.ts` — progression and long-term memory (`Game.life`); `PetScene.ts` wires it all and renders (`pose.ts`, `effects.ts`, `balloon.ts`, `props.ts`).
 - `src/panel/` — settings window (Radix Themes + Lucide), `pages/Welcome.tsx` first run, `pages/Ears.tsx` ear care. Rust: `main.rs` commands, `native.rs` Win32, `chores.rs` cursor nudge / temp / weather, `env.rs` sound (headphones, per-channel dB, balance).
-- `i18n.ts` + `i18n.en.ts` — `tx("русский текст", vars)` looked up by the Russian text; `lines.en.ts` — English banks; `swear.ts` — `cleanEn`. `ears.ts` — weekly sound dose per ear (WHO/ITU H.870), breaks, ear rest. `weather.ts` — WMO codes → sky and change lines; `places.ts` — countries; `credits.ts` — who made what (About page, pet pickers). `docs/RELEASE.md` — release checklist.
+- `i18n.ts` + `i18n.en.ts` — `tx("русский текст", vars)` looked up by the Russian text; `lines.en.ts` — English banks; `swear.ts` — `cleanEn`. `ears.ts` — weekly sound dose per ear (WHO/ITU H.870), breaks, ear rest. `weather.ts` — WMO codes → sky and change lines; `places.ts` — countries; `credits.ts` — who made what (About page, pet pickers). `audio.ts` — the one sound bus (make-up gain + limiter) used by `sound.ts` and `voice.ts`; `balance.rs` also names the pet's sessions "Drizz Desktop" in the Windows mixer and heals apps it left lopsided. `docs/RELEASE.md` — release checklist.
 
 ## Rules that are easy to break
 - The pet window owns game state; the panel only sends ids/commands (`buy_item`, `emitAll("pet-command")`). Pet-owned memory keys are whitelisted in `save_pet_memory`.
 - Coordinates: desktop/physics in physical px, canvas in logical px (`dpr`). Anything drawn must also be added to the window region rects, or Win32 clips it.
 - Phaser runs in Canvas mode: no tint, no shaders.
 - JS `\b` is ASCII-only — never use it after Cyrillic words (see `commands.ts`).
-- New lines must not use variables the event does not pass; `{name}`/`{fact}` lines are filtered automatically.
+- New lines must not use variables the event does not pass (`linevars.test.ts` checks every call site; `Dialogue.choose` skips a line whose variable is missing). Money goes in as `money(n)`, never "{n} ₽" / "${n}" in the text.
+- News the user must not miss (pay, level, achievement, ear care, weather change) is in `MUST_SAY` (director.ts): if the balloon is busy it waits in `pending` instead of being lost. `event()` returning true does not mean a line was shown.
 - Every new phrase bank needs an English twin in `lines.en.ts` with the same variables; every new UI string goes through `tx()` with an entry in `i18n.en.ts` (`i18n.test.ts`, `ears.test.ts` check both). Never call `tx()` at module level — the language is set later; translate data tables at display time (`tx(item.name)`).
 - Every new timer-driven behaviour goes through `Director.heartbeat` or `Antics.later`, not per-frame `setTimeout`.
 

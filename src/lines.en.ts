@@ -860,9 +860,10 @@ Object.assign(en, {
     "Working for both of us, dumbass.",
   ],
   workDone: [
-    "Shift's over. {job} — ${pay}, damn it. Learn, dumbass.",
-    "Done. ${pay} in the bank, bitch. Now feed me.",
-    "{job}: ${pay}. I earned more than you did today, asshole.",
+    "Shift's over. {job} — {pay}, damn it. Learn, dumbass.",
+    "Done. {pay} in the bank, bitch. Now feed me.",
+    "{job}: {pay}. I earned more than you did today, asshole.",
+    "{pay}, damn it. Hand over the food, I earned it.",
     "That's it, {job} is done. Pay me in food, dumbass.",
   ],
 });
@@ -1298,9 +1299,9 @@ Object.assign(en, {
     "Change? What change? There was no change.",
   ],
   giveBack: [
-    "Fine, here's your ${n}. My conscience got me.",
+    "Fine, here's your {n}. My conscience got me.",
     "Returned what I took. You petted me — I melted.",
-    "Here, take your ${n}. I'm not a thief. I was borrowing.",
+    "Here, take your {n}. I'm not a thief. I was borrowing.",
   ],
   gift: [
     "Look what I found! It's for you.",
@@ -1360,9 +1361,9 @@ Object.assign(en, {
     "{n} days! I'm keeping count, by the way.",
   ],
   achievement: [
-    "Achievement: «{name}»! +${prize}.",
-    "Achievement! «{name}». Here's ${prize}.",
-    "«{name}» — done! ${prize} in the bank.",
+    "Achievement: «{name}»! +{prize}.",
+    "Achievement! «{name}». Here's {prize}.",
+    "«{name}» — done! {prize} in the bank.",
   ],
   nightCheck: [
     "What time is it? {time}?! Go to bed, bitch…",
@@ -1649,7 +1650,7 @@ Object.assign(en, {
     "Weather — {place}: {sky}, {temp}. Reporting like a forecaster.",
     "{place}: {sky}, {temp}. Looked out the window for you, don't thank me.",
     "Report: {place}, {temp}, {sky}. Dress for it, damn it.",
-    "Over there, {place}, it's {sky} now. {temp}. We live.",
+    "Outside ({place}) it's {sky} now, {temp}. We live.",
     "Checked the sky — {place}: {sky}, {temp}.",
   ],
   rainStart: [

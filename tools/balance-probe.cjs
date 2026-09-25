@@ -71,10 +71,20 @@ const kill = (pid) => cp.spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"]
     const mixerRestored = await run.sessions();
     const fileAfterRestart = fs.existsSync(path.join(dir, "balance.sessions"));
     const same = (a, b) => !!a && !!b && Math.abs(a.left - b.left) < 0.3 && Math.abs(a.right - b.right) < 0.3;
-    const leftDown = (mixerShifted ?? []).some((ch) => ch.length >= 2 && ch[0] < ch[1] - 0.2);
-    const allFull = (mixerRestored ?? []).every((ch) => ch.every((v) => v > 0.99));
+    // Each entry is [pid, gains].
+    const leftDown = (mixerShifted ?? []).some(([, ch]) => ch.length >= 2 && ch[0] < ch[1] - 0.2);
+    const notFull = (mixerRestored ?? []).filter(([, ch]) => !ch.every((v) => v > 0.99));
+    const allFull = !notFull.length;
+    // Who owns a session that is still turned down.
+    const names = notFull.map(([pid]) => {
+      try {
+        return cp.execFileSync("tasklist", ["/fi", `PID eq ${pid}`, "/fo", "csv", "/nh"], { encoding: "utf8" }).trim();
+      } catch {
+        return `${pid} ?`;
+      }
+    });
     console.log(JSON.stringify({ baseline, shifted, mixerShifted, fileAfterShift, afterKill, restored, mixerRestored, fileAfterRestart,
-      deviceUntouched: same(baseline, shifted), leftDown, allFull,
+      deviceUntouched: same(baseline, shifted), leftDown, allFull, notFull, notFullOwners: names, petPid: run.app.pid,
       ok: same(baseline, shifted) && same(baseline, restored) && leftDown && allFull && fileAfterShift && !fileAfterRestart }, null, 1));
     await run.js(`window.__TAURI_IPC__({ cmd: "exit_app", callback: 1, error: 2 })`).catch(() => {});
     await delay(1500);

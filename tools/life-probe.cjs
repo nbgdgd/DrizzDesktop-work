@@ -55,7 +55,7 @@ const shot = (name) =>
     const seen = new Set();
     let squashShot = false;
     for (let i = 0; i < 60; i++) {
-      const st = await js(`(() => { const s = window.__PET_SCENE__; return { kx: s.kx, ky: s.ky, parts: s.parts.length, ev: (s.brain.reaction||{}).event || "", text: (s.brain.bubble||{}).text || "" }; })()`);
+      const st = await js(`(() => { const s = window.__PET_SCENE__; return { kx: s.kx, ky: s.ky, parts: s.fx.parts.length, ev: (s.brain.reaction||{}).event || "", text: (s.brain.bubble||{}).text || "" }; })()`);
       if (st.ev) seen.add(st.ev);
       if (st.text) seen.add("text:" + st.text);
       if (!squashShot && (st.kx !== 1 || st.parts > 2)) { squashShot = true; out.squash = { kx: st.kx, ky: st.ky, parts: st.parts }; shot("throw"); }
@@ -77,7 +77,7 @@ const shot = (name) =>
       if (i === 30) shot("pet");
       await delay(60);
     }
-    out.pet = await js(`(() => { const s = window.__PET_SCENE__; return { ev: (s.brain.reaction||{}).event, text: (s.brain.bubble||{}).text, hearts: s.parts.filter(p => p.glyph && p.glyph.text === "♥").length, grudge: s.brain.game.grudge, likability: s.brain.game.likability, mood: s.brain.mood(Date.now()) }; })()`);
+    out.pet = await js(`(() => { const s = window.__PET_SCENE__; return { ev: (s.brain.reaction||{}).event, text: (s.brain.bubble||{}).text, hearts: s.fx.parts.filter(p => p.glyph && p.glyph.text === "♥").length, grudge: s.brain.game.grudge, likability: s.brain.game.likability, mood: s.brain.mood(Date.now()) }; })()`);
     // 3. tickle: fast wiggle
     await delay(9500);
     await js(`(() => { const s = window.__PET_SCENE__; s.strokes = []; })()`);
@@ -93,7 +93,7 @@ const shot = (name) =>
     await js(`(() => { const s = window.__PET_SCENE__; s.brain.bubble = undefined; s.brain.reaction = undefined; s.brain.action = () => "sleep"; s.lastZ = 0; })()`);
     await delay(1400);
     shot("sleep");
-    out.sleep = await js(`(() => { const s = window.__PET_SCENE__; return { zs: s.parts.filter(p => p.glyph && p.glyph.text === "z").length }; })()`);
+    out.sleep = await js(`(() => { const s = window.__PET_SCENE__; return { zs: s.fx.parts.filter(p => p.glyph && p.glyph.text === "z").length }; })()`);
     console.log(JSON.stringify(out, null, 1));
     const log = path.join(qa, "DrizzDesktop", "diagnostic.log");
     await js(`new Promise(r => { const ok = Math.floor(Math.random()*1e9); window["_"+ok] = r; window["_"+(ok+1)] = r; window.__TAURI_IPC__({ cmd: "exit_app", callback: ok, error: ok+1 }); })`).catch(() => {});

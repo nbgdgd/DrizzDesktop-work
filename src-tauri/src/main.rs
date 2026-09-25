@@ -135,7 +135,7 @@ fn set_balance(left: f32, right: f32) -> Result<(), String> {
     balance::set(left, right)
 }
 #[tauri::command]
-fn balance_sessions() -> Result<Vec<Vec<f32>>, String> {
+fn balance_sessions() -> Result<Vec<(u32, Vec<f32>)>, String> {
     balance::sessions()
 }
 /// Left over from a run that did not exit cleanly: restore and forget. The

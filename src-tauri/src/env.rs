@@ -128,7 +128,7 @@ fn form_factor(device: &IMMDevice) -> i32 {
 }
 
 /// Endpoint name plus its adapter name ("Speakers (FxSound Audio Enhancer)").
-fn device_names(device: &IMMDevice) -> String {
+pub(crate) fn device_names(device: &IMMDevice) -> String {
     // PKEY_Device_FriendlyName and PKEY_DeviceInterface_FriendlyName.
     const KEYS: [PROPERTYKEY; 2] = [
         PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 },

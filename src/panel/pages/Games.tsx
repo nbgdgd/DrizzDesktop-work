@@ -7,7 +7,9 @@ import { GameKind, gameNames } from "../../minigames";
 import type { PanelState } from "../store";
 import { Section } from "../ui";
 import { getLang, tx } from "../../i18n";
-const games: [GameKind, ReactNode, string][] = [
+// A function: tx() must run when the page is drawn, not when the module
+// loads (the language is not known yet then).
+const games = (): [GameKind, ReactNode, string][] => [
   ["rps", <Dices size={18} />, tx("Кнопки в облачке. Победа — пара монет, проигрыш поднимает ему настроение.")],
   ["hand", <Hand size={18} />, tx("Прячет монетку в лапе. Угадали — монета ваша.")],
   ["clicker", <MousePointerClick size={18} />, tx("Десять секунд кликайте по питомцу. Два клика — рубль.")],
@@ -21,7 +23,7 @@ export function Games({ p }: { p: PanelState }) {
     <>
       <Section title={tx("Мини-игры")} description={tx("Игра начинается на рабочем столе, рядом с питомцем.")}>
         <div className="grid-cards">
-          {games.map(([id, icon, desc]) => (
+          {games().map(([id, icon, desc]) => (
             <Card key={id} variant="surface">
               <Flex direction="column" gap="2">
                 <Flex gap="2" align="center">

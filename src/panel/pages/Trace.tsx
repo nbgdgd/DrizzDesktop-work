@@ -29,10 +29,11 @@ interface View {
   load: LoadState;
   enabled: boolean;
 }
+// Labels are translated when drawn (tx() at module level stays Russian).
 const verdict = {
-  ok: [tx("обычно"), "gray"],
-  notice: [tx("обратить внимание"), "amber"],
-  suspicious: [tx("подозрительно"), "red"],
+  ok: ["обычно", "gray"],
+  notice: ["обратить внимание", "amber"],
+  suspicious: ["подозрительно", "red"],
 } as const;
 const time = (t: number) =>
   new Date(t).toLocaleString(getLang(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -147,7 +148,8 @@ export function Trace({ p }: { p: PanelState }) {
         {events.map((e) => {
           const o = e.origin;
           const isTrusted = !!o && (e.trusted || trusted.includes(o.name.toLowerCase()));
-          const [vText, vColor] = verdict[e.verdict];
+          const [vRaw, vColor] = verdict[e.verdict];
+          const vText = tx(vRaw);
           return (
             <Card key={e.id} style={e.verdict === "suspicious" ? { boxShadow: "inset 3px 0 0 var(--red-9)" } : undefined}>
               <Flex justify="between" gap="2">
