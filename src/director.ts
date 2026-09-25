@@ -80,6 +80,9 @@ export const MUST_SAY = new Set([
   "earsGuardPlug",
   "earsGuardWake",
   "earsSpike",
+  "focusBreak",
+  "focusLongBreak",
+  "focusBack",
   "earsUnplug",
   "earsProfile",
   "earsBattery20",
@@ -108,7 +111,7 @@ export const MUST_SAY = new Set([
 const PENDING_MS = 10 * 60000;
 /** Ear lines that must be said now, not queued behind the chatter budget. */
 const EARS_DIRECT = new Set(["earsGuardClamp", "earsSpike", "earsUnplug", "earsNightCeiling", "earsBattery10", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
-export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsSpike", "earsUnplug", "earsBattery10", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
+export const WORK_ALLOWED = new Set(["focusStart", "focusStop", "earsGuardClamp", "earsSpike", "earsUnplug", "earsBattery10", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
   "work",
   "workDone",
   "levelUp",
@@ -148,6 +151,7 @@ import {
 } from "./game";
 import { money, tx } from "./i18n";
 import { EarEvent, EarSample, earTick } from "./ears";
+import { Focus, Reminders, focusTick, noFocus, noReminders, remindTick, startFocus } from "./focus";
 /** Relationship in percent of the current likability cap. */
 export const bondPct = (g: Game) =>
   Math.round((100 * g.likability) / Math.max(1, likabilityMax(level(g.exp))));
@@ -272,6 +276,15 @@ export const rules: Record<string, Rule> = {
   earsWeek: rule("celebrate", 58, 3600000, 3500),
   earsWeekOver: rule("judge", 58, 3600000, 3500),
   earsHearing: rule("wave", 70, 5000, 3000),
+  // Focus timer and reminders (focus.ts).
+  focusStart: rule("busy", 92, 1000, 2500),
+  focusStop: rule("stretch", 92, 1000, 2000),
+  focusBreak: rule("stretch", 92, 60000, 4000),
+  focusLongBreak: rule("celebrate", 92, 60000, 4000),
+  focusBack: rule("busy", 92, 60000, 3000),
+  remindWater: rule("look", 56, 600000, 3000),
+  remindPosture: rule("stretch", 56, 600000, 3000),
+  remindEyes: rule("look", 56, 600000, 3000),
   earsUneven: rule("look", 50, 3600000, 2500),
   earsRestSwap: rule("look", 42, 60000, 1800),
   earsThanks: rule("wave", 60, 5000, 1800),
@@ -801,6 +814,7 @@ export class Director {
       this.announce.shift();
     }
     const earsChanged = this.earCare(now);
+    this.focusCare(now, env);
     // The frame loop may be asleep (nothing moving): news goes out from here too.
     this.flushPending(now);
     if (!this.hidden) {
@@ -808,6 +822,52 @@ export class Director {
       this.mumble(now);
     }
     return { changed: paid || ticked || unlocked.length > 0 || earsChanged, paid, unlocked };
+  }
+  /** Pomodoro (focus.ts): quiet while it runs, calls the breaks. */
+  focus: Focus = noFocus;
+  reminders: Reminders = noReminders;
+  private remindAt = 0;
+  /** Busy with a shift or a focus round: only important lines. */
+  hushed(now: number) {
+    return working(this.game, now) || (this.focus.phase === "focus" && now < this.focus.until);
+  }
+  startFocus(now: number) {
+    this.focus = startFocus(this.settings, now);
+    this.reset("focusStart");
+    this.event("focusStart", now, true, undefined, { min: String(this.settings.focusMinutes) });
+  }
+  stopFocus(now: number) {
+    if (!this.focus.phase) return;
+    this.focus = noFocus;
+    this.reset("focusStop");
+    this.event("focusStop", now, true);
+  }
+  private focusCare(now: number, env: TickEnv) {
+    const f = focusTick(this.focus, this.settings, now);
+    this.focus = f.focus;
+    for (const ev of f.events) {
+      this.reset(ev.name);
+      if (this.event(ev.name, now, true, undefined, ev.vars) && this.bubble)
+        this.bubble.actions =
+          ev.name === "focusBack"
+            ? [{ id: "focus:stop", label: tx("Хватит") }]
+            : [
+                { id: "focus:skip", label: tx("Пропустить перерыв") },
+                { id: "focus:stop", label: tx("Хватит") },
+              ];
+    }
+    const dt = this.remindAt ? now - this.remindAt : 0;
+    this.remindAt = now;
+    const hold = this.focus.phase === "focus" || this.hidden || !!env.fullscreen || !!this.bubble || quietNow(this.settings, now);
+    const r = remindTick(this.reminders, this.settings, dt, env.idle ?? 0, hold);
+    this.reminders = r.reminders;
+    for (const name of r.due) {
+      // Not said (a stronger reaction is on): due again on the next tick.
+      if (!this.event(name, now, true)) {
+        const k = ({ remindWater: "water", remindPosture: "posture", remindEyes: "eyes" } as const)[name as "remindWater"];
+        if (k) this.reminders = { ...this.reminders, [k]: this.settings[name as "remindWater"] * 60000 };
+      }
+    }
   }
   /** Ear care step (ears.ts): dose, breaks, warnings, balance gains. */
   private earCare(now: number): boolean {
@@ -982,8 +1042,8 @@ export class Director {
       this.reaction.rule.priority > r.priority
     )
       return wait();
-    // At work: only priority matters (the status panel speaks for the rest).
-    if (working(this.game, now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return wait();
+    // At work or in focus: only priority matters (the status panel speaks for the rest).
+    if (this.hushed(now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return wait();
     // A line still being read is not cut off by a weaker one: the weaker
     // event still happens (animation), but says nothing - or, if it is a
     // retryable ambient line, waits for its turn.
@@ -1092,7 +1152,7 @@ export class Director {
       (this.reaction && this.reaction.until > now && this.reaction.rule.priority >= 90);
     if (busy) return;
     // The first line that may speak now (a shift still blocks the minor ones).
-    const i = this.pending.findIndex((p) => !working(this.game, now) || (rules[p.name]?.priority ?? 0) >= 90 || WORK_ALLOWED.has(p.name));
+    const i = this.pending.findIndex((p) => !this.hushed(now) || (rules[p.name]?.priority ?? 0) >= 90 || WORK_ALLOWED.has(p.name));
     if (i < 0) return;
     const [p] = this.pending.splice(i, 1);
     this.cooldown.delete(p.name);

@@ -240,6 +240,14 @@ export interface Settings {
   balance: number;
   /** Equalizer at its feet and dancing in time to what plays (tap.rs). */
   musicViz: boolean;
+  /** Focus timer (focus.ts), minutes. */
+  focusMinutes: number;
+  breakMinutes: number;
+  longBreakMinutes: number;
+  /** Minutes at the PC between reminders, 0 = off. */
+  remindWater: number;
+  remindPosture: number;
+  remindEyes: number;
 }
 export interface EarProfile {
   earsCeiling?: number;
@@ -359,6 +367,12 @@ export const defaults: Settings = {
   linesPerHour: 30,
   teaseRate: "normal",
   musicViz: true,
+  focusMinutes: 25,
+  breakMinutes: 5,
+  longBreakMinutes: 15,
+  remindWater: 60,
+  remindPosture: 50,
+  remindEyes: 0,
 };
 export const emptyMemory: Memory = {
   address: "",
@@ -489,6 +503,15 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   s.earsNightCeiling = clamp(Math.round(Number(s.earsNightCeiling) || 40), 10, 95);
   s.earsProfiles = cleanProfiles(s.earsProfiles);
   s.musicViz = s.musicViz !== false;
+  const minutes = (v: unknown, d: number, lo: number, hi: number) => clamp(Math.round(Number.isFinite(Number(v)) ? Number(v) : d), lo, hi);
+  s.focusMinutes = minutes(s.focusMinutes, 25, 5, 120);
+  s.breakMinutes = minutes(s.breakMinutes, 5, 1, 30);
+  s.longBreakMinutes = minutes(s.longBreakMinutes, 15, 5, 60);
+  // 0 = off; otherwise at least 10 minutes apart.
+  for (const [k, d] of [["remindWater", 60], ["remindPosture", 50], ["remindEyes", 0]] as const) {
+    const v = minutes(s[k], d, 0, 240);
+    s[k] = v === 0 ? 0 : Math.max(10, v);
+  }
   s.weatherPlace =
     typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())
       ? s.weatherPlace.trim()

@@ -1612,6 +1612,43 @@ Object.assign(en, {
     "Whack - back to {to}%. Something tried to blast {from}%.",
     "A spike to {from}% didn't get through. Holding {to}%.",
   ],
+  focusStart: [
+    "Focus for {min} minutes. I keep quiet and leave the cursor alone. Work.",
+    "Here we go: {min} minutes without me. I'm here, but quiet.",
+    "{min}-minute timer is running. Get distracted - your own damn fault.",
+  ],
+  focusStop: [
+    "Focus over. Chatting allowed again.",
+    "Fine, timer's off. I'm back in business, damn it.",
+  ],
+  focusBreak: [
+    "That's it, {min} minutes of break. Stand up, stretch, look out the window.",
+    "Round {n} done. A {min}-minute break - away from screens, not into your phone.",
+    "Break! {min} minutes. Water, window, stretch your back.",
+  ],
+  focusLongBreak: [
+    "Four rounds, holy shit, you machine. Long break: {min} minutes.",
+    "Round {n}. You earned {min} minutes of real rest. Go.",
+  ],
+  focusBack: [
+    "Break's over. Another {min} minutes of focus, let's go.",
+    "Rested? Back you go, {min} minutes. I'm quiet again.",
+  ],
+  remindWater: [
+    "Drink some water. Seriously, a glass of water, not coffee.",
+    "When did you last drink water? I don't remember either. Go.",
+    "Water. A sip. Now. Your brain is mostly water, damn it.",
+  ],
+  remindPosture: [
+    "Sit up. Shoulders down, back straight, face away from the screen.",
+    "You're curled up like a shrimp. Sit properly.",
+    "Posture! Stretch your neck and back, one minute and carry on.",
+  ],
+  remindEyes: [
+    "20-20-20: look at something 20 feet away for twenty seconds.",
+    "Eyes. Look away from the screen into the distance for 20 seconds, I'll wait.",
+    "Blink a few times and look out the window. Your eyes will thank you.",
+  ],
   earsUnplug: [
     "Headphones off - I paused it, or it would've blasted out of the speakers.",
     "You took the headphones off - I stopped the player. Put them on and hit play.",

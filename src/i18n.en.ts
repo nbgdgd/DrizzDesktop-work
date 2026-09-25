@@ -970,3 +970,25 @@ Object.assign(EN, {
   "Проверил слух": "Hearing checked",
   "Прошёл проверку слуха во вкладке «Уши»": "Took the hearing check on the Ears page",
 });
+Object.assign(EN, {
+  "Фокус": "Focus",
+  "Перерыв": "Break",
+  "Питомец молчит": "The pet keeps quiet",
+  "Раунд {n}": "Round {n}",
+  "Встань и потянись": "Stand up and stretch",
+  "Посмотри вдаль": "Look into the distance",
+  "Попей воды": "Drink some water",
+  "Хватит": "Enough",
+  "Пропустить перерыв": "Skip the break",
+  "Фокус и напоминания": "Focus and reminders",
+  "Фокус - таймер помидора: питомец молчит и не трогает курсор, потом зовёт на перерыв. Напоминания считают только время за компьютером; во время фокуса ждут перерыва.":
+    "Focus is a pomodoro timer: the pet keeps quiet and leaves the cursor alone, then calls a break. Reminders count only time at the PC; during focus they wait for the break.",
+  "Длинный перерыв (каждый четвёртый)": "Long break (every fourth)",
+  "Попить воды": "Drink water",
+  "Выпрямить спину": "Straighten your back",
+  "Глаза 20-20-20": "Eyes 20-20-20",
+  "Каждые 20 минут - 20 секунд смотреть на что-то в 6 метрах.": "Every 20 minutes, look at something 20 feet (6 m) away for 20 seconds.",
+  "Фокус {m} мин": "Focus {m} min",
+  "Фокус: ещё {m} мин · стоп": "Focus: {m} min left · stop",
+  "Перерыв: ещё {m} мин · стоп": "Break: {m} min left · stop",
+});

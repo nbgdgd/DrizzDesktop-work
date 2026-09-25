@@ -60,6 +60,7 @@ import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
 import { perceived } from "./audio";
 import { Groove, TapMusic } from "./music";
+import { focusProgress } from "./focus";
 import { Equalizer } from "./eq";
 import { getLang, money, setLang, tx } from "./i18n";
 import { MUSIC_GAP, SAFE_DB, dbVolume, levels, weekly } from "./ears";
@@ -432,7 +433,7 @@ export class PetScene extends Phaser.Scene {
         this.saveMemory(true);
       });
       // Panel -> pet, straight through the event bus.
-      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean }>("pet-command", (c) => this.onCommand(c));
+      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean; focus?: string }>("pet-command", (c) => this.onCommand(c));
       await this.subscribe<{ id: string }>("carry", (c) => {
         if (itemById(c.id)) {
           this.carrying = { id: c.id, since: Date.now(), down: false };
@@ -608,7 +609,14 @@ export class PetScene extends Phaser.Scene {
       present: idle < 300000 && !this.brain.hidden,
       resting: ["sleep", "rest"].includes(this.lastAction),
       music: !!this.snapshot?.media.playing,
+      idle,
+      fullscreen: !!this.snapshot?.fullscreen,
     });
+    const phase = this.brain.focus.phase;
+    if (phase !== this.focusSent) {
+      this.focusSent = phase;
+      this.sendFocus();
+    }
     if (r.paid) this.sfx.play("coin");
     if (r.unlocked.length) this.sfx.play("levelup");
     if (r.changed) this.saveGame(r.paid || r.unlocked.length > 0 || this.brain.reaction?.event === "levelUp");
@@ -632,6 +640,12 @@ export class PetScene extends Phaser.Scene {
     if (this.brain.bubble || this.brain.reaction) this.game.loop.wake();
   }
   private lastGains = "1,1";
+  private focusSent = "";
+  /** Focus state for the panel (Home page button). */
+  private sendFocus() {
+    const f = this.brain.focus;
+    void emitAll("focus-state", { phase: f.phase, until: f.until, round: f.round });
+  }
   /** Balance / resting ear and the "turn it down" decision go to Windows. */
   private applyEars(now: number) {
     // Live state for the panel's "Уши" page.
@@ -788,11 +802,19 @@ export class PetScene extends Phaser.Scene {
     this.game.loop.wake();
   }
   /** A command typed in the chat or a button in the panel. */
-  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean }) {
+  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean; focus?: string }) {
     if (!this.ready) return;
     const now = Date.now();
     const b = this.brain;
     const reply = () => void emitAll("pet-reply", { text: b.bubble?.text ?? "" });
+    // Focus timer from the panel ("status" only asks for the state).
+    if (c.focus) {
+      if (c.focus === "start") b.startFocus(now);
+      else if (c.focus === "stop") b.stopFocus(now);
+      this.sendFocus();
+      this.game.loop.wake();
+      return;
+    }
     note(b.life, "command", now);
     if (c.feed) {
       // From the pantry: free, it was a gift or its own stash.
@@ -1457,6 +1479,11 @@ export class PetScene extends Phaser.Scene {
           this.lowerVolume();
           this.brain.event("earsThanks", Date.now(), true);
         }
+      } else if (kind === "focus") {
+        this.brain.bubble = undefined;
+        if (arg === "skip") this.brain.startFocus(now);
+        else this.brain.stopFocus(now);
+        this.sendFocus();
       } else if (kind === "quickfeed") {
         this.brain.bubble = undefined;
         this.quickFeed(arg as "food" | "drink" | "drug");
@@ -1915,7 +1942,7 @@ export class PetScene extends Phaser.Scene {
           // Only when the cursor is within a jump: otherwise he would just stand and glare.
           const rise = this.world.y - this.cursor.y;
           const cursorNear = Math.abs(this.cursor.x - this.world.x) < 700 * k && rise > -12 * k && rise < this.sizePx() + 180 * k;
-          const tease = { never: 0, rare: 0.06, normal: 0.18, often: 0.4 }[s.teaseRate];
+          const tease = this.brain.hushed(now) ? 0 : { never: 0, rare: 0.06, normal: 0.18, often: 0.4 }[s.teaseRate];
           let teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < tease && this.brain.event("tease", now) && this.play.tease(now);
           // A window within a jump: now and then it climbs up there instead
           // of strolling on the floor.
@@ -2129,6 +2156,7 @@ export class PetScene extends Phaser.Scene {
     // Shift status above the pet (over the balloon when it talks).
     const g2 = this.brain.game;
     const job = working(g2, now) && !absent && !this.brain.hidden ? jobById(g2.job?.id ?? "") : undefined;
+    const focus = this.brain.focus;
     const hudRect = this.hud.render(
       job
         ? {
@@ -2138,7 +2166,20 @@ export class PetScene extends Phaser.Scene {
             left: (g2.job?.endsAt ?? now) - now,
             earned: jobPay(g2, job) * jobProgress(g2, now),
           }
-        : null,
+        : focus.phase && !absent && !this.brain.hidden
+          ? {
+              id: "focus",
+              name: focus.phase === "focus" ? tx("Фокус") : tx("Перерыв"),
+              progress: focusProgress(focus, now),
+              left: focus.until - now,
+              earned: 0,
+              pay: `#${focus.round + (focus.phase === "focus" ? 1 : 0)}`,
+              stats:
+                focus.phase === "focus"
+                  ? [tx("Питомец молчит"), tx("Раунд {n}", { n: focus.round + 1 })]
+                  : [tx("Встань и потянись"), tx("Посмотри вдаль"), tx("Попей воды")],
+            }
+          : null,
       now,
       this.layout.anchorX,
       (bubbleRect && !this.layout.below ? bubbleRect.top : (headCanvas?.y ?? this.layout.anchorY - drawSize) - 6) - 4,

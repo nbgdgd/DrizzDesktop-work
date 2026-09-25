@@ -45,6 +45,9 @@ export interface TickEnv {
   music: boolean;
   /** A shift is running: the pet drains faster and keeps earning while away. */
   working?: boolean;
+  /** Ms since the last input and a fullscreen app in front (reminders). */
+  idle?: number;
+  fullscreen?: boolean;
 }
 export type Interaction = "click" | "poke" | "drag" | "summon" | "win" | "pet" | "tickle" | "throw" | "fed";
 export interface Item {

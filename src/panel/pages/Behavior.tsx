@@ -181,6 +181,34 @@ export function Behavior({ p }: { p: PanelState }) {
           </Select.Root>
         </Row>
       </Section>
+      <Section
+        title={tx("Фокус и напоминания")}
+        description={tx("Фокус - таймер помидора: питомец молчит и не трогает курсор, потом зовёт на перерыв. Напоминания считают только время за компьютером; во время фокуса ждут перерыва.")}
+      >
+        {(
+          [
+            ["focusMinutes", tx("Фокус"), [15, 25, 30, 45, 50, 90]],
+            ["breakMinutes", tx("Перерыв"), [3, 5, 10, 15]],
+            ["longBreakMinutes", tx("Длинный перерыв (каждый четвёртый)"), [10, 15, 20, 30]],
+            ["remindWater", tx("Попить воды"), [0, 30, 45, 60, 90, 120]],
+            ["remindPosture", tx("Выпрямить спину"), [0, 30, 45, 50, 60, 90]],
+            ["remindEyes", tx("Глаза 20-20-20"), [0, 20, 30, 45, 60]],
+          ] as const
+        ).map(([k, label, opts]) => (
+          <Row key={k} label={label} hint={k === "remindEyes" ? tx("Каждые 20 минут - 20 секунд смотреть на что-то в 6 метрах.") : undefined}>
+            <Select.Root value={String(d[k])} onValueChange={(v) => set(k, Number(v))}>
+              <Select.Trigger aria-label={label} style={{ minWidth: 130 }} />
+              <Select.Content>
+                {(opts as readonly number[]).map((n) => (
+                  <Select.Item key={n} value={String(n)}>
+                    {n === 0 ? tx("выкл") : k.startsWith("remind") ? tx("раз в {n} мин", { n }) : tx("{m} мин", { m: n })}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </Row>
+        ))}
+      </Section>
       <Section title={tx("Время")}>
         {num("idleMinutes", tx("Отдых без ввода, мин"), 1, 60)}
         {num("sleepMinutes", tx("Сон без ввода, мин"), 2, 120)}

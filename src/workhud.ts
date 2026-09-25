@@ -14,6 +14,7 @@ export const jobSpinner: Record<string, Spin> = {
   flyers: spin("arrow3"),
   stream: spin("point"),
   qa: spin("dots"),
+  focus: spin("circleHalves"),
   mining: spin("bouncingBar"),
   night: spin("dots12"),
 };
@@ -77,7 +78,7 @@ export class WorkHud {
    * `cx`. `job` null hides it. Returns the covered rectangle.
    */
   render(
-    job: { id: string; name: string; progress: number; left: number; earned: number } | null,
+    job: { id: string; name: string; progress: number; left: number; earned: number; pay?: string; stats?: string[] } | null,
     now: number,
     cx: number,
     bottom: number,
@@ -120,9 +121,9 @@ export class WorkHud {
       const a = Math.max(bx + 3, sx);
       if (a + 5 < bx + fw - 3) g.fillTriangle(a, by + bh - 2, a + 5, by + 2, a + 9 > bx + fw - 3 ? bx + fw - 3 : a + 9, by + 2);
     }
-    this.pay.setText(`+${money(job.earned)}`).setPosition(bx + bw + 8, by - 3);
+    this.pay.setText(job.pay ?? `+${money(job.earned)}`).setPosition(bx + bw + 8, by - 3);
     // Ticker: one stat at a time, changing every 3.5 s.
-    const stats = jobStats(job.id, job.progress, now);
+    const stats = job.stats ?? jobStats(job.id, job.progress, now);
     this.ticker.setText(stats[Math.floor(now / 3500) % stats.length]).setPosition(left + 10, top + 46);
     return { left: Math.floor(left - 3), top: Math.floor(top - 3), right: Math.ceil(left + HUD_W + SHADOW + 3), bottom: Math.ceil(bottom + SHADOW + 3) };
   }

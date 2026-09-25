@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, DataList, Flex, Grid, Heading, Text } from "@radix-ui/themes";
-import { Gamepad2, Shield, Utensils } from "lucide-react";
-import { emitAll } from "../../bridge";
+import { Gamepad2, Shield, Timer, TimerOff, Utensils } from "lucide-react";
+import { emitAll, on } from "../../bridge";
 import { pets } from "../../model";
 import { jobById, jobProgress, level, levelUpNeed, likabilityMax, mode, skill, upgrades, working } from "../../game";
 import { count, daysTogether, stage, stageNames } from "../../chronicle";
@@ -16,6 +16,16 @@ export function Home({ p, go }: { p: PanelState; go: (tab: string) => void }) {
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(id);
+  }, []);
+  // Focus timer state lives in the pet; ask once, then follow its updates.
+  const [focus, setFocus] = useState<{ phase: string; until: number } | null>(null);
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    void on<{ phase: string; until: number }>("focus-state", setFocus).then((f) => {
+      off = f;
+      void emitAll("pet-command", { focus: "status" });
+    });
+    return () => off?.();
   }, []);
   const g = p.store.game;
   const life = g.life;
@@ -58,6 +68,16 @@ export function Home({ p, go }: { p: PanelState; go: (tab: string) => void }) {
           <Button variant="soft" color="gray" onClick={() => void emitAll("pet-command", { role: "guard" })}>
             <Shield size={15} /> {tx("Поставить на охрану")}
           </Button>
+          {focus?.phase ? (
+            <Button variant="soft" color="amber" onClick={() => void emitAll("pet-command", { focus: "stop" })}>
+              <TimerOff size={15} />{" "}
+              {tx(focus.phase === "focus" ? "Фокус: ещё {m} мин · стоп" : "Перерыв: ещё {m} мин · стоп", { m: Math.max(1, Math.ceil((focus.until - now) / 60000)) })}
+            </Button>
+          ) : (
+            <Button variant="soft" color="gray" onClick={() => void emitAll("pet-command", { focus: "start" })}>
+              <Timer size={15} /> {tx("Фокус {m} мин", { m: p.store.settings.focusMinutes })}
+            </Button>
+          )}
         </Flex>
       </Card>
       <Grid columns={{ initial: "1", sm: "2" }} gap="4">

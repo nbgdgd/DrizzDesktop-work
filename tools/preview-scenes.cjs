@@ -51,11 +51,13 @@ const scenarios = [
   ["20-aqua-sigh", "(s) => { s.store.settings.pet = 'aqua-wisp'; s.changePet(); s.force('sigh', 3000); s.brain.reset('cursorLazy'); s.brain.event('cursorLazy', Date.now(), true); }", 600],
   ["21-equalizer", feed(false), 900],
   ["22-equalizer-window-edge", feed(true), 900],
+  ["23-focus", "(s) => { s.brain.startFocus(Date.now() - 9 * 60000); }", 900],
+  ["24-focus-break", "(s) => { s.brain.startFocus(Date.now() - 26 * 60000); s.brain.focus.until = Date.now() - 1; s.heartbeat(); }", 900],
 ];
 const reset = `(s) => {
   if (s.world.dragging) s.world.release(Date.now());
   s.brain.bubble = undefined; s.brain.reaction = undefined; s.forced = null; s.brain.sulkUntil = 0;
-  clearInterval(window.__feed); s.world.support = null;
+  clearInterval(window.__feed); s.world.support = null; s.groove.shown = 0; s.groove.bars.fill(0); s.brain.focus = { phase: '', until: 0, round: 0, since: 0 };
   s.brain.life.wear = ''; s.weather = null; if (s.snapshot) s.snapshot = { ...s.snapshot, media: { playing: false } }; s.fx.starsUntil = 0; s.antics.carry = '';
   for (const it of [...s.props.items]) s.props.remove(it.id);
   if (s.store.settings.pet !== 'drizz') { s.store.settings.pet = 'drizz'; s.changePet(); }
