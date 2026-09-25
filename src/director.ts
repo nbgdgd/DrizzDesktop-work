@@ -85,6 +85,7 @@ export const MUST_SAY = new Set([
   "earsBreak",
   "earsBreakLong",
   "earsVeryLoud",
+  "earsMono",
   // Weather changes: rare, and the whole point is to hear them.
   "weatherNow",
   "rainStart",
@@ -245,6 +246,7 @@ export const rules: Record<string, Rule> = {
   earsDose80: rule("judge", 70, 3600000, 3000),
   earsDose100: rule("pained", 85, 3600000, 3500),
   earsLowered: rule("busy", 86, 60000, 2500),
+  earsMono: rule("judge", 80, 60000, 3500),
   // Spike guard (guard.rs): a spike was cut / a safe volume was set.
   earsGuardClamp: rule("swat", 88, 20000, 1200),
   earsGuardPlug: rule("look", 70, 60000, 2000),

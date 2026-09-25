@@ -697,6 +697,9 @@ Object.assign(EN, {
   "7 дней": "7 days",
   "Прокачать за {price}": "Upgrade for {price}",
   "Команды:": "Commands:",
+  "В Windows включён «Монофонический звук»: оба канала сводятся в один, поэтому баланс и отдых ушей слышны в обоих ушах одинаково. Выключите его в параметрах Windows.":
+    "Windows has “Mono audio” on: both channels are mixed into one, so the balance and ear rest sound the same in both ears. Turn it off in Windows Settings.",
+  "Открыть настройки звука": "Open sound settings",
   "30 дней": "30 days",
   "Всё время": "All time",
   "Всего: {t}": "Total: {t}",

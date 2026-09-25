@@ -80,6 +80,8 @@ export interface Desktop {
   drives?: number;
   /** Default output is headphones/headset; master and per-ear levels, dB. */
   headphones?: boolean;
+  /** Windows "Mono audio" is on: balance and ear rest cannot work. */
+  mono?: boolean;
   db?: number;
   left?: number;
   right?: number;

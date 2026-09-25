@@ -611,7 +611,12 @@ export class PetScene extends Phaser.Scene {
       { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right, gains: this.brain.earGains },
       this.store.settings.earsMax,
     );
+    // Balance or ear rest asked for while Windows mixes everything to mono:
+    // say why it does nothing (once a day).
+    if (env?.mono && (this.store.settings.balance !== 0 || this.store.settings.earsRest) && this.brain.once("earsMono", new Date().toDateString()))
+      this.brain.event("earsMono", Date.now(), true);
     void emitAll("ears-live", {
+      mono: !!env?.mono,
       headphones: !!env?.headphones,
       playing: !!env?.audio && !env?.muted,
       level: Math.max(ll, lr),

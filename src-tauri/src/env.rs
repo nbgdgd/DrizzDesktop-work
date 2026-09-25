@@ -49,6 +49,9 @@ pub struct Desktop {
     pub windows: u32,
     /// Bitmask of drive letters (GetLogicalDrives): a new bit = a drive plugged in.
     pub drives: u32,
+    /// Windows "Mono audio" (Accessibility): both channels are mixed into one
+    /// after every app, so no balance can reach a single ear.
+    pub mono: bool,
     /// The default output is headphones or a headset (endpoint form factor).
     pub headphones: bool,
     /// Master and per-ear levels in dB (0 = full, negative = attenuated);
@@ -411,6 +414,7 @@ pub fn sample(audio_allowed: bool) -> Desktop {
         disk: disk_free(),
         windows: window_count(),
         drives: unsafe { windows_sys::Win32::Storage::FileSystem::GetLogicalDrives() },
+        mono: registry_dword("Software\\Microsoft\\Multimedia\\Audio", "AccessibilityMonoMixState") == Some(1),
         headphones: ears.headphones,
         db: ears.db,
         left: ears.left,

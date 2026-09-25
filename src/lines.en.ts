@@ -1620,6 +1620,10 @@ Object.assign(en, {
     "We're up. Sound at {to}% so you don't go deaf on the doorstep.",
     "After sleep I set {to}%. Who knows what was playing.",
   ],
+  earsMono: [
+    "The balance can't work: Windows has Mono audio on, both ears get the same sound. Turn it off: Settings → Accessibility → Audio.",
+    "Windows is mixing everything to mono, damn it. Move the balance all you want — both ears hear the same. Switch Mono audio off in Accessibility.",
+  ],
   earsLowered: [
     "I turned the sound down myself. Your ears matter more than your track, damn it.",
     "Weekly allowance is gone — I turned the volume down. Don't thank me.",

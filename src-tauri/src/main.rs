@@ -310,6 +310,16 @@ fn trace_reveal(path: String) -> Result<(), String> {
         .map(|_| ())
         .map_err(|e| e.to_string())
 }
+/// Ears page: Settings → Accessibility → Audio, where "Mono audio" is
+/// switched off. Only this fixed page; the user flips the switch there.
+#[tauri::command]
+fn open_sound_settings() -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg("ms-settings:easeofaccess-audio")
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
 /// "About": opens a credits link in the default browser. Only plain https
 /// URLs (no spaces, quotes or shell characters), handed to ShellExecuteW.
 #[tauri::command]
@@ -756,6 +766,7 @@ fn main() {
             balance_sessions,
             set_volume,
             guard::ear_guard_test,
+            open_sound_settings,
             diag_enabled,
             diag_log,
             crash_log,

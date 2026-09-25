@@ -11,6 +11,8 @@ import { getLang, tx } from "../../i18n";
 import type { PanelState } from "../store";
 import { Meter, Row, Section } from "../ui";
 export interface EarLive {
+  /** Windows "Mono audio" is on. */
+  mono?: boolean;
   headphones: boolean;
   playing: boolean;
   level: number;
@@ -150,6 +152,19 @@ export function Ears({ p }: { p: PanelState }) {
             {tx("П")}
           </Text>
         </Flex>
+        {live?.mono && (
+          <Callout.Root color="amber" size="1">
+            <Callout.Icon>
+              <Info size={14} />
+            </Callout.Icon>
+            <Callout.Text>
+              {tx("В Windows включён «Монофонический звук»: оба канала сводятся в один, поэтому баланс и отдых ушей слышны в обоих ушах одинаково. Выключите его в параметрах Windows.")}{" "}
+              <Button size="1" variant="soft" color="amber" onClick={() => void command("open_sound_settings").catch(() => undefined)}>
+                {tx("Открыть настройки звука")}
+              </Button>
+            </Callout.Text>
+          </Callout.Root>
+        )}
         <Text size="1" color="gray">
           {balance === 0
             ? tx("по центру")
