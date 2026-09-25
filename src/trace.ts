@@ -33,7 +33,7 @@ export interface TraceEvent {
 }
 const scriptName = (s: string) =>
   s.startsWith("(") ? tx(s) : s.startsWith("модуль ") ? tx("модуль {m}", { m: s.slice(7) }) : s.split(/[\\/]/).pop() || s;
-/// "скрипт bot.py через python" / "" — the middle of the chain in words.
+/// "скрипт bot.py через python" / "" - the middle of the chain in words.
 export function viaLabel(e: TraceEvent) {
   const interp = e.via ?? (e.script ? e.child : null);
   if (!interp && !e.script) return "";
@@ -174,8 +174,8 @@ export function traceSpeech(
     : "";
   // "Claude через python (код из командной строки, из AppData, подписан)":
   // the interpreter joins the origin, everything descriptive goes into one
-  // pair of brackets (it used to be "Claude (скрипт (код …) через python),
-  // из AppData, подписан запустил …").
+  // pair of brackets (it used to be "Claude (скрипт (код ...) через python),
+  // из AppData, подписан запустил ...").
   const interp = e.via ?? (e.script ? e.child : null);
   const who = interp && interp !== e.child ? appName(interp.name) : "";
   const script = e.script ? (e.script.startsWith("(") ? tx("код из командной строки") : tx("скрипт {s}", { s: scriptName(e.script) })) : "";

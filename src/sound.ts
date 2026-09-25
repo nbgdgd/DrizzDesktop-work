@@ -1,6 +1,6 @@
 // Short CC0 effects (Kenney, see public/sfx/Kenney-License.txt) played from
 // the pet window. Everything is loaded once and cloned per play, so a burst of
-// clicks does not cut itself off. Both switches — on/off and volume — live in
+// clicks does not cut itself off. Both switches - on/off and volume - live in
 // the settings, and `apply` is called whenever they change.
 import { bus } from "./audio";
 export type Sfx =

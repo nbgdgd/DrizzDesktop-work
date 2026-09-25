@@ -6,7 +6,7 @@
 // Startup shortcut) is copied to %LOCALAPPDATA%\DrizzDesktop\quarantine
 // first, and "Вернуть" puts it back. Machine-wide entries (HKLM, common
 // Startup) need administrator rights; for those Windows shows its own UAC
-// prompt and reg.exe does the change — the pet itself never runs elevated.
+// prompt and reg.exe does the change - the pet itself never runs elevated.
 use crate::{storage, trace};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -24,7 +24,7 @@ use winreg::{
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
-    /// scope|name — stable identity of the entry.
+    /// scope|name - stable identity of the entry.
     pub id: String,
     /// hkcu-run | hkcu-runonce | hklm-run | hklm-runonce | hklm32-run | startup-user | startup-common
     pub scope: String,
@@ -338,7 +338,7 @@ pub fn remove(id: &str) -> Result<Entry, String> {
         q.kind = match raw.vtype {
             REG_SZ => "sz",
             REG_EXPAND_SZ => "expand",
-            _ => return Err("Необычный тип значения — удалите вручную в regedit".into()),
+            _ => return Err("Необычный тип значения - удалите вручную в regedit".into()),
         }
         .into();
         if entry.user {

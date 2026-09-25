@@ -37,7 +37,7 @@ const verdict = {
 } as const;
 const time = (t: number) =>
   new Date(t).toLocaleString(getLang(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const pct = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${Math.round(v)}%`);
+const pct = (v: number | null | undefined) => (v === null || v === undefined ? "-" : `${Math.round(v)}%`);
 // Process-trace journal: who launched which console, autostart, live CPU/GPU.
 export function Trace({ p }: { p: PanelState }) {
   const [view, setView] = useState<View | null>(null);
@@ -85,7 +85,7 @@ export function Trace({ p }: { p: PanelState }) {
   if (!view)
     return (
       <Text color="gray" size="2">
-        {tx("Загрузка…")}
+        {tx("Загрузка...")}
       </Text>
     );
   const l = view.load;
@@ -94,7 +94,7 @@ export function Trace({ p }: { p: PanelState }) {
   );
   const origin = (o: TraceProc) => {
     const extra = [whereLabel(o), signLabel(o)].filter(Boolean).join(", ");
-    return `${appName(o.name)}${o.role ? ` — ${tx(o.role)}` : ""}${extra ? ` (${extra})` : ""}`;
+    return `${appName(o.name)}${o.role ? ` - ${tx(o.role)}` : ""}${extra ? ` (${extra})` : ""}`;
   };
   return (
     <>
@@ -123,7 +123,7 @@ export function Trace({ p }: { p: PanelState }) {
             {tx("Видеокарта")}
           </Text>
           <Text as="div" size="6" weight="bold">
-            {l.gpuAvailable ? pct(l.gpu) : "—"}
+            {l.gpuAvailable ? pct(l.gpu) : "-"}
           </Text>
           <Text size="1" color="gray">
             {l.gpuAvailable
@@ -165,7 +165,7 @@ export function Trace({ p }: { p: PanelState }) {
                 {e.repeat > 1 ? ` · ${e.repeat} раз с ${time(e.first)}` : ""} · {e.flash ? tx("мелькнуло") : e.visible ? tx("на экране") : tx("в фоне")}
               </Text>
               <Text as="div" size="2" mt="1">
-                Запустил: {o ? origin(o) : tx("неизвестно — родитель закрылся раньше проверки")}
+                Запустил: {o ? origin(o) : tx("неизвестно - родитель закрылся раньше проверки")}
               </Text>
               {viaLabel(e) && (
                 <Text as="div" size="1" color="gray">
@@ -210,7 +210,7 @@ export function Trace({ p }: { p: PanelState }) {
       >
         {!autoruns && (
           <Text size="2" color="gray">
-            {tx("Загрузка…")}
+            {tx("Загрузка...")}
           </Text>
         )}
         {autoruns?.entries.map((e) => {

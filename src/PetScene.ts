@@ -1168,7 +1168,7 @@ export class PetScene extends Phaser.Scene {
         cursorMiss: ["💫", "#ffe27a"],
         nightCheck: ["🕒", "#ffffff"],
         seasick: ["🤢", "#9fe07a"],
-        judgeApp: ["…", "#ffffff"],
+        judgeApp: ["...", "#ffffff"],
         jealous: ["💢", "#ff6a6a"],
         sigh: ["~", "#c9d1ff"],
         gift: ["🎁", "#ffffff"],
@@ -1604,7 +1604,7 @@ export class PetScene extends Phaser.Scene {
   /**
    * A drunk punch at whatever is in front: the "glass" cracks (drawn by the
    * pet), and if a real window is there and the user allowed it, that window
-   * gets shaken, shoved, knocked down (minimised) or — separate opt-in —
+   * gets shaken, shoved, knocked down (minimised) or - separate opt-in -
    * asked to close, escalating with every punch.
    */
   private smash(dir: number, now: number) {
@@ -1823,7 +1823,7 @@ export class PetScene extends Phaser.Scene {
           r > 0.55 - this.brain.curiosity * 0.3
         ) {
           this.idleAction = "idle";
-          // Sometimes, for no reason: "не дёргайся, стрелочка" — and a slap.
+          // Sometimes, for no reason: "не дёргайся, стрелочка" - and a slap.
           // Only when the cursor is within a jump: otherwise he would just stand and glare.
           const rise = this.world.y - this.cursor.y;
           const cursorNear = Math.abs(this.cursor.x - this.world.x) < 700 * k && rise > -12 * k && rise < this.sizePx() + 180 * k;
@@ -1850,7 +1850,7 @@ export class PetScene extends Phaser.Scene {
             r > 0.85
           )
             target = this.cursor.x;
-          // Now and then: zoomies — sprint far, then a jump.
+          // Now and then: zoomies - sprint far, then a jump.
           if (!teased && r > 0.93 && this.brain.event("zoomies", now)) {
             const far = this.world.x < (m.work.left + m.work.right) / 2;
             const inset = (m.work.right - m.work.left) * 0.12;
@@ -1926,8 +1926,8 @@ export class PetScene extends Phaser.Scene {
       py = Math.max(10, Math.min(200, floor + 1 + this.world.grab.y / (this.dpr * z)));
     }
     // Tumbling after a throw: turn around the middle of the body. Around
-    // the feet the head swings below them when upside down — outside the
-    // overlay window, which has almost no room under the feet — and the
+    // the feet the head swings below them when upside down - outside the
+    // overlay window, which has almost no room under the feet - and the
     // pet seemed to vanish mid-air.
     else if (this.world.air && Math.abs(this.world.swing) > 0.02 && !this.world.climb) {
       const top = headTop(this.masks[frame] ?? [])?.y ?? 0;
@@ -2098,7 +2098,7 @@ export class PetScene extends Phaser.Scene {
   /**
    * Arrived where the user clicked ("я тоже хочу"): climbs onto the window
    * that was clicked, slaps the spot if it is within reach, or looks around
-   * and says there is nothing there — never just stands.
+   * and says there is nothing there - never just stands.
    */
   private inspectSpot(now: number) {
     const t = this.inspect;

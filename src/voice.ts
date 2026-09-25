@@ -1,6 +1,6 @@
 // Synthesised sounds: an Animal Crossing-like babble under every line (each
 // character its own pitch and timbre, tempo from the length of the text)
-// and small action sounds — steps, jump, landing, snoring, crunching, a
+// and small action sounds - steps, jump, landing, snoring, crunching, a
 // swat, a sigh, dizziness. WebAudio only, nothing recorded, no files.
 import { bus } from "./audio";
 export type Act = "step" | "jump" | "land" | "snore" | "eat" | "swat" | "sigh" | "dizzy" | "pop" | "punch";

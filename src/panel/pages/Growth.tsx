@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, Flex, Text } from "@radix-ui/themes";
+import { Badge, Button, Callout, Card, Flex, Text } from "@radix-ui/themes";
+import { Info } from "lucide-react";
 import { command } from "../../bridge";
 import { jobBlocked, jobById, jobPay, jobProgress, jobs, skill, upgradePrice, upgrades, working } from "../../game";
 import type { PanelState } from "../store";
@@ -65,6 +66,12 @@ export function Work({ p }: { p: PanelState }) {
   const g = p.store.game;
   return (
     <>
+      <Callout.Root color="amber" size="1" mb="3">
+        <Callout.Icon>
+          <Info size={14} />
+        </Callout.Icon>
+        <Callout.Text>{tx("Работы шуточные: питомец «работает» понарошку. Настоящих флаеров, стримов и майнинга нет - видеокарта и интернет не трогаются, деньги только игровые.")}</Callout.Text>
+      </Callout.Root>
       <Text as="p" size="2" color="gray" mb="3">
         {tx("Смена идёт в реальном времени, даже если вы отошли, и тратит бодрость, еду и воду. Отработано смен: {n}.", { n: g.jobsDone ?? 0 })}
       </Text>

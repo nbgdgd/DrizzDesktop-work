@@ -67,7 +67,7 @@ export class MiniGames {
       const you = id as Rps;
       const me = (["rock", "scissors", "paper"] as Rps[])[Math.floor(random() * 3)];
       this.round = null;
-      const said = tx("Ты — {you}, я — {me}.", { you: tx(rpsNames[you]), me: tx(rpsNames[me]) });
+      const said = tx("Ты - {you}, я - {me}.", { you: tx(rpsNames[you]), me: tx(rpsNames[me]) });
       if (you === me) return { event: "gameDraw", text: said, prize: 0, feeling: 1 };
       if (beats[you] === me) return { event: "gameWin", text: said, prize: 4, feeling: 2 };
       return { event: "gameLose", text: said, prize: 0, feeling: 5 };

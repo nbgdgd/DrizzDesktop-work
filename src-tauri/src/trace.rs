@@ -74,9 +74,9 @@ pub struct TraceEvent {
     pub verdict: String,
     pub trusted: bool,
     pub repeat: u32,
-    /// none | visible | background | alert — what the pet should say.
+    /// none | visible | background | alert - what the pet should say.
     pub speak: String,
-    /// Interpreter between the child and the origin (python, node, …).
+    /// Interpreter between the child and the origin (python, node, ...).
     #[serde(default)]
     pub via: Option<Proc>,
     /// Script that interpreter ran (path or "модуль x").
@@ -263,7 +263,7 @@ pub fn role_of(name: &str) -> &'static str {
         "services.exe" => "диспетчер служб Windows",
         "taskhostw.exe" | "taskeng.exe" => "планировщик заданий",
         "wmiprvse.exe" => "WMI (удалённое управление Windows)",
-        "explorer.exe" => "Проводник — то есть ты сам",
+        "explorer.exe" => "Проводник - то есть ты сам",
         "runtimebroker.exe" => "посредник приложений Windows",
         "msiexec.exe" => "установщик Windows",
         "wininit.exe" | "winlogon.exe" | "userinit.exe" => "запуск Windows",

@@ -36,7 +36,7 @@ export function MemoryPage({ p }: { p: PanelState }) {
             <Select.Root value={bd || "none"} onValueChange={(v) => setBirthday(bm || "01", v === "none" ? "" : v)}>
               <Select.Trigger placeholder={tx("день")} />
               <Select.Content>
-                <Select.Item value="none">—</Select.Item>
+                <Select.Item value="none">-</Select.Item>
                 {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
                   <Select.Item key={d} value={d}>
                     {Number(d)}
@@ -47,7 +47,7 @@ export function MemoryPage({ p }: { p: PanelState }) {
             <Select.Root value={bm || "none"} onValueChange={(v) => setBirthday(v === "none" ? "" : v, bd || "01")}>
               <Select.Trigger placeholder={tx("месяц")} />
               <Select.Content>
-                <Select.Item value="none">—</Select.Item>
+                <Select.Item value="none">-</Select.Item>
                 {months.map((name, i) => (
                   <Select.Item key={name} value={String(i + 1).padStart(2, "0")}>
                     {tx(name)}
@@ -61,7 +61,7 @@ export function MemoryPage({ p }: { p: PanelState }) {
       <Section title={tx("Факты")} description={tx("Питомец может вспомнить их в шутку, когда вы станете своими.")}>
         {m.facts.length === 0 && (
           <Text size="2" color="gray">
-            {tx("Пока ничего. Добавьте здесь или напишите «Запомни: …» в разговоре.")}
+            {tx("Пока ничего. Добавьте здесь или напишите «Запомни: ...» в разговоре.")}
           </Text>
         )}
         {m.facts.map((f, i) => (
@@ -97,7 +97,7 @@ export function MemoryPage({ p }: { p: PanelState }) {
           </Button>
         </Flex>
       </Section>
-      <Section title={tx("Техническая память")} description={tx("Позиция, дневные отметки и недавние реплики — чтобы не повторяться. Воспоминания о бросках и привычки хранятся вместе с прогрессом.")}>
+      <Section title={tx("Техническая память")} description={tx("Позиция, дневные отметки и недавние реплики - чтобы не повторяться. Воспоминания о бросках и привычки хранятся вместе с прогрессом.")}>
         <Flex gap="2" wrap="wrap">
           <Button variant="soft" color="gray" onClick={() => void p.saveMemory({ recent: [], lastGreeting: "", favorite: null, daily: {} }, true)}>
             {tx("Сбросить привычки")}

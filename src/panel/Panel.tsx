@@ -171,7 +171,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
                 </Callout.Root>
               )}
               {!p.loaded ? (
-                <Text color="gray">{tx("Загрузка…")}</Text>
+                <Text color="gray">{tx("Загрузка...")}</Text>
               ) : (
                 <>
                   {tab === "status" && <Home p={p} go={setTab} />}
@@ -205,7 +205,7 @@ export default function Panel({ initialTab }: { initialTab: string }) {
               )}
               {saveable && (
                 <Button disabled={p.saving || !p.dirty} onClick={() => void p.save()}>
-                  {p.saving ? tx("Сохраняю…") : tx("Сохранить")}
+                  {p.saving ? tx("Сохраняю...") : tx("Сохранить")}
                 </Button>
               )}
             </footer>

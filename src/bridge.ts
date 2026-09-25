@@ -6,7 +6,7 @@ export const native = !!(window as unknown as { __TAURI_IPC__?: unknown })
   .__TAURI_IPC__;
 /**
  * Demo desktop (tools/demo/desktop.html): the pet page runs in an iframe and
- * the host page plays the part of Windows — it moves the overlay, owns a
+ * the host page plays the part of Windows - it moves the overlay, owns a
  * drawn cursor and a few fake windows. Only used for promo recordings.
  */
 type DemoHost = ((cmd: string, args: Record<string, unknown>) => unknown) & {
@@ -57,7 +57,7 @@ export async function command<T = void>(
   if (cmd === "temp_clean") return { bytes: 681574400, files: 4870 } as T;
   if (cmd === "weather") return null as T;
   if (cmd === "weather_search")
-    return [{ name: String(args.query), region: "Preview", country: "—", lat: 55.789, lon: 49.122 }] as T;
+    return [{ name: String(args.query), region: "Preview", country: "-", lat: 55.789, lon: 49.122 }] as T;
   if (cmd === "trace_view")
     return {
       events: [],

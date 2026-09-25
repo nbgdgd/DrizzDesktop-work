@@ -6,7 +6,7 @@
 // drivers (Bluetooth, USB headsets, FxSound-style virtual devices) keep one
 // hardware level for both channels, so "left down" pulled the whole sound
 // down or muted it. Session gains work on any device, leave the Windows
-// volume slider and the ear guard alone, and are undone on exit — and after
+// volume slider and the ear guard alone, and are undone on exit - and after
 // a crash, on the next start (marker file).
 use crate::{env, storage};
 use std::sync::Mutex;
@@ -75,7 +75,7 @@ fn neutral(g: (f32, f32)) -> bool {
     (g.0 - 1.).abs() < 0.005 && (g.1 - 1.).abs() < 0.005
 }
 /// Gain for channel `k` of `n` (WAVEFORMATEXTENSIBLE order: FL FR FC LFE BL
-/// BR SL SR…): left-side channels get `l`, right-side `r`, centre and LFE
+/// BR SL SR...): left-side channels get `l`, right-side `r`, centre and LFE
 /// the mean.
 pub fn channel_gain(k: u32, n: u32, l: f32, r: f32) -> f32 {
     if n < 2 {

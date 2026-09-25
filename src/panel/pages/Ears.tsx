@@ -41,7 +41,7 @@ export function Ears({ p }: { p: PanelState }) {
       const why = String(e);
       setGuardTest(
         why.includes("no headphones")
-          ? tx("Наушники не найдены — защита сейчас не действует.")
+          ? tx("Наушники не найдены - защита сейчас не действует.")
           : why.includes("off")
             ? tx("Защита выключена.")
             : tx("Не сработало: {why}", { why }),
@@ -62,7 +62,7 @@ export function Ears({ p }: { p: PanelState }) {
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        {tx("Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % — это 80 дБ в течение 40 часов в неделю. Громкость оценивается по уровню Windows и типичной громкости наушников, это не измерение.")}
+        {tx("Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % - это 80 дБ в течение 40 часов в неделю. Громкость оценивается по уровню Windows и типичной громкости наушников, это не измерение.")}
       </Text>
       <Grid columns={{ initial: "1", sm: "2" }} gap="4">
         <Section title={tx("Сейчас")}>
@@ -71,12 +71,12 @@ export function Ears({ p }: { p: PanelState }) {
             <Box>
               <Text as="div" size="2" weight="medium">
                 {live === null
-                  ? tx("Жду данные от питомца…")
+                  ? tx("Жду данные от питомца...")
                   : live.headphones
                     ? tx("Наушники подключены")
                     : s.earsDevice === "always"
                       ? tx("Считаю любой вывод звука как наушники")
-                      : tx("Наушники не найдены — звук идёт в колонки")}
+                      : tx("Наушники не найдены - звук идёт в колонки")}
               </Text>
               <Text as="div" size="1" color="gray">
                 {live?.playing ? tx("Играет звук") : tx("Тишина")}
@@ -128,7 +128,7 @@ export function Ears({ p }: { p: PanelState }) {
       </Grid>
       <Section
         title={tx("Баланс")}
-        description={tx("Громкость левого и правого уха для всех программ — через микшер Windows, поэтому работает на любых наушниках, в том числе Bluetooth. Общий ползунок громкости не меняется. При выходе баланс возвращается.")}
+        description={tx("Громкость левого и правого уха для всех программ - через микшер Windows, поэтому работает на любых наушниках, в том числе Bluetooth. Общий ползунок громкости не меняется. При выходе баланс возвращается.")}
         action={
           <Button size="1" variant="soft" color="gray" disabled={balance === 0} onClick={() => apply("balance", 0)}>
             {tx("По центру")}
@@ -169,7 +169,7 @@ export function Ears({ p }: { p: PanelState }) {
           {balance === 0
             ? tx("по центру")
             : Math.abs(balance) >= 100
-              ? tx(balance > 0 ? "Левое ухо выключено — звук только справа." : "Правое ухо выключено — звук только слева.")
+              ? tx(balance > 0 ? "Левое ухо выключено - звук только справа." : "Правое ухо выключено - звук только слева.")
               : tx(balance > 0 ? "Левое ухо тише на {n} %" : "Правое ухо тише на {n} %", { n: Math.abs(balance) })}
         </Text>
       </Section>
@@ -247,7 +247,7 @@ export function Ears({ p }: { p: PanelState }) {
         <Row label={tx("Береги уши")} hint={tx("Считать дозу, напоминать о перерывах и громкости.")}>
           <Switch checked={s.ears} onCheckedChange={(v) => apply("ears", v)} aria-label={tx("Береги уши")} />
         </Row>
-        <Row label={tx("Норма")} hint={tx("Бережная — для детей, при звоне в ушах и после болезни уха.")}>
+        <Row label={tx("Норма")} hint={tx("Бережная - для детей, при звоне в ушах и после болезни уха.")}>
           <SegmentedControl.Root value={String(s.earsNorm)} onValueChange={(v) => apply("earsNorm", Number(v))}>
             <SegmentedControl.Item value="80">{tx("Обычная · 80 дБ")}</SegmentedControl.Item>
             <SegmentedControl.Item value="75">{tx("Бережная · 75 дБ")}</SegmentedControl.Item>
@@ -262,7 +262,7 @@ export function Ears({ p }: { p: PanelState }) {
             </Select.Content>
           </Select.Root>
         </Row>
-        <Row label={tx("Громкость наушников на максимуме")} hint={tx("Не знаешь — оставь 100 дБ. Мощные мониторные — 105–110.")}>
+        <Row label={tx("Громкость наушников на максимуме")} hint={tx("Не знаешь - оставь 100 дБ. Мощные мониторные - 105-110.")}>
           <Select.Root value={String(s.earsMax)} onValueChange={(v) => apply("earsMax", Number(v))}>
             <Select.Trigger style={{ minWidth: 110 }} />
             <Select.Content>
@@ -293,11 +293,11 @@ export function Ears({ p }: { p: PanelState }) {
       <Section title={tx("Как беречь уши")}>
         <ul className="tips">
           <li>{tx("Правило 60/60: не громче 60 % и не дольше 60 минут подряд.")}</li>
-          <li>{tx("Каждый час — 5–10 минут тишины. После концерта или клуба дайте ушам сутки покоя.")}</li>
-          <li>{tx("В шуме (метро, улица) не прибавляйте громкость — лучше наушники с шумоподавлением.")}</li>
-          <li>{tx("Звон, заложенность, «вата» после прослушивания — сигнал перебора. Не проходит за сутки — к ЛОР-врачу.")}</li>
+          <li>{tx("Каждый час - 5-10 минут тишины. После концерта или клуба дайте ушам сутки покоя.")}</li>
+          <li>{tx("В шуме (метро, улица) не прибавляйте громкость - лучше наушники с шумоподавлением.")}</li>
+          <li>{tx("Звон, заложенность, «вата» после прослушивания - сигнал перебора. Не проходит за сутки - к ЛОР-врачу.")}</li>
           <li>{tx("Не засыпайте в наушниках, ночью делайте тише.")}</li>
-          <li>{tx("Раз в год проверяйте слух — например, в бесплатном приложении ВОЗ hearWHO.")}</li>
+          <li>{tx("Раз в год проверяйте слух - например, в бесплатном приложении ВОЗ hearWHO.")}</li>
         </ul>
         <Callout.Root color="gray" size="1">
           <Callout.Icon>

@@ -51,7 +51,7 @@ export function Stats({ p }: { p: PanelState }) {
       </Flex>
       {rows.length === 0 ? (
         <Text as="p" color="gray" size="2">
-          {usage ? tx("Пока пусто. Время считается, пока вы за компьютером.") : tx("Загрузка…")}
+          {usage ? tx("Пока пусто. Время считается, пока вы за компьютером.") : tx("Загрузка...")}
         </Text>
       ) : (
         <Table.Root size="1" variant="surface" mb="4">
@@ -70,12 +70,14 @@ export function Stats({ p }: { p: PanelState }) {
                 <Table.Row key={r.app}>
                   <Table.RowHeaderCell title={r.app}>{appName(r.app)}</Table.RowHeaderCell>
                   <Table.Cell>
-                    <Box className="usage-bar" style={{ width: `${(r.seconds / Math.max(1, rows[0].seconds)) * 100}%` }} />
+                    <Box className="usage-track">
+                      <Box className="usage-bar" style={{ width: `${(r.seconds / Math.max(1, rows[0].seconds)) * 100}%` }} />
+                    </Box>
                   </Table.Cell>
                   <Table.Cell justify="end">{formatDuration(r.seconds)}</Table.Cell>
                   <Table.Cell justify="end">
                     <Text size="1" color={o <= -25 ? "red" : o >= 40 ? "green" : "gray"}>
-                      {o <= -25 ? tx("не любит") : o >= 40 ? tx("любит") : "—"}
+                      {o <= -25 ? tx("не любит") : o >= 40 ? tx("любит") : "-"}
                     </Text>
                   </Table.Cell>
                 </Table.Row>

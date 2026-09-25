@@ -58,7 +58,7 @@ export function WeatherPlace({ p }: { p: PanelState }) {
   const sorted = [...countries].sort((a, b) => (en ? a.en.localeCompare(b.en, "en") : a.ru.localeCompare(b.ru, "ru")));
   return (
     <>
-      <Row label={tx("Место")} hint={d.weatherPlace ? d.weatherPlace : tx("Не выбрано — погода не запрашивается.")}>
+      <Row label={tx("Место")} hint={d.weatherPlace ? d.weatherPlace : tx("Не выбрано - погода не запрашивается.")}>
         {d.weatherPlace ? (
           <Badge size="2" color="green">
             <MapPin size={13} /> {d.weatherName || tx("координаты")}
@@ -83,7 +83,7 @@ export function WeatherPlace({ p }: { p: PanelState }) {
             aria-label={tx("Город или страна")}
           />
           <Button disabled={busy || query.trim().length < 2} onClick={() => void search()}>
-            <Search size={15} /> {busy ? tx("Ищу…") : tx("Найти")}
+            <Search size={15} /> {busy ? tx("Ищу...") : tx("Найти")}
           </Button>
         </Flex>
         <Text as="div" size="1" color="gray" mt="1">

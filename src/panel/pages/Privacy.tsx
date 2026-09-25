@@ -51,13 +51,13 @@ export function Privacy({ p }: { p: PanelState }) {
         {t("observeCursor", tx("Реагировать на курсор"))}
         {t("observeDesktop", tx("События Windows"), tx("Громкость, буфер (только номер изменения), Caps Lock, тема, память, диск, число окон."))}
         {t("observeSound", tx("Звук системы"), tx("Уровень громкости и играет ли что-то. Сам звук не записывается."))}
-        {t("observeInput", tx("Клики и печать в других программах"), tx("Только счётчики. Какие клавиши — не читается."))}
+        {t("observeInput", tx("Клики и печать в других программах"), tx("Только счётчики. Какие клавиши - не читается."))}
         {t("trackUsage", tx("Учёт времени по программам"), tx("Секунды по имени .exe в usage.json, 90 дней."))}
       </Section>
       <Section title={tx("Трассировка и нагрузка")}>
         {t("observeProcesses", tx("Кто запускает консоли"), tx("Командная строка, PowerShell, скрипты, системные утилиты. Ничего не блокирует."))}
-        {t("watchAutoruns", tx("Следить за автозапуском"), tx("Новая запись — питомец спросит, убрать ли её."))}
-        {t("traceBackground", tx("Говорить о фоновых запусках"), tx("Не чаще раза в 2 часа на программу; подозрительное — всегда."))}
+        {t("watchAutoruns", tx("Следить за автозапуском"), tx("Новая запись - питомец спросит, убрать ли её."))}
+        {t("traceBackground", tx("Говорить о фоновых запусках"), tx("Не чаще раза в 2 часа на программу; подозрительное - всегда."))}
         {t("observeGpu", tx("Нагрузка видеокарты"))}
         <ListField label={tx("Доверенные источники (.exe)")} value={d.traceTrusted} set={(v) => set("traceTrusted", v)} placeholder="steam.exe, updater.exe" />
         {t("hideFullscreen", tx("Скрывать в полном экране"))}
@@ -80,12 +80,12 @@ export function Privacy({ p }: { p: PanelState }) {
                   ? tx("Порт 49753 занят. Интеграция недоступна.")
                   : tx("После сохранения: POST http://127.0.0.1:49753/event")}
             </Text>
-            <Row label={tx("Локальный токен")} hint={tx("Не публикуйте. Скрипт отправки — в README.")}>
+            <Row label={tx("Локальный токен")} hint={tx("Не публикуйте. Скрипт отправки - в README.")}>
               <TextField.Root type="password" readOnly value={p.store.token} style={{ width: 220 }} />
             </Row>
           </>
         )}
-        {t("ai", tx("Модель для разговора"), tx("OpenRouter. Платные запросы — только после вашего сообщения."))}
+        {t("ai", tx("Модель для разговора"), tx("OpenRouter. Платные запросы - только после вашего сообщения."))}
         {d.ai && (
           <>
             <Row label={tx("Модель")}>
@@ -93,7 +93,7 @@ export function Privacy({ p }: { p: PanelState }) {
             </Row>
             <Row label={`Ключ${p.store.hasKey ? tx(" · сохранён (DPAPI)") : ""}`}>
               <Flex gap="2">
-                <TextField.Root type="password" value={key} autoComplete="off" placeholder="sk-or-…" onChange={(e) => setKey(e.target.value)} />
+                <TextField.Root type="password" value={key} autoComplete="off" placeholder="sk-or-..." onChange={(e) => setKey(e.target.value)} />
                 <Button
                   variant="soft"
                   disabled={!key.trim()}

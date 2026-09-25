@@ -44,7 +44,7 @@ const rules: [RegExp, string][] = [
   [/\bhell\b/gi, "heck"],
   [/\bdamn you\b/gi, "come on"],
   // Name-calling tacked on at the end of a sentence just goes.
-  [/,\s*(bitch|damn it|dumbass|asshole|you little dumbass)(?=[.!?…,]|$)/gi, ""],
+  [/,\s*(bitch|damn it|dumbass|asshole|you little dumbass)(?=[.!?...,]|$)/gi, ""],
   [/\bdamn it\b/gi, "darn it"],
   [/\bdamn\b/gi, "darn"],
   [/\bthat kind of asshole\b/gi, "that kind of guy"],
@@ -65,6 +65,6 @@ export function cleanEn(text: string): string {
       return capital(out, m);
     });
   // "Thanks." after dropping ", bitch"; a sentence may now start lowercase.
-  t = t.replace(/\s+([.!?,…])/g, "$1").replace(/ {2,}/g, " ").replace(/(^|[.!?]\s+)([a-z])/g, (_, a, b) => a + b.toUpperCase());
+  t = t.replace(/\s+([.!?,...])/g, "$1").replace(/ {2,}/g, " ").replace(/(^|[.!?]\s+)([a-z])/g, (_, a, b) => a + b.toUpperCase());
   return t.trim();
 }

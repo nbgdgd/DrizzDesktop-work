@@ -182,7 +182,7 @@ export class Antics {
       }
       h.props.remove(it.id);
       if (it === this.sleepNote) {
-        // "Не трогать." — clicked anyway: "I did write it."
+        // "Не трогать." - clicked anyway: "I did write it."
         this.sleepNote =
           ["Не трогать.", "Do not touch."].includes(it.label ?? "") ? h.props.drop("note", it.x, it.y, now, pick(linesFor("noteAgain", h.brain.settings), h.random)) : null;
         h.brain.life.counts.noteRead = (h.brain.life.counts.noteRead ?? 0) + 1;

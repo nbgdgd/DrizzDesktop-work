@@ -2,12 +2,12 @@ import { tx } from "./i18n";
 // What a drink does to the pet. Pure logic: the scene feeds the pet's state
 // in every frame and gets intents out (run there, jump, sway, hiccup, hit).
 //
-//   energy — ~45 s of zoomies: sprints from edge to edge at triple speed,
+//   energy - ~45 s of zoomies: sprints from edge to edge at triple speed,
 //            random jumps, sparks; then a crash (flat on the floor, grumpy).
-//   coffee — the same, shorter and calmer.
-//   beer   — ~60 s drunk: wobbly zig-zag walk and a swaying body, hiccups,
+//   coffee - the same, shorter and calmer.
+//   beer   - ~60 s drunk: wobbly zig-zag walk and a swaying body, hiccups,
 //            stumbles, hunts the cursor like an angry drunk, and punches the
-//            screen/window in front of it (a crack drawn by the pet — the
+//            screen/window in front of it (a crack drawn by the pet - the
 //            real window is never touched); then a hangover.
 //
 // Drinking again while the effect lasts adds time, up to a cap.

@@ -179,7 +179,7 @@ export interface Settings {
   cursorPush: boolean;
   /** Drunk pet may shake, shove and minimise real windows. */
   drunkWindows: boolean;
-  /** …and even ask one to close (WM_CLOSE). Off by default. */
+  /** ...and even ask one to close (WM_CLOSE). Off by default. */
   drunkClose: boolean;
   /** Talks to itself when nothing happens. */
   mumble: boolean;
@@ -195,7 +195,7 @@ export interface Settings {
   weatherPlace: string;
   /** How the place is called in lines and in the panel: "Казань, Россия". */
   weatherName: string;
-  /** Quiet hours: no lines of its own from…to (hours), -1 = off. */
+  /** Quiet hours: no lines of its own from...to (hours), -1 = off. */
   quietFrom: number;
   quietTo: number;
   /** Ear care (ears.ts): weekly sound dose on headphones, breaks, warnings. */
@@ -215,7 +215,7 @@ export interface Settings {
   earsRest: boolean;
   earsRestMinutes: number;
   earsRestDim: number;
-  /** Left/right balance, -100 (left only) … 100 (right only). */
+  /** Left/right balance, -100 (left only) ... 100 (right only). */
   balance: number;
 }
 export interface Memory {

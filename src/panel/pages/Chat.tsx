@@ -95,8 +95,8 @@ export function Chat({ p }: { p: PanelState }) {
     <>
       <Callout.Root size="1" color="gray" mb="3">
         <Callout.Text>
-          {s.ai ? tx("Модель включена: запрос уходит только после отправки.") : tx("Без модели — команды и короткие локальные ответы.")} {tx("Команды:")}
-          {tx("«сядь», «иди сюда», «спать», «танцуй», «прыгни», «отвали», «играть». «Запомни: …» сохраняет факт.")}
+          {s.ai ? tx("Модель включена: запрос уходит только после отправки.") : tx("Без модели - команды и короткие локальные ответы.")} {tx("Команды:")}
+          {tx("«сядь», «иди сюда», «спать», «танцуй», «прыгни», «отвали», «играть». «Запомни: ...» сохраняет факт.")}
         </Callout.Text>
       </Callout.Root>
       <Card mb="3">
@@ -114,7 +114,7 @@ export function Chat({ p }: { p: PanelState }) {
           ))}
           {waiting && (
             <Text size="1" color="gray">
-              {tx("Думаю…")}
+              {tx("Думаю...")}
             </Text>
           )}
         </div>
@@ -131,7 +131,7 @@ export function Chat({ p }: { p: PanelState }) {
             aria-label={tx("Сообщение")}
             maxLength={2000}
             value={input}
-            placeholder={tx("Сказать что-нибудь…")}
+            placeholder={tx("Сказать что-нибудь...")}
             onChange={(e) => setInput(e.target.value)}
           />
           <Button type="submit" disabled={waiting || !input.trim()}>

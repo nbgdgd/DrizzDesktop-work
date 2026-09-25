@@ -946,7 +946,7 @@ export class Director {
     // At work: only priority matters (the status panel speaks for the rest).
     if (working(this.game, now) && r.priority < 90 && !WORK_ALLOWED.has(name)) return wait();
     // A line still being read is not cut off by a weaker one: the weaker
-    // event still happens (animation), but says nothing — or, if it is a
+    // event still happens (animation), but says nothing - or, if it is a
     // retryable ambient line, waits for its turn.
     const protectedLine =
       !!this.bubble &&
@@ -1455,7 +1455,7 @@ export class Director {
         (n as Snapshot & { desktop?: boolean }).desktop &&
         !(p as Snapshot & { desktop?: boolean }).desktop
       ) {
-        // Everything minimised: the whole floor is free — run to the middle.
+        // Everything minimised: the whole floor is free - run to the middle.
         const m = n.monitors.find(
           (mm) => this.petX >= mm.bounds.left && this.petX < mm.bounds.right,
         );
@@ -1464,7 +1464,7 @@ export class Director {
         else this.event("desktop", now);
       }
       // Focus moved to another big window on the pet's screen: sometimes
-      // climb onto it — almost always if it is a program whose windows keep
+      // climb onto it - almost always if it is a program whose windows keep
       // vanishing under it.
       if (n.foreground !== p.foreground && s.walk && s.perch && !s.pinned) {
         const w = n.windows.find((x) => x.id === n.foreground);

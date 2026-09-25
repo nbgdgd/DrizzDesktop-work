@@ -64,7 +64,7 @@ export interface EarSettings {
   earsRestMinutes: number;
   /** How much quieter the resting ear is, percent. */
   earsRestDim: number;
-  /** -100 (only left) … 0 … 100 (only right). */
+  /** -100 (only left) ... 0 ... 100 (only right). */
   balance: number;
   lateHour: number;
 }

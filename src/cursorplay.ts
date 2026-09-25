@@ -1,6 +1,6 @@
 // What the pet does with the mouse cursor: touches it when it lingers,
-// pushes it away, tries to catch it when it flies past, and — when it has
-// been wronged — hunts it down and hits it, each character in its own way:
+// pushes it away, tries to catch it when it flies past, and - when it has
+// been wronged - hunts it down and hits it, each character in its own way:
 //   Drizz (stalk)      follows the cursor around and hits it a couple of times;
 //   Nezuko (aggressive) runs after it at full speed, keeps hitting, pounces;
 //   Claude (lecture)   reads a moral first, then one careful swat;
@@ -373,7 +373,7 @@ export class CursorPlay {
       this.pounced = false;
       return { action: "swat", until: now + 480, stop: true };
     }
-    // Above the head but within a jump: it jumps at it — for sure once it is
+    // Above the head but within a jump: it jumps at it - for sure once it is
     // close, now and then from further away (Nezuko more often).
     const dx = Math.abs(i.cursor.x - i.pet.x);
     const jumpy = { aggressive: 0.05, stalk: 0.02, clumsy: 0.03, lecture: 0.01, lazy: 0 }[chase];
@@ -394,7 +394,7 @@ export class CursorPlay {
     }
     const hurry = i.temper.hurry * (chase === "aggressive" ? 1 : 0.85);
     // Out of reach even for a jump: runs under it, glares for a moment, then
-    // an angry hop with a swipe and a shout — and it lets the cursor be.
+    // an angry hop with a swipe and a shout - and it lets the cursor be.
     if (i.pet.y - i.cursor.y > i.size * 1.2 && !this.pounceable(i)) {
       if (dx > 60 * i.k) {
         this.glareSince = 0;

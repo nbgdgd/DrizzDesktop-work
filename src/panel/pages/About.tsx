@@ -1,5 +1,5 @@
 // "О программе": version, what the program keeps on the PC, and the
-// credits — every character with its author, source and terms, then the
+// credits - every character with its author, source and terms, then the
 // libraries, sounds, icons, font and data the pet is built from.
 import { Badge, Box, Card, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import { ExternalLink, Heart } from "lucide-react";
@@ -26,14 +26,14 @@ function Source({ c, p }: { c: Credit; p: PanelState }) {
     </Link>
   );
 }
-/** "Eigenblob — codex-pet.com gallery, author not listed…" under a pet card. */
+/** "Eigenblob - codex-pet.com gallery, author not listed..." under a pet card. */
 export function PetCreditLine({ id }: { id: string }) {
   const c = petCredits.find((x) => x.id === id);
   if (!c) return null;
   return (
     <Text as="div" size="1" color="gray" className="credit-line">
       {c.title}
-      {c.author ? ` · ${c.author}` : ""} — {tx(c.terms)}
+      {c.author ? ` · ${c.author}` : ""} - {tx(c.terms)}
     </Text>
   );
 }
@@ -97,7 +97,7 @@ export function About({ p }: { p: PanelState }) {
         ))}
       </Section>
       <Text as="p" size="1" color="gray">
-        <Heart size={12} /> {tx("Нашли своего персонажа и хотите, чтобы его убрали или подписали иначе — напишите в репозитории проекта.")}
+        <Heart size={12} /> {tx("Нашли своего персонажа и хотите, чтобы его убрали или подписали иначе - напишите в репозитории проекта.")}
       </Text>
     </>
   );

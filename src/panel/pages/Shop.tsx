@@ -29,7 +29,7 @@ export function Shop({ p }: { p: PanelState }) {
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        {tx("Купите кнопкой или перетащите иконку из этого окна прямо на питомца — он съест сам. Деньги капают, пока вы за компьютером, и за работу.")}
+        {tx("Купите кнопкой или перетащите иконку из этого окна прямо на питомца - он съест сам. Деньги капают, пока вы за компьютером, и за работу.")}
       </Text>
       {pantry.length > 0 && (
         <Section title={tx("Запасы")} description={tx("Подарки и то, что питомец утащил к себе. Бесплатно.")}>
@@ -102,7 +102,7 @@ export function Shop({ p }: { p: PanelState }) {
           ))}
       </div>
       <Text as="p" size="1" color="gray" mt="4">
-        {tx("Иконки еды — VPet (LorisYounger), github.com/LorisYounger/VPet.")}
+        {tx("Иконки еды - VPet (LorisYounger), github.com/LorisYounger/VPet.")}
       </Text>
     </>
   );

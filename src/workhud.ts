@@ -1,7 +1,7 @@
 // The shift status shown above the pet while it works: job name, a
 // terminal-style spinner (frames from cli-spinners, MIT, sindresorhus),
 // a progress bar, time left, money earned so far, and a ticker of job
-// "stats" that grow with the shift (flyers handed out, viewers, bugs…).
+// "stats" that grow with the shift (flyers handed out, viewers, bugs...).
 import Phaser from "phaser";
 import spinners from "cli-spinners";
 import type { Rect } from "./model";
@@ -96,7 +96,7 @@ export class WorkHud {
     this.spinner.setText(sp.frames[Math.floor(now / sp.interval) % sp.frames.length]).setPosition(left + 10, top + 7);
     const sw = Math.max(18, this.spinner.width + 6);
     this.title.setText(job.name).setPosition(left + 10 + sw, top + 6);
-    if (this.title.width > HUD_W - sw - 60) this.title.setText(job.name.slice(0, 18) + "…");
+    if (this.title.width > HUD_W - sw - 60) this.title.setText(job.name.slice(0, 18) + "...");
     this.time.setText(clock(job.left)).setPosition(left + HUD_W - 10 - this.time.width, top + 7);
     // Progress bar: filled part in the pet's colour, a moving shine on it.
     const bx = left + 10,

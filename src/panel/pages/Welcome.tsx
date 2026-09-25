@@ -1,4 +1,4 @@
-// First launch: a short welcome in four steps — language, the pet, the few
+// First launch: a short welcome in four steps - language, the pet, the few
 // settings that matter (swearing in English, cursor games, sounds, ear care,
 // autostart, your name) and a start button. Replaces the old paper card.
 import { useState } from "react";
@@ -68,7 +68,7 @@ export function Welcome({ p, done }: { p: PanelState; done: () => void }) {
             <Text size="1" color="gray" align="center" style={{ maxWidth: 420 }}>
               {d.lang === "en"
                 ? "The pet speaks English without swearing by default. You can allow it on the next steps."
-                : "По-русски питомец говорит как есть — дерзко и с матом. Английская версия по умолчанию без мата."}
+                : "По-русски питомец говорит как есть - дерзко и с матом. Английская версия по умолчанию без мата."}
             </Text>
           </Flex>
         )}
@@ -106,7 +106,7 @@ export function Welcome({ p, done }: { p: PanelState; done: () => void }) {
               {tx("Самое важное")}
             </Heading>
             <Text as="p" color="gray" align="center" mb="4">
-              {tx("Остальное — в настройках. Всё можно выключить.")}
+              {tx("Остальное - в настройках. Всё можно выключить.")}
             </Text>
             <Flex direction="column" gap="2">
               <label className="welcome-row">
@@ -147,11 +147,11 @@ export function Welcome({ p, done }: { p: PanelState; done: () => void }) {
               {tx("{pet} уже на рабочем столе", { pet: pet.name })}
             </Heading>
             <Text as="p" color="gray" align="center" style={{ maxWidth: 440 }}>
-              {tx("Клик — ответит, правый клик — карточка с уровнем и нуждами, перетащи — полетит. Корми его, не кидай слишком часто, и он к тебе привыкнет.")}
+              {tx("Клик - ответит, правый клик - карточка с уровнем и нуждами, перетащи - полетит. Корми его, не кидай слишком часто, и он к тебе привыкнет.")}
             </Text>
             {d.ears && (
               <Text as="p" size="1" color="gray" align="center" style={{ maxWidth: 440 }}>
-                {tx("В наушниках он считает недельную дозу звука и напомнит о перерыве. Баланс каналов и отдых ушей — во вкладке «Уши».")}
+                {tx("В наушниках он считает недельную дозу звука и напомнит о перерыве. Баланс каналов и отдых ушей - во вкладке «Уши».")}
               </Text>
             )}
           </Flex>

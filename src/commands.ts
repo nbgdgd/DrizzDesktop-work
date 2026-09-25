@@ -1,4 +1,4 @@
-// Text commands from the chat ("сядь", "иди сюда", "спать", "отвали"…) and
+// Text commands from the chat ("сядь", "иди сюда", "спать", "отвали"...) and
 // whether the pet feels like obeying: depends on the relationship, the
 // grudge, hunger and the character. Pure; the scene carries them out.
 import type { Temper } from "./character";

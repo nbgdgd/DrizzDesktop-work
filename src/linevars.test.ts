@@ -1,6 +1,6 @@
 // Static audit of every place that fires a reaction: the event name must
-// have a rule, and each variable its lines use ({app}, {n}, …) must be passed
-// by that call — otherwise the balloon shows a literal "{app}". Reads the
+// have a rule, and each variable its lines use ({app}, {n}, ...) must be passed
+// by that call - otherwise the balloon shows a literal "{app}". Reads the
 // sources with the TypeScript parser, so a new call site is checked too.
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
@@ -37,9 +37,9 @@ function calls(): { found: Call[]; dynamic: string[] } {
           let keys: string[] | null = [];
           if (vars && !(vars.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(vars) && vars.text === "undefined"))) {
             keys = ts.isObjectLiteralExpression(vars)
-              ? vars.properties.flatMap((p) => (p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? [p.name.text] : ts.isSpreadAssignment(p) ? ["…"] : []))
+              ? vars.properties.flatMap((p) => (p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? [p.name.text] : ts.isSpreadAssignment(p) ? ["..."] : []))
               : null;
-            if (keys?.includes("…")) keys = null;
+            if (keys?.includes("...")) keys = null;
           }
           const literalText = !!txt && !(ts.isIdentifier(txt) && txt.text === "undefined");
           found.push({ file: f, line, event: name.text, keys, text: literalText });

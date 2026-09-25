@@ -10,10 +10,10 @@ import { getLang, tx } from "../../i18n";
 // A function: tx() must run when the page is drawn, not when the module
 // loads (the language is not known yet then).
 const games = (): [GameKind, ReactNode, string][] => [
-  ["rps", <Dices size={18} />, tx("Кнопки в облачке. Победа — пара монет, проигрыш поднимает ему настроение.")],
-  ["hand", <Hand size={18} />, tx("Прячет монетку в лапе. Угадали — монета ваша.")],
-  ["clicker", <MousePointerClick size={18} />, tx("Десять секунд кликайте по питомцу. Два клика — рубль.")],
-  ["catch", <Timer size={18} />, tx("Двадцать секунд он гоняется за курсором. Поймает трижды — проиграли.")],
+  ["rps", <Dices size={18} />, tx("Кнопки в облачке. Победа - пара монет, проигрыш поднимает ему настроение.")],
+  ["hand", <Hand size={18} />, tx("Прячет монетку в лапе. Угадали - монета ваша.")],
+  ["clicker", <MousePointerClick size={18} />, tx("Десять секунд кликайте по питомцу. Два клика - рубль.")],
+  ["catch", <Timer size={18} />, tx("Двадцать секунд он гоняется за курсором. Поймает трижды - проиграли.")],
 ];
 export function Games({ p }: { p: PanelState }) {
   const g = p.store.game;

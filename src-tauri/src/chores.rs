@@ -49,7 +49,7 @@ pub fn nudge(dx: i32, dy: i32) -> Result<(), String> {
         }
         let (x0, y0) = (p.x, p.y);
         // A punch: 80 % of the way in two quick frames, the rest, then a
-        // short recoil back (15 %) — the cursor visibly "takes" the hit.
+        // short recoil back (15 %) - the cursor visibly "takes" the hit.
         const CURVE: [f64; 6] = [0.55, 0.85, 1.0, 1.0, 0.9, 0.85];
         for (i, t) in CURVE.iter().copied().enumerate() {
             let _ = i;
@@ -230,7 +230,7 @@ mod geo_tests {
 // ---------------------------------------------------------------- drunk pet
 // What the drunk pet does to a real window, only when the user allowed it
 // in the settings: shake it (it ends where it started), shove it a little
-// (stays on its monitor), minimise it, or — separate opt-in — ask it to close
+// (stays on its monitor), minimise it, or - separate opt-in - ask it to close
 // (WM_CLOSE, so the program can still ask "save changes?").
 // Never the taskbar, the desktop, our own windows, tool windows, full-screen
 // windows (games) or anything not visible.

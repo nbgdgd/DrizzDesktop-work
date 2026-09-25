@@ -1,7 +1,7 @@
 // What the pet remembers about you: counters of what happened, when it last
 // happened, which programs it likes, where it likes to sit, what it has
 // unlocked. Pure data inside `Game.life`, persisted with the game (save_game).
-// Nothing here stores window titles, text or key codes — only counts, times
+// Nothing here stores window titles, text or key codes - only counts, times
 // and .exe names that the app already sees.
 export interface Life {
   /** First launch, ms. */
@@ -10,13 +10,13 @@ export interface Life {
   lastDay: string;
   streak: number;
   bestStreak: number;
-  /** Totals: throw, drag, poke, pet, fed, wake, alert, swat, … */
+  /** Totals: throw, drag, poke, pet, fed, wake, alert, swat, ... */
   counts: Record<string, number>;
   /** Last time of each kind, ms. */
   marks: Record<string, number>;
   /** Up to 20 recent timestamps for kinds where "lately" matters. */
   recent: Record<string, number[]>;
-  /** Opinion of programs, -100 (hates) … 100 (loves), by .exe name. */
+  /** Opinion of programs, -100 (hates) ... 100 (loves), by .exe name. */
   apps: Record<string, number>;
   /** Where it chose to rest: "monitor|bucket" -> weight. */
   spots: Record<string, number>;
@@ -180,7 +180,7 @@ export const daysTogether = (life: Life, now: number) =>
 // ------------------------------------------------------------ relationship
 export type Stage = 0 | 1 | 2 | 3 | 4;
 export const stageNames = ["Чужой", "Терпит", "Привык", "Свой", "Лучший друг"];
-/** Bank suffix for the dialogue: "click~stranger", "chatter~close", … */
+/** Bank suffix for the dialogue: "click~stranger", "chatter~close", ... */
 export const stageKeys = ["stranger", "tolerant", "used", "close", "best"];
 /**
  * Relationship grows with likability and time together and is dragged down

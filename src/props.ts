@@ -1,7 +1,7 @@
 // Things drawn with the pet: hats and other accessories (level rewards and
 // holidays), headphones from the wardrobe, an umbrella in the rain, the
 // item it carries, and small objects on the floor
-// (gifts, its stash, notes). All procedural Phaser graphics — no extra art.
+// (gifts, its stash, notes). All procedural Phaser graphics - no extra art.
 import Phaser from "phaser";
 import type { Rect } from "./model";
 import { INK as INK_C, OUTLINE as OUTLINE_W } from "./toon";

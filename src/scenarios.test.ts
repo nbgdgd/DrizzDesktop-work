@@ -1,5 +1,5 @@
 // Scenario runs: whole behaviours simulated frame by frame without Phaser
-// or Windows — the pet's brain, physics, cursor play and antics together.
+// or Windows - the pet's brain, physics, cursor play and antics together.
 import { describe, it, expect } from "vitest";
 import { Movement } from "./movement";
 import { CursorPlay, PlayIntent } from "./cursorplay";
@@ -563,7 +563,7 @@ describe("second round of fixes", () => {
     expect(r.log).toContain("cursorPounce");
     expect(r.log.some((x) => x === "#pounce" || x === "#swat")).toBe(true);
   });
-  it("a cursor far out of reach: glares, then an angry hop and a shout — not endless standing", () => {
+  it("a cursor far out of reach: glares, then an angry hop and a shout - not endless standing", () => {
     const r = chase("drizz", { cx: 850, cy: 300, grudge: 60, ms: 12000, random: () => 0.5 });
     expect(r.log).toContain("cursorTooHigh");
     expect(r.play.state).toBe("watch");

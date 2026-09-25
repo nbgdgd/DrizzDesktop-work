@@ -4,7 +4,7 @@ import { PetScene } from "./PetScene";
 import { canvasSize, canvasZoom } from "./dpi";
 // Reuses WindowPet's React-owned transparent Phaser canvas lifecycle.
 // The backing store follows devicePixelRatio so the sprite stays crisp at
-// 125–300 % Windows scaling; the CSS size stays 360×340 (see dpi.ts).
+// 125-300 % Windows scaling; the CSS size stays 360×340 (see dpi.ts).
 export function PhaserWrapper() {
   const parent = useRef<HTMLDivElement>(null);
   useEffect(() => {

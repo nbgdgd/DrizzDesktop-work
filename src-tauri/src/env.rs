@@ -1,7 +1,7 @@
 // Desktop state the pet reacts to beyond apps and input: speaker volume and
 // whether anything is actually making a sound, clipboard activity, Caps Lock,
 // the light/dark theme, memory and disk pressure, and how many top-level
-// windows are open. Everything here is a number or a flag — no window titles,
+// windows are open. Everything here is a number or a flag - no window titles,
 // no clipboard contents, nothing that could carry text off the machine.
 use serde::Serialize;
 use std::cell::RefCell;
