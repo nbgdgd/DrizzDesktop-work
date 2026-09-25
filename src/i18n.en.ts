@@ -891,3 +891,21 @@ Object.assign(EN, {
   "Левое ухо тише на {n} %": "Left ear quieter by {n} %",
   "Правое ухо тише на {n} %": "Right ear quieter by {n} %",
 });
+Object.assign(EN, {
+  "По слуху: 15 % слышно, 50 % - примерно вдвое тише максимума.": "By ear: 15 % is audible, 50 % is about half as loud as the maximum.",
+  "Голос · {n}%": "Voice · {n}%",
+  "Бормотание под репликами.": "The babble under the lines.",
+  "Голос": "Voice",
+  "Эффекты · {n}%": "Effects · {n}%",
+  "Шаги, прыжки, еда, монеты, удары.": "Steps, jumps, food, coins, punches.",
+  "Эффекты": "Effects",
+  "Реплик в час, не больше": "Lines per hour, at most",
+  "Свои реплики. Ответы на клики, броски и кнопки не считаются.": "Its own lines. Answers to clicks, throws and buttons don't count.",
+  "без ограничения": "no limit",
+  "Хулиганит с курсором": "Messes with the cursor",
+  "Как часто бьёт курсор просто так, без обиды.": "How often it slaps the cursor just because, without a grudge.",
+  "никогда": "never",
+  "редко": "rarely",
+  "иногда": "sometimes",
+  "часто": "often",
+});

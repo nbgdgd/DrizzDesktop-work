@@ -58,6 +58,7 @@ import { parse, obeys } from "./commands";
 import { FRAME_H, FRAME_W, Placement, compact, headBox, headTop, regionRects, toCanvas } from "./pose";
 import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
+import { perceived } from "./audio";
 import { getLang, money, setLang, tx } from "./i18n";
 import { MUSIC_GAP, SAFE_DB, dbVolume, levels, weekly } from "./ears";
 import { WeatherNow, sky, visual, weatherLines, wet } from "./weather";
@@ -443,8 +444,11 @@ export class PetScene extends Phaser.Scene {
   }
   private applySound() {
     const s = this.store.settings;
-    this.sfx.apply(s.sounds, s.soundVolume);
-    this.voice.apply(s.sounds, s.voice, s.soundVolume);
+    // One pet volume by ear (audio.ts perceived), then the voice and the
+    // effects each as a share of it.
+    const master = perceived(s.soundVolume);
+    this.sfx.apply(s.sounds, master * s.effectsVolume);
+    this.voice.apply(s.sounds, s.voice, master * s.voiceVolume);
   }
   private onStore(s: Store) {
     const changed = s.settings.pet !== this.store.settings.pet;
@@ -1827,7 +1831,8 @@ export class PetScene extends Phaser.Scene {
           // Only when the cursor is within a jump: otherwise he would just stand and glare.
           const rise = this.world.y - this.cursor.y;
           const cursorNear = Math.abs(this.cursor.x - this.world.x) < 700 * k && rise > -12 * k && rise < this.sizePx() + 180 * k;
-          let teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < 0.18 && this.brain.event("tease", now) && this.play.tease(now);
+          const tease = { never: 0, rare: 0.06, normal: 0.18, often: 0.4 }[s.teaseRate];
+          let teased = s.cursorPlay && cursorNear && !this.cursor.down && Math.random() < tease && this.brain.event("tease", now) && this.play.tease(now);
           // A window within a jump: now and then it climbs up there instead
           // of strolling on the floor.
           const perchOn = !teased && Math.random() < 0.25 ? this.hopTarget() : null;

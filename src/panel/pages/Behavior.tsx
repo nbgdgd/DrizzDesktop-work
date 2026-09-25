@@ -125,6 +125,16 @@ export function Behavior({ p }: { p: PanelState }) {
       </Section>
       <Section title={tx("Характер")}>
         {t("cursorPlay", tx("Игры с курсором"), tx("Трогает, ловит и, если обидели, охотится на курсор."))}
+        {d.cursorPlay && (
+          <Row label={tx("Хулиганит с курсором")} hint={tx("Как часто бьёт курсор просто так, без обиды.")}>
+            <SegmentedControl.Root value={d.teaseRate} onValueChange={(v) => set("teaseRate", v as Settings["teaseRate"])}>
+              <SegmentedControl.Item value="never">{tx("никогда")}</SegmentedControl.Item>
+              <SegmentedControl.Item value="rare">{tx("редко")}</SegmentedControl.Item>
+              <SegmentedControl.Item value="normal">{tx("иногда")}</SegmentedControl.Item>
+              <SegmentedControl.Item value="often">{tx("часто")}</SegmentedControl.Item>
+            </SegmentedControl.Root>
+          </Row>
+        )}
         {t("cursorPush", tx("Может толкать курсор"), tx("После удара лапой курсор немного отъезжает. Никогда - пока зажата кнопка мыши."))}
         {t("drunkWindows", tx("Пьяный бьёт окна"), tx("После пива трясёт, толкает и сворачивает настоящие окна. Панель задач, рабочий стол и полноэкранные игры не трогает."))}
         {t("drunkClose", tx("...и может закрыть окно"), tx("Совсем в хлам - отправляет окну команду «закрыть». Программа успеет спросить про несохранённое. По умолчанию выключено."))}
@@ -148,8 +158,26 @@ export function Behavior({ p }: { p: PanelState }) {
         </Row>
         {t("sounds", tx("Звуки"), tx("Шаги, прыжки, еда, монеты (синтез и Kenney CC0)."))}
         {t("voice", tx("Бормотание вместо озвучки"), tx("Каждая реплика - набор звуков, у каждого персонажа свой голос."))}
-        <Row label={tx("Громкость · {n}%", { n: d.soundVolume })}>
+        <Row label={tx("Громкость · {n}%", { n: d.soundVolume })} hint={tx("По слуху: 15 % слышно, 50 % - примерно вдвое тише максимума.")}>
           <Slider value={[d.soundVolume]} min={0} max={100} step={5} onValueChange={([v]) => set("soundVolume", v)} style={{ width: 180 }} aria-label={tx("Громкость")} />
+        </Row>
+        <Row label={tx("Голос · {n}%", { n: d.voiceVolume })} hint={tx("Бормотание под репликами.")}>
+          <Slider value={[d.voiceVolume]} min={0} max={100} step={5} onValueChange={([v]) => set("voiceVolume", v)} style={{ width: 180 }} aria-label={tx("Голос")} />
+        </Row>
+        <Row label={tx("Эффекты · {n}%", { n: d.effectsVolume })} hint={tx("Шаги, прыжки, еда, монеты, удары.")}>
+          <Slider value={[d.effectsVolume]} min={0} max={100} step={5} onValueChange={([v]) => set("effectsVolume", v)} style={{ width: 180 }} aria-label={tx("Эффекты")} />
+        </Row>
+        <Row label={tx("Реплик в час, не больше")} hint={tx("Свои реплики. Ответы на клики, броски и кнопки не считаются.")}>
+          <Select.Root value={String(d.linesPerHour)} onValueChange={(v) => set("linesPerHour", Number(v))}>
+            <Select.Trigger aria-label={tx("Реплик в час, не больше")} style={{ minWidth: 120 }} />
+            <Select.Content>
+              {[5, 10, 20, 30, 60, 0].map((n) => (
+                <Select.Item key={n} value={String(n)}>
+                  {n === 0 ? tx("без ограничения") : String(n)}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
         </Row>
       </Section>
       <Section title={tx("Время")}>

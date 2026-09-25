@@ -215,6 +215,13 @@ export interface Settings {
   earsRest: boolean;
   earsRestMinutes: number;
   earsRestDim: number;
+  /** Voice (babble) and effects, percent of the pet volume. */
+  voiceVolume: number;
+  effectsVolume: number;
+  /** At most this many lines of its own per hour, 0 = no cap. */
+  linesPerHour: number;
+  /** How often it slaps the cursor for no reason. */
+  teaseRate: "never" | "rare" | "normal" | "often";
   /** Left/right balance, -100 (left only) ... 100 (right only). */
   balance: number;
 }
@@ -320,6 +327,10 @@ export const defaults: Settings = {
   earsRestMinutes: 20,
   earsRestDim: 50,
   balance: 0,
+  voiceVolume: 100,
+  effectsVolume: 100,
+  linesPerHour: 30,
+  teaseRate: "normal",
 };
 export const emptyMemory: Memory = {
   address: "",
@@ -439,6 +450,10 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   s.earsSafe = clamp(Math.round(Number.isFinite(Number(s.earsSafe)) ? Number(s.earsSafe) : 20), 0, 60);
   s.earsRestMinutes = clamp(Number(s.earsRestMinutes) || 20, 5, 120);
   s.earsRestDim = clamp(Number.isFinite(Number(s.earsRestDim)) ? Number(s.earsRestDim) : 50, 10, 90);
+  s.voiceVolume = clamp(Number.isFinite(Number(s.voiceVolume)) ? Number(s.voiceVolume) : 100, 0, 100);
+  s.effectsVolume = clamp(Number.isFinite(Number(s.effectsVolume)) ? Number(s.effectsVolume) : 100, 0, 100);
+  s.linesPerHour = clamp(Math.round(Number.isFinite(Number(s.linesPerHour)) ? Number(s.linesPerHour) : 30), 0, 120);
+  if (!["never", "rare", "normal", "often"].includes(s.teaseRate)) s.teaseRate = "normal";
   s.balance = clamp(Math.round(Number(s.balance) || 0), -100, 100);
   s.weatherPlace =
     typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())

@@ -835,6 +835,8 @@ export class Director {
     if (r.events.some((x) => x.name === "earsLowered")) this.earLower = now;
     return before !== JSON.stringify(r.log.days) && Math.floor(now / 60000) !== Math.floor((now - dt) / 60000);
   }
+  /** When lines of its own were said, for the per-hour cap. */
+  spoken: number[] = [];
   /** Set when the pet decided to turn the volume down by itself. */
   earLower = 0;
   /** Ears lines waiting for a moment to be said. */
@@ -956,7 +958,11 @@ export class Director {
       // question); only weaker events wait.
       (this.bubble.priority ?? 0) > r.priority;
     if (protectedLine && !direct && this.dialogue.retryable(name)) return false;
-    const quiet = (!direct && quietNow(this.settings, now)) || (protectedLine && text === undefined);
+    // The user's cap on lines of its own per hour (reactions to what the
+    // user does to the pet - clicks, throws, buttons - are not counted).
+    this.spoken = this.spoken.filter((t) => now - t < 3600000);
+    const capped = !direct && this.settings.linesPerHour > 0 && this.spoken.length >= this.settings.linesPerHour;
+    const quiet = (!direct && quietNow(this.settings, now)) || (protectedLine && text === undefined) || capped;
     const phrase =
       text ??
       (quiet
@@ -993,6 +999,7 @@ export class Director {
     // The news could not get into the balloon: keep it for later.
     if (!shown && (protectedLine || asking) && MUST_SAY.has(name)) this.later(name, now, text, vars);
     if (shown && phrase) {
+      if (!direct) this.spoken.push(now);
       this.bubble = {
         text: phrase,
         until: now + lineTime(phrase),

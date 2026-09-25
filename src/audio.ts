@@ -33,3 +33,14 @@ export function bus(): { ctx: AudioContext; input: AudioNode } | undefined {
     return undefined;
   }
 }
+
+/**
+ * Pet volume slider (0..100) to amplitude, by ear rather than linearly:
+ * with a straight line the bottom of the slider was all but silent (15 %
+ * sounded like nothing next to other programs). An exponent under one lifts
+ * the low end: 15 % = -10 dB, 50 % = -3.6 dB, 100 % = 0 dB; 0 is silence.
+ */
+export function perceived(percent: number): number {
+  const v = Math.max(0, Math.min(100, percent)) / 100;
+  return v <= 0 ? 0 : Math.pow(v, 0.6);
+}
