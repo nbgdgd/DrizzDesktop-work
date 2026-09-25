@@ -3,9 +3,12 @@
 // for 40 hours a week (75 dBA in the gentle mode), with a 3 dB exchange rate
 // (+3 dB halves the allowed time). The level is estimated from the Windows
 // volume of each channel and the loudest level the headphones can make
-// (`earsMax`, ~100 dB for typical earbuds at full volume) minus the typical
-// gap between a music master's peak and its average (MUSIC_GAP). It is an
-// estimate, not a measurement: the page says so.
+// (`earsMax`, ~100 dB for typical earbuds at full volume) plus what really
+// plays: the audio tap (tap.rs) measures the content, A-weighted, per
+// channel. Without the tap (it starts a moment after the sound does) the
+// content is assumed to sit MUSIC_GAP below full scale, as typical music.
+// Still an estimate of the ear level (the headphones' maximum is a guess),
+// the page says so.
 //
 // Pure: `earTick` takes the log, one sample and the settings and returns the
 // new log, the lines to say and the per-ear gains to apply (balance and the
@@ -46,6 +49,9 @@ export interface EarSample {
   right?: number;
   /** Balance / ear-rest gains applied in the mixer (balance.rs), 0..1 amplitude. */
   gains?: [number, number];
+  /** Measured content per channel, dB against a full-scale sine (tap.rs).
+   * It already carries the mixer gains. */
+  tap?: [number, number];
 }
 export interface EarSettings {
   ears: boolean;
@@ -110,6 +116,11 @@ export function levels(e: EarSample, max: number): [number, number] {
   const known = (v?: number) => (v !== undefined && v > -99 ? v : fallback);
   // Mixer gains are linear amplitude: 0.5 = −6 dB; a muted ear gets nothing.
   const gain = (g = 1) => (g <= 0.001 ? -100 : 20 * Math.log10(Math.min(1, g)));
+  if (e.tap) {
+    // Measured: device level + content; the gains are inside the content.
+    const at = (db: number, content: number) => (db <= -99 || content <= -90 ? 0 : Math.max(0, max + db + content));
+    return [at(known(e.left), e.tap[0]), at(known(e.right), e.tap[1])];
+  }
   const ear = (db: number, g?: number) => (db + gain(g) <= -99 ? 0 : earLevel(db + gain(g), max));
   return [ear(known(e.left), e.gains?.[0]), ear(known(e.right), e.gains?.[1])];
 }

@@ -59,6 +59,12 @@ pub struct Desktop {
     pub db: f32,
     pub left: f32,
     pub right: f32,
+    /// What really plays (tap.rs): A-weighted level of the content per
+    /// channel over the last 2 s, dB against a full-scale sine, before the
+    /// Windows volume. Only while the tap runs (`tap`).
+    pub tap: bool,
+    pub tap_left: f32,
+    pub tap_right: f32,
 }
 
 thread_local! {
@@ -221,7 +227,7 @@ fn open_audio() -> Option<Audio> {
     }
 }
 
-fn ear_levels(volume: &IAudioEndpointVolume) -> (f32, f32, f32) {
+pub(crate) fn ear_levels(volume: &IAudioEndpointVolume) -> (f32, f32, f32) {
     unsafe {
         let db = volume.GetMasterVolumeLevel().unwrap_or(-100.);
         let channels = volume.GetChannelCount().unwrap_or(0);
@@ -398,6 +404,7 @@ pub fn sample(audio_allowed: bool) -> Desktop {
     } else {
         (-1, false, false, NO_EARS)
     };
+    let tap = if audio_allowed { crate::tap::level() } else { None };
     Desktop {
         volume,
         muted,
@@ -419,6 +426,9 @@ pub fn sample(audio_allowed: bool) -> Desktop {
         db: ears.db,
         left: ears.left,
         right: ears.right,
+        tap: tap.is_some(),
+        tap_left: tap.map_or(-120., |t| t.0),
+        tap_right: tap.map_or(-120., |t| t.1),
     }
 }
 #[cfg(test)]

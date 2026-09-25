@@ -207,6 +207,28 @@ describe("mixer balance and the dose", () => {
     expect(levels({ ...e, gains: [0, 1] }, 100)[0]).toBe(0);
   });
 });
+describe("measured sound (audio tap)", () => {
+  const e = { headphones: true, playing: true, muted: false, volume: 80, db: -3, left: -3, right: -3 };
+  it("the content level replaces the typical-music guess, per ear", () => {
+    // Typical master (-12 against a full-scale sine) = the old estimate.
+    expect(levels({ ...e, tap: [-12, -12] }, 100)[0]).toBeCloseTo(levels(e, 100)[0], 5);
+    // A quiet podcast at -30 counts 18 dB less than the guess, a brick-walled track at -6 counts 6 more.
+    expect(levels({ ...e, tap: [-30, -6] }, 100)).toEqual([67, 91]);
+  });
+  it("mixer gains are already inside the measured content, not applied twice", () => {
+    expect(levels({ ...e, gains: [0.5, 1], tap: [-18, -12] }, 100)).toEqual([79, 85]);
+  });
+  it("silence and a muted device count nothing", () => {
+    expect(levels({ ...e, tap: [-120, -120] }, 100)).toEqual([0, 0]);
+    expect(levels({ ...e, volume: 0, db: -100, left: -100, right: -100, tap: [-10, -10] }, 100)).toEqual([0, 0]);
+  });
+  it("a quiet week of measured podcasts stays far under the dose", () => {
+    const s = { ...defaults, ears: true } as Settings;
+    const quiet = listen(120, hp(80, { db: -3, left: -3, right: -3, tap: [-30, -30] }), s);
+    const guess = listen(120, hp(80, { db: -3, left: -3, right: -3 }), s);
+    expect(quiet.log.days[0].l).toBeLessThan(guess.log.days[0].l / 30);
+  });
+});
 describe("ears lines actually get said", () => {
   it("every ears event has a rule and lines in both languages", async () => {
     const { rules } = await import("./director");

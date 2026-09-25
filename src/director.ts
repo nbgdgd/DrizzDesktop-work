@@ -79,6 +79,7 @@ export const MUST_SAY = new Set([
   "earsGuardClamp",
   "earsGuardPlug",
   "earsGuardWake",
+  "earsSpike",
   "earsLowered",
   "earsDose80",
   "earsDose100",
@@ -99,8 +100,8 @@ export const MUST_SAY = new Set([
 /** How long a pending line stays worth saying. */
 const PENDING_MS = 10 * 60000;
 /** Ear lines that must be said now, not queued behind the chatter budget. */
-const EARS_DIRECT = new Set(["earsGuardClamp", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
-export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
+const EARS_DIRECT = new Set(["earsGuardClamp", "earsSpike", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
+export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsSpike", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
   "work",
   "workDone",
   "levelUp",
@@ -251,6 +252,8 @@ export const rules: Record<string, Rule> = {
   earsGuardClamp: rule("swat", 88, 20000, 1200),
   earsGuardPlug: rule("look", 70, 60000, 2000),
   earsGuardWake: rule("stretch", 70, 60000, 2500),
+  // A sudden loud moment in the content was ducked for a couple of seconds (tap.rs).
+  earsSpike: rule("swat", 87, 60000, 1400),
   earsUneven: rule("look", 50, 3600000, 2500),
   earsRestSwap: rule("look", 42, 60000, 1800),
   earsThanks: rule("wave", 60, 5000, 1800),
@@ -803,6 +806,7 @@ export class Director {
       left: e?.left,
       right: e?.right,
       gains: this.earGains,
+      tap: e?.tap ? [e.tapLeft ?? -120, e.tapRight ?? -120] : undefined,
     };
     const r = earTick(this.game.ears, sample, this.settings, now, dt, this.settings.lang);
     const before = JSON.stringify(this.game.ears.days);

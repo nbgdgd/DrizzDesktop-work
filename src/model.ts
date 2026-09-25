@@ -85,6 +85,11 @@ export interface Desktop {
   db?: number;
   left?: number;
   right?: number;
+  /** What really plays (tap.rs): content level per channel, dB against a
+   * full-scale sine, before the Windows volume; only when `tap`. */
+  tap?: boolean;
+  tapLeft?: number;
+  tapRight?: number;
 }
 export const emptyDesktop: Desktop = {
   volume: -1,
@@ -212,6 +217,8 @@ export interface Settings {
   earsCeiling: number;
   /** Volume set when headphones are plugged in or the PC wakes, percent (0 = off). */
   earsSafe: number;
+  /** Duck sudden loud moments in the content for a couple of seconds (tap.rs). */
+  earsSpike: boolean;
   earsRest: boolean;
   earsRestMinutes: number;
   earsRestDim: number;
@@ -224,6 +231,8 @@ export interface Settings {
   teaseRate: "never" | "rare" | "normal" | "often";
   /** Left/right balance, -100 (left only) ... 100 (right only). */
   balance: number;
+  /** Equalizer at its feet and dancing in time to what plays (tap.rs). */
+  musicViz: boolean;
 }
 export interface Memory {
   address: string;
@@ -323,6 +332,7 @@ export const defaults: Settings = {
   earsGuard: false,
   earsCeiling: 60,
   earsSafe: 20,
+  earsSpike: true,
   earsRest: false,
   earsRestMinutes: 20,
   earsRestDim: 50,
@@ -331,6 +341,7 @@ export const defaults: Settings = {
   effectsVolume: 100,
   linesPerHour: 30,
   teaseRate: "normal",
+  musicViz: true,
 };
 export const emptyMemory: Memory = {
   address: "",
@@ -455,6 +466,8 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   s.linesPerHour = clamp(Math.round(Number.isFinite(Number(s.linesPerHour)) ? Number(s.linesPerHour) : 30), 0, 120);
   if (!["never", "rare", "normal", "often"].includes(s.teaseRate)) s.teaseRate = "normal";
   s.balance = clamp(Math.round(Number(s.balance) || 0), -100, 100);
+  s.earsSpike = s.earsSpike !== false;
+  s.musicViz = s.musicViz !== false;
   s.weatherPlace =
     typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())
       ? s.weatherPlace.trim()

@@ -1612,6 +1612,12 @@ Object.assign(en, {
     "Whack - back to {to}%. Something tried to blast {from}%.",
     "A spike to {from}% didn't get through. Holding {to}%.",
   ],
+  earsSpike: [
+    "Someone screamed in there - I ducked it for a couple of seconds. Ears intact.",
+    "Holy shit, that was loud. Pushed it down, putting it back now.",
+    "Sudden blast blocked. The volume comes back by itself.",
+    "A sharp jump in the sound, I covered your ears. Letting go already.",
+  ],
   earsGuardPlug: [
     "Headphones on. Set a safe {to}%, turn it up yourself.",
     "Headphones in - quiet first, {to}%. Then go for it.",

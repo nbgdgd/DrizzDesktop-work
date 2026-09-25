@@ -16,7 +16,8 @@ use windows::Win32::System::Com::CLSCTX_ALL;
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuardEvent {
-    /// "clamp" (a spike was cut), "plug" (headphones in), "wake" (after sleep).
+    /// "clamp" (a spike was cut), "plug" (headphones in), "wake" (after sleep),
+    /// "spike" (a loud moment in the content was ducked, tap.rs).
     pub kind: &'static str,
     /// Volume before and after, percent.
     pub from: u32,

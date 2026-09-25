@@ -16,6 +16,8 @@ export interface EarLive {
   headphones: boolean;
   playing: boolean;
   level: number;
+  /** The level comes from what really plays (tap.rs), not from the slider. */
+  measured?: boolean;
   session: number;
   gains: [number, number];
 }
@@ -62,7 +64,7 @@ export function Ears({ p }: { p: PanelState }) {
   return (
     <>
       <Text as="p" size="2" color="gray" mb="3">
-        {tx("Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % - это 80 дБ в течение 40 часов в неделю. Громкость оценивается по уровню Windows и типичной громкости наушников, это не измерение.")}
+        {tx("Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % - это 80 дБ в течение 40 часов в неделю. Он слушает, насколько громко на самом деле играет звук в каждом канале, и прибавляет громкость Windows и громкость наушников на максимуме. Это оценка, а не шумомер: точность зависит от наушников.")}
       </Text>
       <Grid columns={{ initial: "1", sm: "2" }} gap="4">
         <Section title={tx("Сейчас")}>
@@ -88,6 +90,9 @@ export function Ears({ p }: { p: PanelState }) {
             <Flex align="center" gap="2" wrap="wrap">
               <Badge size="2" color={tone(live.level)}>
                 ≈ {Math.round(live.level)} {tx("дБ")}
+              </Badge>
+              <Badge size="1" color="gray" variant="soft" title={live.measured ? tx("По тому, что реально играет.") : tx("Пока по ползунку Windows: звук только начался.")}>
+                {live.measured ? tx("по звуку") : tx("по ползунку")}
               </Badge>
               <Text size="1" color="gray">
                 {hours >= 40
@@ -236,6 +241,9 @@ export function Ears({ p }: { p: PanelState }) {
               {s.earsSafe ? `${s.earsSafe}%` : tx("выкл")}
             </Text>
           </Flex>
+        </Row>
+        <Row label={tx("Внезапно громкие места")} hint={tx("Крик в видео или реклама на 10 дБ громче того, что играло: звук приглушается на пару секунд и возвращается. Работает, даже если потолок выключен.")}>
+          <Switch checked={s.earsSpike} disabled={!s.ears} onCheckedChange={(v) => apply("earsSpike", v)} aria-label={tx("Внезапно громкие места")} />
         </Row>
         <Row label={tx("Проверка")} hint={guardTest ?? tx("Поднимет громкость на 2 % выше потолка и посмотрит, как быстро её срежет.")}>
           <Button variant="soft" disabled={!s.earsGuard || testing} onClick={() => void testGuard()}>

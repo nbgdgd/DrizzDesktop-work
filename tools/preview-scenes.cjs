@@ -16,6 +16,18 @@ const drag = (dx, shake) => `async (s) => {
     s.onMotion({ x, y: y0 - i * 3, down: true, support: null });
   }
 }`;
+// Music from the audio tap: bands and a 120 BPM beat, ~12 messages a second.
+const feed = (edge) => `(s) => {
+  s.store.settings.musicViz = true;
+  ${edge} && (s.world.support = { id: 1, rect: { left: s.world.x - 140, top: s.world.y, right: s.world.x + 50, bottom: s.world.y + 300 } });
+  const t0 = Date.now();
+  clearInterval(window.__feed);
+  window.__feed = setInterval(() => {
+    const t = Date.now() - t0;
+    const k = Math.max(0, 1 - (t % 500) / 350);
+    s.groove.feed({ bands: [0.95 * k + 0.1, 0.8 * k + 0.1, 0.55, 0.62, 0.48, 0.4, 0.3, 0.22].map((v, i) => Math.min(1, v * (0.85 + 0.15 * Math.sin(t / 90 + i)))), level: -14, bpm: 120, period: 500, beat: t % 500, confidence: 0.7 }, Date.now());
+  }, 80);
+}`;
 const scenarios = [
   ["01-idle", "() => {}", 600],
   ["02-click-status", "(s) => { s.brain.click(Date.now()); }", 700],
@@ -37,10 +49,13 @@ const scenarios = [
   ["18-nezuko-rain", "(s) => { s.store.settings.pet = 'nezukocoder'; s.changePet(); s.weather = { kind: 'rain', at: Date.now() }; }", 600],
   ["19-eigenblob-miss", "(s) => { s.store.settings.pet = 'eigenblob'; s.changePet(); s.force('pained', 3000); s.brain.reset('cursorMiss'); s.brain.event('cursorMiss', Date.now(), true); }", 600],
   ["20-aqua-sigh", "(s) => { s.store.settings.pet = 'aqua-wisp'; s.changePet(); s.force('sigh', 3000); s.brain.reset('cursorLazy'); s.brain.event('cursorLazy', Date.now(), true); }", 600],
+  ["21-equalizer", feed(false), 900],
+  ["22-equalizer-window-edge", feed(true), 900],
 ];
 const reset = `(s) => {
   if (s.world.dragging) s.world.release(Date.now());
   s.brain.bubble = undefined; s.brain.reaction = undefined; s.forced = null; s.brain.sulkUntil = 0;
+  clearInterval(window.__feed); s.world.support = null;
   s.brain.life.wear = ''; s.weather = null; if (s.snapshot) s.snapshot = { ...s.snapshot, media: { playing: false } }; s.fx.starsUntil = 0; s.antics.carry = '';
   for (const it of [...s.props.items]) s.props.remove(it.id);
   if (s.store.settings.pet !== 'drizz') { s.store.settings.pet = 'drizz'; s.changePet(); }

@@ -22,6 +22,8 @@ export interface Host {
   settings: Settings;
   monitors: Monitor[];
   snapshot?: Snapshot;
+  /** Music with a steady beat is playing (audio tap, music.ts). */
+  beat?: boolean;
   /** Plays `action` for `ms` over whatever the director wants. */
   override(action: Action, ms: number): void;
   /** Director line (direct = bypasses the comment budget). */
@@ -338,10 +340,10 @@ export class Antics {
       w.air = true;
       w.vy = -120 * w.scale;
     }
-    // Music: dances now and then.
-    if (h.snapshot?.media.playing && ["sit", "idle"].includes(base) && now >= this.nextDance && !h.brain.reaction) {
-      this.nextDance = now + 40000 + h.random() * 50000;
-      h.override("dance", 6000 + h.random() * 4000);
+    // Music: dances now and then; more often and longer when the beat is clear.
+    if ((h.snapshot?.media.playing || h.beat) && ["sit", "idle"].includes(base) && now >= this.nextDance && !h.brain.reaction) {
+      this.nextDance = now + (h.beat ? 25000 : 40000) + h.random() * 50000;
+      h.override("dance", (h.beat ? 9000 : 6000) + h.random() * 4000);
     }
     const present = (h.snapshot?.idle ?? 0) < 60000;
     // Mischief: gifts, theft, notes. Rare, and only when you are around.

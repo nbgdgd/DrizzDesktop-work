@@ -59,6 +59,8 @@ import { FRAME_H, FRAME_W, Placement, compact, headBox, headTop, regionRects, to
 import { note } from "./chronicle";
 import { dayPart, holiday } from "./calendar";
 import { perceived } from "./audio";
+import { Groove, TapMusic } from "./music";
+import { Equalizer } from "./eq";
 import { getLang, money, setLang, tx } from "./i18n";
 import { MUSIC_GAP, SAFE_DB, dbVolume, levels, weekly } from "./ears";
 import { WeatherNow, sky, visual, weatherLines, wet } from "./weather";
@@ -78,6 +80,11 @@ export class PetScene extends Phaser.Scene {
   private inspect: { x: number; y: number; until: number } | null = null;
   private fx!: Effects;
   private props!: Props;
+  /** What plays (audio tap) and the bars at its feet. */
+  private groove = new Groove();
+  private eq!: Equalizer;
+  private eqVis = 0;
+  private eqHalf = 0;
   private animator!: Animator;
   private brain!: Director;
   private world = new Movement();
@@ -169,6 +176,7 @@ export class PetScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setInteractive({ pixelPerfect: true, alphaTolerance: 64 });
     this.props = new Props(this);
+    this.eq = new Equalizer(this);
     this.fx = new Effects(this);
     this.hud = new WorkHud(this);
     this.quick = new QuickCard(this, () => [tx("Покормить"), tx("Поиграть"), tx("Панель")], (i) => {
@@ -327,6 +335,7 @@ export class PetScene extends Phaser.Scene {
       settings: this.store.settings,
       monitors: this.monitors,
       snapshot: this.snapshot,
+      beat: this.store.settings.musicViz && this.groove.phase(Date.now()) !== null,
       override: (action, ms) => this.force(action, ms),
       say: (event, direct = false, vars) => this.brain.event(event, Date.now(), direct, undefined, vars),
       glyph: (ch, color) => this.fx.glyph(ch, color, this.sizePx(), this.world.scale, this.dpr),
@@ -359,10 +368,15 @@ export class PetScene extends Phaser.Scene {
       await this.subscribe("summon", () => this.summon());
       // The spike guard cut the volume or set a safe one (guard.rs).
       await this.subscribe<{ kind: string; from: number; to: number }>("ear-guard", (e) => {
-        const name = e.kind === "clamp" ? "earsGuardClamp" : e.kind === "wake" ? "earsGuardWake" : "earsGuardPlug";
+        const name = e.kind === "clamp" ? "earsGuardClamp" : e.kind === "spike" ? "earsSpike" : e.kind === "wake" ? "earsGuardWake" : "earsGuardPlug";
         this.brain.event(name, Date.now(), true, undefined, { from: String(e.from), to: String(e.to) });
-        if (e.kind === "clamp") this.voice.act("punch", 300);
+        if (e.kind === "clamp" || e.kind === "spike") this.voice.act("punch", 300);
         this.game.loop.wake();
+      });
+      // What really plays: bands and beat for the equalizer and the dance (tap.rs).
+      await this.subscribe<TapMusic>("audio-tap", (m) => {
+        this.groove.feed(m, Date.now());
+        if (this.groove.playing(Date.now())) this.game.loop.wake();
       });
       await this.subscribe("recenter", () => this.recenter());
       await this.subscribe<TraceEvent>("trace", (e) => {
@@ -614,7 +628,7 @@ export class PetScene extends Phaser.Scene {
     // Live state for the panel's "Уши" page.
     const env = this.snapshot?.env;
     const [ll, lr] = levels(
-      { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right, gains: this.brain.earGains },
+      { headphones: !!env?.headphones, playing: !!env?.audio, muted: !!env?.muted, volume: env?.volume ?? -1, db: env?.db, left: env?.left, right: env?.right, gains: this.brain.earGains, tap: env?.tap ? [env.tapLeft ?? -120, env.tapRight ?? -120] : undefined },
       this.store.settings.earsMax,
     );
     // Balance or ear rest asked for while Windows mixes everything to mono:
@@ -626,6 +640,7 @@ export class PetScene extends Phaser.Scene {
       headphones: !!env?.headphones,
       playing: !!env?.audio && !env?.muted,
       level: Math.max(ll, lr),
+      measured: !!env?.tap,
       session: this.brain.game.ears.session,
       gains: this.brain.earGains,
     });
@@ -1051,6 +1066,50 @@ export class PetScene extends Phaser.Scene {
   private zoomJump = 0;
   private lastMotion: { x: number; y: number; t: number } | null = null;
   /** Physical desktop pixels -> logical canvas coordinates. */
+  /** Equalizer at the feet: only standing on something, never past its edge. */
+  private drawEqualizer(now: number, delta: number, action: string, drawSize: number, absent: boolean): Rect | null {
+    this.groove.step(now, delta);
+    const w = this.world;
+    const on =
+      this.store.settings.musicViz &&
+      !absent &&
+      !this.brain.hidden &&
+      !this.assetError &&
+      !w.air &&
+      !w.dragging &&
+      !w.climb &&
+      !w.clinging &&
+      !w.running &&
+      // Standing still: speakers that walk along look like a bug.
+      !["sleep", "hang", "drag", "flail", "shaken", "walkLeft", "walkRight", "jump", "fall"].includes(action);
+    this.eqVis += ((on ? 1 : 0) - this.eqVis) * Math.min(1, delta / 200);
+    const shown = this.groove.shown * this.eqVis;
+    if (shown < 0.02) {
+      this.eq.clear();
+      return null;
+    }
+    let span: [number, number] = [0, 360];
+    if (w.support) span = [this.toScene(w.support.rect.left, 0).x, this.toScene(w.support.rect.right, 0).x];
+    else {
+      const m = monitorAt(this.monitors, w.x, w.y, this.store.settings.monitor);
+      if (m) span = [this.toScene(m.work.left, 0).x, this.toScene(m.work.right, 0).x];
+    }
+    const phase = this.groove.phase(now);
+    // The body's edges change with every frame; the bars should not twitch with them.
+    const box = this.bodyBox ?? { left: this.layout.anchorX - drawSize * 0.3, right: this.layout.anchorX + drawSize * 0.3 };
+    const half = Math.max(this.layout.anchorX - box.left, box.right - this.layout.anchorX, drawSize * 0.2);
+    this.eqHalf = this.eqHalf ? this.eqHalf + (half - this.eqHalf) * Math.min(1, delta / 400) : half;
+    return this.eq.draw({
+      bars: this.groove.bars,
+      shown,
+      body: { left: this.layout.anchorX - this.eqHalf, right: this.layout.anchorX + this.eqHalf },
+      floor: this.layout.anchorY,
+      span,
+      size: drawSize,
+      width: 360,
+      kick: phase === null ? 0 : (1 - phase) ** 4,
+    });
+  }
   private toScene = (x: number, y: number) => ({
     x: (x - this.layout.left) / this.dpr,
     y: (y - this.layout.top) / this.dpr,
@@ -1109,11 +1168,17 @@ export class PetScene extends Phaser.Scene {
       sy = 1 + 0.3 * this.world.stretch;
       sx = 1 - 0.12 * this.world.stretch;
     }
+    // On the beat when the audio tap hears one, otherwise ~2 bobs a second.
+    const phase = this.store.settings.musicViz ? this.groove.phase(now) : null;
     if (action === "dance") {
-      // Bobbing to a beat of ~2 per second.
-      const b = Math.abs(Math.sin(now / 160));
-      sy *= 1 - 0.07 * b;
-      sx *= 1 + 0.05 * b;
+      const b = phase !== null ? (1 - phase) ** 3 : Math.abs(Math.sin(now / 160));
+      sy *= 1 - 0.08 * b;
+      sx *= 1 + 0.06 * b;
+    } else if (phase !== null && (action === "idle" || action === "sit")) {
+      // Just nodding along.
+      const b = (1 - phase) ** 4;
+      sy *= 1 - 0.025 * b;
+      sx *= 1 + 0.015 * b;
     }
     if (this.squash) {
       const p = (now - this.squash.t) / 260;
@@ -1910,8 +1975,10 @@ export class PetScene extends Phaser.Scene {
     const frame = this.animator.frame(action, this.animBase + this.animClock);
     // RequestAnimationFrame.delay is Phaser's documented timeout cadence.
     // A sleeping, stationary sprite needs only two refreshes per second.
+    // 31 ms, not 33: Chromium on Windows rounds timeouts of 32 ms and more to
+    // its 15.6 ms clock, and 33.3 ms became 47 ms (21 fps, 15 under load).
     this.game.loop.raf.delay =
-      action === "sleep" && !this.fx.busy && !this.brain.bubble ? 500 : 1000 / 30;
+      action === "sleep" && !this.fx.busy && !this.brain.bubble ? 500 : 1000 / 32;
     const drawSize = this.snapshot?.fullscreen ? s.size * 0.75 : s.size;
     this.layout = overlayLayout(
       this.world.x,
@@ -2018,6 +2085,7 @@ export class PetScene extends Phaser.Scene {
       now,
       visible: !absent && !this.assetError,
     });
+    const eqRect = this.drawEqualizer(now, delta, action, drawSize, absent);
     // Food dragged in from the panel follows the cursor over the window.
     const carriedRect = this.drawCarried();
     const text = this.assetError || (absent || this.quick.open ? "" : (this.brain.bubble?.text ?? ""));
@@ -2097,6 +2165,7 @@ export class PetScene extends Phaser.Scene {
       : null;
     rects.push(...this.fx.rects(this.toScene, this.world.x, this.world.y, headCanvas, now, z * 2.4));
     rects.push(...propRects);
+    if (eqRect) rects.push(eqRect);
     if (carriedRect) rects.push(carriedRect);
     if (bubbleRect) rects.push(bubbleRect);
     void this.renderPose(!this.brain.hidden, rects);

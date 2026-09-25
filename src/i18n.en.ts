@@ -498,7 +498,6 @@ Object.assign(EN, {
   "левее": "to the left",
   "правее": "to the right",
   "по центру": "centered",
-  "Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % - это 80 дБ в течение 40 часов в неделю. Громкость оценивается по уровню Windows и типичной громкости наушников, это не измерение.": "The pet counts how much sound reached each ear this week, by the WHO and ITU norms (H.870): 100 % is 80 dB for 40 hours a week. Loudness is estimated from the Windows level and typical headphone loudness; it is not a measurement.",
   "Сейчас": "Now",
   "Жду данные от питомца...": "Waiting for the pet...",
   "Наушники подключены": "Headphones connected",
@@ -908,4 +907,18 @@ Object.assign(EN, {
   "редко": "rarely",
   "иногда": "sometimes",
   "часто": "often",
+});
+Object.assign(EN, {
+  "Эквалайзер и танец под музыку": "Equalizer and dancing to music",
+  "Когда играет музыка или видео, у ног питомца прыгают полоски, а танцует он в такт. Звук не записывается и никуда не уходит.":
+    "While music or a video plays, bars bounce at the pet's feet and it dances in time. Nothing is recorded or sent anywhere.",
+  "Питомец считает, сколько звука попало в каждое ухо за неделю, по нормам ВОЗ и МСЭ (H.870): 100 % - это 80 дБ в течение 40 часов в неделю. Он слушает, насколько громко на самом деле играет звук в каждом канале, и прибавляет громкость Windows и громкость наушников на максимуме. Это оценка, а не шумомер: точность зависит от наушников.":
+    "The pet counts how much sound reached each ear this week, by the WHO and ITU (H.870) norms: 100 % is 80 dB for 40 hours a week. It listens to how loud the sound in each channel really is and adds the Windows volume and how loud your headphones get at full volume. It is an estimate, not a sound meter: accuracy depends on the headphones.",
+  "По тому, что реально играет.": "From what is really playing.",
+  "Пока по ползунку Windows: звук только начался.": "From the Windows slider for now: the sound has just started.",
+  "по звуку": "measured",
+  "по ползунку": "by slider",
+  "Внезапно громкие места": "Sudden loud moments",
+  "Крик в видео или реклама на 10 дБ громче того, что играло: звук приглушается на пару секунд и возвращается. Работает, даже если потолок выключен.":
+    "A scream in a video or an ad 10 dB louder than what was playing: the sound is turned down for a couple of seconds and comes back. Works even with the ceiling off.",
 });

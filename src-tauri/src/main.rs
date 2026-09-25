@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod autoruns;
 mod chores;
+mod dsp;
 mod balance;
 mod env;
 mod guard;
@@ -9,6 +10,7 @@ mod load;
 mod native;
 mod observe;
 mod storage;
+mod tap;
 mod trace;
 mod usage;
 use serde_json::{json, Value};
@@ -726,6 +728,7 @@ fn main() {
             autoruns::start(a.clone());
             load::start(a.clone());
             guard::start(a.clone());
+            tap::start(a.clone());
             if storage::diag_enabled(&app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 let list = native::monitors();
                 storage::diag("rs", &format!("start {} monitors: {}", list.len(), list.iter().map(|m| format!("{} bounds {},{},{},{} work {},{},{},{} scale {} primary {}", m.id, m.bounds.left, m.bounds.top, m.bounds.right, m.bounds.bottom, m.work.left, m.work.top, m.work.right, m.work.bottom, m.scale, m.primary)).collect::<Vec<_>>().join("; ")));
