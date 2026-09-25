@@ -50,6 +50,8 @@ export class WorkHud {
   private spinner: Phaser.GameObjects.Text;
   private pay: Phaser.GameObjects.Text;
   private ticker: Phaser.GameObjects.Text;
+  /** Name and room the title was last cut for (cutting re-renders text). */
+  private fitted = "";
   constructor(scene: Phaser.Scene) {
     this.g = scene.add.graphics().setDepth(28);
     const t = (font: string, size: number, color: string) =>
@@ -95,9 +97,17 @@ export class WorkHud {
     const sp = jobSpinner[job.id] ?? jobSpinner.qa;
     this.spinner.setText(sp.frames[Math.floor(now / sp.interval) % sp.frames.length]).setPosition(left + 10, top + 7);
     const sw = Math.max(18, this.spinner.width + 6);
-    this.title.setText(job.name).setPosition(left + 10 + sw, top + 6);
-    if (this.title.width > HUD_W - sw - 60) this.title.setText(job.name.slice(0, 18) + "...");
     this.time.setText(clock(job.left)).setPosition(left + HUD_W - 10 - this.time.width, top + 7);
+    // The title gets what is left between the spinner and the clock, measured
+    // (a wide spinner like "[    ]" pushed a fixed 18-letter cut into the time).
+    const room = HUD_W - 20 - sw - this.time.width - 6;
+    const fit = job.name + "|" + Math.round(room);
+    if (fit !== this.fitted) {
+      this.fitted = fit;
+      this.title.setText(job.name);
+      for (let n = job.name.length - 1; this.title.width > room && n > 3; n--) this.title.setText(job.name.slice(0, n).trimEnd() + "...");
+    }
+    this.title.setPosition(left + 10 + sw, top + 6);
     // Progress bar: filled part in the pet's colour, a moving shine on it.
     const bx = left + 10,
       by = top + 28,
