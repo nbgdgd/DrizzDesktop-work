@@ -80,6 +80,13 @@ export const MUST_SAY = new Set([
   "earsGuardPlug",
   "earsGuardWake",
   "earsSpike",
+  "earsUnplug",
+  "earsProfile",
+  "earsBattery20",
+  "earsBattery10",
+  "earsNightCeiling",
+  "earsWeek",
+  "earsWeekOver",
   "earsLowered",
   "earsDose80",
   "earsDose100",
@@ -100,8 +107,8 @@ export const MUST_SAY = new Set([
 /** How long a pending line stays worth saying. */
 const PENDING_MS = 10 * 60000;
 /** Ear lines that must be said now, not queued behind the chatter budget. */
-const EARS_DIRECT = new Set(["earsGuardClamp", "earsSpike", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
-export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsSpike", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
+const EARS_DIRECT = new Set(["earsGuardClamp", "earsSpike", "earsUnplug", "earsNightCeiling", "earsBattery10", "earsGuardPlug", "earsGuardWake", "earsVeryLoud", "earsLoud", "earsBreak", "earsBreakLong", "earsDose80", "earsDose100", "earsLowered", "earsNight", "earsRestSwap"]);
+export const WORK_ALLOWED = new Set(["earsGuardClamp", "earsSpike", "earsUnplug", "earsBattery10", "earsVeryLoud", "earsDose100", "earsLowered", "earsBreakLong",
   "work",
   "workDone",
   "levelUp",
@@ -254,6 +261,17 @@ export const rules: Record<string, Rule> = {
   earsGuardWake: rule("stretch", 70, 60000, 2500),
   // A sudden loud moment in the content was ducked for a couple of seconds (tap.rs).
   earsSpike: rule("swat", 87, 60000, 1400),
+  // Headphones (headset.rs): came off and the player was paused, their own
+  // settings were put back, the battery runs low; the night ceiling (guard.rs).
+  earsUnplug: rule("look", 80, 20000, 2200),
+  earsProfile: rule("wave", 60, 60000, 2200),
+  earsBattery20: rule("look", 62, 3600000, 2500),
+  earsBattery10: rule("pained", 78, 1800000, 2500),
+  earsNightCeiling: rule("sleep", 72, 3600000, 2500),
+  // Monday: how last week went for the ears.
+  earsWeek: rule("celebrate", 58, 3600000, 3500),
+  earsWeekOver: rule("judge", 58, 3600000, 3500),
+  earsHearing: rule("wave", 70, 5000, 3000),
   earsUneven: rule("look", 50, 3600000, 2500),
   earsRestSwap: rule("look", 42, 60000, 1800),
   earsThanks: rule("wave", 60, 5000, 1800),
@@ -817,6 +835,9 @@ export class Director {
     // lines are one-offs (the hello is once a day), so dropping them meant
     // they often never appeared at all.
     for (const ev of r.events) {
+      // Achievements count good weeks and real breaks.
+      if (ev.name === "earsWeek") note(this.life, "earsWeekOk", now);
+      if (ev.name === "earsRested") note(this.life, "earsRested", now);
       this.earQueue = this.earQueue.filter((q) => q.ev.name !== ev.name);
       this.earQueue.push({ ev, until: now + (ev.name === "earsRestSwap" ? 60000 : 10 * 60000) });
     }
@@ -839,6 +860,18 @@ export class Director {
     if (r.events.some((x) => x.name === "earsLowered")) this.earLower = now;
     return before !== JSON.stringify(r.log.days) && Math.floor(now / 60000) !== Math.floor((now - dt) / 60000);
   }
+  /** Headphones' battery (headset.rs): a line at 20 % and at 10 %, once per charge. */
+  battery(pct: number, name: string, now: number) {
+    if (pct < 0 || !this.settings.ears) return;
+    if (pct > 30) this.batteryMark = 100;
+    const vars = { pct: String(pct), name: name || tx("наушники") };
+    if (pct <= 10 && this.batteryMark > 10) {
+      if (this.event("earsBattery10", now, true, undefined, vars)) this.batteryMark = 10;
+    } else if (pct <= 20 && this.batteryMark > 20) {
+      if (this.event("earsBattery20", now, true, undefined, vars)) this.batteryMark = 20;
+    }
+  }
+  private batteryMark = 100;
   /** When lines of its own were said, for the per-hour cap. */
   spoken: number[] = [];
   /** Set when the pet decided to turn the volume down by itself. */

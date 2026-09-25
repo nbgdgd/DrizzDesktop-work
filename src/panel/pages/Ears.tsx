@@ -3,13 +3,29 @@
 // here apply at once (no Save button): the balance slider has to be felt.
 import { useEffect, useState } from "react";
 import { Badge, Box, Button, Callout, Flex, Grid, SegmentedControl, Select, Slider, Switch, Text } from "@radix-ui/themes";
-import { Headphones, Info, Speaker } from "lucide-react";
+import { BatteryFull, BatteryLow, BatteryMedium, Headphones, Info, Speaker, Trash2 } from "lucide-react";
 import { command, on } from "../../bridge";
 import { cleanSettings, Settings } from "../../model";
 import { allowedHours, weekly } from "../../ears";
 import { getLang, tx } from "../../i18n";
 import type { PanelState } from "../store";
 import { Meter, Row, Section } from "../ui";
+import { HearingCheck } from "./HearingCheck";
+/** What headset.rs says about the output. */
+interface HeadsetInfo {
+  name: string;
+  headphones: boolean;
+  battery: number;
+}
+function Battery({ pct }: { pct: number }) {
+  if (pct < 0) return null;
+  const Icon = pct <= 20 ? BatteryLow : pct <= 60 ? BatteryMedium : BatteryFull;
+  return (
+    <Badge size="2" color={pct <= 10 ? "red" : pct <= 20 ? "amber" : "green"} title={tx("Заряд наушников")}>
+      <Icon size={14} /> {pct}%
+    </Badge>
+  );
+}
 export interface EarLive {
   /** Windows "Mono audio" is on. */
   mono?: boolean;
@@ -31,6 +47,13 @@ export function Ears({ p }: { p: PanelState }) {
     return () => off?.();
   }, []);
   useEffect(() => setBalance(p.store.settings.balance), [p.store.settings.balance]);
+  const [hs, setHs] = useState<HeadsetInfo | null>(null);
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    void command<HeadsetInfo>("headset").then(setHs, () => {});
+    void on<HeadsetInfo>("headset", setHs).then((f) => (off = f));
+    return () => off?.();
+  }, []);
   const s = p.store.settings;
   const [guardTest, setGuardTest] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -75,11 +98,14 @@ export function Ears({ p }: { p: PanelState }) {
                 {live === null
                   ? tx("Жду данные от питомца...")
                   : live.headphones
-                    ? tx("Наушники подключены")
+                    ? hs?.headphones && hs.name
+                      ? hs.name
+                      : tx("Наушники подключены")
                     : s.earsDevice === "always"
                       ? tx("Считаю любой вывод звука как наушники")
                       : tx("Наушники не найдены - звук идёт в колонки")}
               </Text>
+              {hs?.headphones && <Battery pct={hs.battery} />}
               <Text as="div" size="1" color="gray">
                 {live?.playing ? tx("Играет звук") : tx("Тишина")}
                 {minutes > 0 ? " · " + tx("{n} мин подряд", { n: minutes }) : ""}
@@ -242,6 +268,23 @@ export function Ears({ p }: { p: PanelState }) {
             </Text>
           </Flex>
         </Row>
+        <Row label={tx("Ночью потолок ниже")} hint={tx("С {h}:00 до 6:00 громкость не поднимется выше этого значения.", { h: s.lateHour })}>
+          <Flex align="center" gap="3" style={{ minWidth: 240 }}>
+            <Switch checked={s.earsNight} disabled={!s.earsGuard} onCheckedChange={(v) => apply("earsNight", v)} aria-label={tx("Ночью потолок ниже")} />
+            <Slider
+              value={[s.earsNightCeiling]}
+              min={10}
+              max={95}
+              step={5}
+              disabled={!s.earsGuard || !s.earsNight}
+              onValueChange={(v) => apply("earsNightCeiling", v[0])}
+              aria-label={tx("Ночной потолок")}
+            />
+            <Text size="2" weight="bold" style={{ minWidth: 40, textAlign: "right" }}>
+              {s.earsNightCeiling}%
+            </Text>
+          </Flex>
+        </Row>
         <Row label={tx("Внезапно громкие места")} hint={tx("Крик в видео или реклама на 10 дБ громче того, что играло: звук приглушается на пару секунд и возвращается. Работает, даже если потолок выключен.")}>
           <Switch checked={s.earsSpike} disabled={!s.ears} onCheckedChange={(v) => apply("earsSpike", v)} aria-label={tx("Внезапно громкие места")} />
         </Row>
@@ -250,6 +293,53 @@ export function Ears({ p }: { p: PanelState }) {
             {tx("Проверить")}
           </Button>
         </Row>
+      </Section>
+      <Section
+        title={tx("Мои наушники")}
+        description={tx("Потолок, громкость при подключении, громкость на максимуме и баланс можно запомнить для каждых наушников: когда они снова станут выходом звука, питомец поставит их настройки сам.")}
+      >
+        <Row label={tx("Сейчас")} hint={hs?.headphones ? undefined : tx("Наушники не подключены.")}>
+          <Flex gap="2" align="center" wrap="wrap">
+            {hs?.headphones && hs.name ? <Badge size="2">{hs.name}</Badge> : null}
+            {hs?.headphones && <Battery pct={hs.battery} />}
+            <Button
+              variant="soft"
+              disabled={!hs?.headphones || !hs.name}
+              onClick={() =>
+                hs?.name &&
+                apply("earsProfiles", { ...s.earsProfiles, [hs.name]: { earsCeiling: s.earsCeiling, earsSafe: s.earsSafe, earsMax: s.earsMax, balance: s.balance } })
+              }
+            >
+              {hs?.name && s.earsProfiles[hs.name] ? tx("Обновить их настройки") : tx("Запомнить для этих наушников")}
+            </Button>
+          </Flex>
+        </Row>
+        {Object.entries(s.earsProfiles).map(([name, pr]) => (
+          <Row
+            key={name}
+            label={name}
+            hint={tx("потолок {c}%, при подключении {s}%, максимум {m} дБ, баланс {b}", { c: pr.earsCeiling ?? s.earsCeiling, s: pr.earsSafe ?? s.earsSafe, m: pr.earsMax ?? s.earsMax, b: pr.balance ?? 0 })}
+          >
+            <Button
+              variant="ghost"
+              color="gray"
+              aria-label={tx("Забыть")}
+              onClick={() => {
+                const next = { ...s.earsProfiles };
+                delete next[name];
+                apply("earsProfiles", next);
+              }}
+            >
+              <Trash2 size={14} /> {tx("Забыть")}
+            </Button>
+          </Row>
+        ))}
+        <Row label={tx("Пауза, когда снял наушники")} hint={tx("Чтобы музыка или видео не заиграли вдруг из колонок.")}>
+          <Switch checked={s.earsPause} disabled={!s.ears} onCheckedChange={(v) => apply("earsPause", v)} aria-label={tx("Пауза, когда снял наушники")} />
+        </Row>
+      </Section>
+      <Section title={tx("Проверка слуха")} description={tx("Сравнивает уши на пяти частотах и подсказывает баланс. Ориентир, не диагноз.")}>
+        <HearingCheck onBalance={(b) => (setBalance(b), apply("balance", b))} />
       </Section>
       <Section title={tx("Настройки")}>
         <Row label={tx("Береги уши")} hint={tx("Считать дозу, напоминать о перерывах и громкости.")}>

@@ -66,6 +66,7 @@ export async function command<T = void>(
     } as T;
   if (cmd === "autorun_view") return { entries: [], quarantine: [], pending: [] } as T;
   if (cmd === "monitors") return [] as T;
+  if (cmd === "headset") return { name: "soundcore Space 2", headphones: true, battery: 18 } as T;
   if (cmd === "buy_item") {
     window.dispatchEvent(new CustomEvent("buy", { detail: args.id }));
     return undefined as T;

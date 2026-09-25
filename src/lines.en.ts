@@ -1612,6 +1612,45 @@ Object.assign(en, {
     "Whack - back to {to}%. Something tried to blast {from}%.",
     "A spike to {from}% didn't get through. Holding {to}%.",
   ],
+  earsUnplug: [
+    "Headphones off - I paused it, or it would've blasted out of the speakers.",
+    "You took the headphones off - I stopped the player. Put them on and hit play.",
+    "Headphones dropped, music paused. You're welcome.",
+  ],
+  earsProfile: [
+    "Oh, {name}. Put their settings on.",
+    "{name} on - their ceiling and balance are back.",
+    "{name} on your head. Their settings are already in.",
+  ],
+  earsBattery20: [
+    "{name} are down to {pct}%. They'll die soon.",
+    "Headphones at {pct}% battery. Where the hell is the charger?",
+    "{name} battery: {pct}%. Charge them before it's too late.",
+  ],
+  earsBattery10: [
+    "{pct}%! {name} are about to switch off.",
+    "That's it, {pct}% on the headphones. A little more and silence.",
+    "Headphones on their last breath: {pct}%.",
+  ],
+  earsNightCeiling: [
+    "Night. Volume ceiling {to}%, ears want to sleep too.",
+    "At night you get no more than {to}%. Night mode, bitch.",
+    "It's late. Holding {to}%, the ears stay safer.",
+  ],
+  earsWeek: [
+    "Ears this week: left {l}%, right {r}% of the norm, {h} h on headphones. Within the WHO norm, nice.",
+    "Ear report: {l}% and {r}% of the weekly dose over {h} h. All within limits, keep it up.",
+    "Last week - {h} h of music, ears fine: {l}% left, {r}% right.",
+  ],
+  earsWeekOver: [
+    "Last week: left {l}%, right {r}% of the norm. Too much, damn it. Quieter this week.",
+    "Ear report: {l}% and {r}% over {h} h. Over the WHO norm. Keep it down.",
+    "{h} h on headphones and {l}/{r}% of the dose this week. The ears begged for mercy.",
+  ],
+  earsHearing: [
+    "Hearing checked. It's a pointer, not a diagnosis: if something's off - see an ENT doctor.",
+    "Done, ears tested. Serious doubts - see a doctor, I'm only a pet.",
+  ],
   earsSpike: [
     "Someone screamed in there - I ducked it for a couple of seconds. Ears intact.",
     "Holy shit, that was loud. Pushed it down, putting it back now.",

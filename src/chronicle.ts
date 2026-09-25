@@ -232,6 +232,10 @@ export const achievements: Achievement[] = [
   { id: "clean", name: "Уборщик", desc: "Почистил временные файлы вместе с питомцем", prize: 60, test: (l) => count(l, "clean") >= 1 },
   { id: "traveller", name: "Путешественник", desc: "Перешёл на другой монитор", prize: 20, test: (l) => count(l, "cross") >= 1 },
   { id: "seasick", name: "Морская болезнь", desc: "Укачало на окне", prize: 20, test: (l) => count(l, "seasick") >= 1 },
+  { id: "earsWeek", name: "Уши в норме", desc: "Неделя в наушниках в пределах нормы ВОЗ", prize: 60, test: (l) => count(l, "earsWeekOk") >= 1 },
+  { id: "earsMonth", name: "Бережёт уши", desc: "Четыре недели в норме ВОЗ", prize: 200, test: (l) => count(l, "earsWeekOk") >= 4 },
+  { id: "earsRest", name: "Перерыв по расписанию", desc: "10 раз дал ушам отдохнуть после долгого прослушивания", prize: 60, test: (l) => count(l, "earsRested") >= 10 },
+  { id: "hearing", name: "Проверил слух", desc: "Прошёл проверку слуха во вкладке «Уши»", prize: 30, test: (l) => count(l, "hearing") >= 1 },
   { id: "note", name: "Не трогать", desc: "Нашёл записку питомца", prize: 15, test: (l) => count(l, "noteRead") >= 1 },
 ];
 /** Newly reached achievements, recorded in `life`. */

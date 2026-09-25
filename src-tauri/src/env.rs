@@ -154,6 +154,18 @@ pub(crate) fn device_names(device: &IMMDevice) -> String {
     }
 }
 
+/// The endpoint's own name: "Headphones (soundcore Space 2)".
+pub(crate) fn endpoint_name(device: &IMMDevice) -> String {
+    const FRIENDLY: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 };
+    unsafe {
+        device
+            .OpenPropertyStore(STGM_READ)
+            .and_then(|s| s.GetValue(&FRIENDLY))
+            .map(|v| v.to_string())
+            .unwrap_or_default()
+    }
+}
+
 /// Software outputs that pass the sound on to a real device.
 fn is_virtual(device: &IMMDevice) -> bool {
     let n = device_names(device).to_lowercase();

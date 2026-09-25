@@ -5,6 +5,7 @@ mod dsp;
 mod balance;
 mod env;
 mod guard;
+mod headset;
 mod integration;
 mod load;
 mod native;
@@ -729,6 +730,7 @@ fn main() {
             load::start(a.clone());
             guard::start(a.clone());
             tap::start(a.clone());
+            headset::start(a.clone());
             if storage::diag_enabled(&app.state::<State>().store.lock().unwrap_or_else(std::sync::PoisonError::into_inner).settings) {
                 let list = native::monitors();
                 storage::diag("rs", &format!("start {} monitors: {}", list.len(), list.iter().map(|m| format!("{} bounds {},{},{},{} work {},{},{},{} scale {} primary {}", m.id, m.bounds.left, m.bounds.top, m.bounds.right, m.bounds.bottom, m.work.left, m.work.top, m.work.right, m.work.bottom, m.scale, m.primary)).collect::<Vec<_>>().join("; ")));
@@ -778,6 +780,7 @@ fn main() {
             balance_sessions,
             set_volume,
             guard::ear_guard_test,
+            headset::headset,
             open_sound_settings,
             diag_enabled,
             diag_log,

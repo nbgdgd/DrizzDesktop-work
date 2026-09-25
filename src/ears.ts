@@ -124,6 +124,30 @@ export function levels(e: EarSample, max: number): [number, number] {
   const ear = (db: number, g?: number) => (db + gain(g) <= -99 ? 0 : earLevel(db + gain(g), max));
   return [ear(known(e.left), e.gains?.[0]), ear(known(e.right), e.gains?.[1])];
 }
+/** Monday of the week `now` is in, as a day key. */
+export const weekStart = (now: number) => {
+  const d = new Date(now);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dayKey(d.getTime());
+};
+/** Dose of the calendar week before the current one (Monday to Sunday). */
+export function lastWeek(log: EarLog, now: number): { l: number; r: number; min: number; days: number } {
+  const to = weekStart(now);
+  const from = weekStart(new Date(to + "T12:00:00").getTime() - 3 * 86400000);
+  let l = 0,
+    r = 0,
+    min = 0,
+    days = 0;
+  for (const d of log.days)
+    if (d.day >= from && d.day < to) {
+      l += d.l;
+      r += d.r;
+      min += d.min;
+      days++;
+    }
+  return { l, r, min, days };
+}
 /** Weekly dose per ear, fractions: the last seven days including today. */
 export function weekly(log: EarLog, now: number): { l: number; r: number; min: number } {
   const from = now - 7 * 86400000;
@@ -236,6 +260,16 @@ export function earTick(
     events.push({ name: `earsDose${reached}`, vars: { pct: String(Math.round(dose * 100)) }, lower: reached === 100 });
     if (reached === 100 && s.earsAutoLower && listening) events.push({ name: "earsLowered" });
   } else if (reached < mark && dose < mark / 100 - 0.1) log.said.dose = reached;
+  // A new week: how the last one went, once (only if there was something to count).
+  const monday = weekStart(now);
+  if (log.said.week !== monday) {
+    log.said.week = monday;
+    const w = lastWeek(log, now);
+    if (s.ears && w.min >= 60) {
+      const vars = { l: String(Math.round(w.l * 100)), r: String(Math.round(w.r * 100)), h: String(Math.round(w.min / 6) / 10) };
+      events.push({ name: Math.max(w.l, w.r) <= 1 ? "earsWeek" : "earsWeekOver", vars });
+    }
+  }
   // One ear takes much more than the other (balance, one-sided listening).
   const hi = Math.max(week.l, week.r),
     lo = Math.min(week.l, week.r);

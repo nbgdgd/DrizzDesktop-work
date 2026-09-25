@@ -368,9 +368,18 @@ export class PetScene extends Phaser.Scene {
       await this.subscribe("summon", () => this.summon());
       // The spike guard cut the volume or set a safe one (guard.rs).
       await this.subscribe<{ kind: string; from: number; to: number }>("ear-guard", (e) => {
-        const name = e.kind === "clamp" ? "earsGuardClamp" : e.kind === "spike" ? "earsSpike" : e.kind === "wake" ? "earsGuardWake" : "earsGuardPlug";
+        const name = { clamp: "earsGuardClamp", spike: "earsSpike", night: "earsNightCeiling", wake: "earsGuardWake" }[e.kind] ?? "earsGuardPlug";
         this.brain.event(name, Date.now(), true, undefined, { from: String(e.from), to: String(e.to) });
         if (e.kind === "clamp" || e.kind === "spike") this.voice.act("punch", 300);
+        this.game.loop.wake();
+      });
+      // Which headphones, their battery; unplugged (player paused) or their profile applied (headset.rs).
+      await this.subscribe<{ name: string; headphones: boolean; battery: number }>("headset", (h) => {
+        this.diag.log("ears", `headset ${h.name} hp ${h.headphones} battery ${h.battery}`);
+        if (h.headphones) this.brain.battery(h.battery, h.name, Date.now());
+      });
+      await this.subscribe<{ kind: string; name: string }>("headset-event", (e) => {
+        this.brain.event(e.kind === "unplug" ? "earsUnplug" : "earsProfile", Date.now(), true, undefined, { name: e.name || tx("наушники") });
         this.game.loop.wake();
       });
       // What really plays: bands and beat for the equalizer and the dance (tap.rs).
@@ -423,7 +432,7 @@ export class PetScene extends Phaser.Scene {
         this.saveMemory(true);
       });
       // Panel -> pet, straight through the event bus.
-      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string; feed?: string }>("pet-command", (c) => this.onCommand(c));
+      await this.subscribe<{ text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean }>("pet-command", (c) => this.onCommand(c));
       await this.subscribe<{ id: string }>("carry", (c) => {
         if (itemById(c.id)) {
           this.carrying = { id: c.id, since: Date.now(), down: false };
@@ -779,7 +788,7 @@ export class PetScene extends Phaser.Scene {
     this.game.loop.wake();
   }
   /** A command typed in the chat or a button in the panel. */
-  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string; feed?: string }) {
+  private onCommand(c: { text?: string; game?: GameKind; wear?: string; role?: string; feed?: string; hearing?: boolean }) {
     if (!this.ready) return;
     const now = Date.now();
     const b = this.brain;
@@ -798,6 +807,14 @@ export class PetScene extends Phaser.Scene {
     if (c.game) {
       this.startGame(c.game);
       reply();
+      return;
+    }
+    if (c.hearing) {
+      // The hearing check on the "Уши" page was finished.
+      note(b.life, "hearing", now);
+      b.reset("earsHearing");
+      b.event("earsHearing", now, true);
+      this.saveGame(true);
       return;
     }
     if (c.wear !== undefined) {

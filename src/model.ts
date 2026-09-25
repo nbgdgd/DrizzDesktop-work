@@ -219,6 +219,13 @@ export interface Settings {
   earsSafe: number;
   /** Duck sudden loud moments in the content for a couple of seconds (tap.rs). */
   earsSpike: boolean;
+  /** Pause the player when headphones come off (headset.rs). */
+  earsPause: boolean;
+  /** Lower volume ceiling from lateHour to 6:00 (guard.rs), percent. */
+  earsNight: boolean;
+  earsNightCeiling: number;
+  /** Settings per headphones, by name; put back when they are the output again. */
+  earsProfiles: Record<string, EarProfile>;
   earsRest: boolean;
   earsRestMinutes: number;
   earsRestDim: number;
@@ -233,6 +240,12 @@ export interface Settings {
   balance: number;
   /** Equalizer at its feet and dancing in time to what plays (tap.rs). */
   musicViz: boolean;
+}
+export interface EarProfile {
+  earsCeiling?: number;
+  earsSafe?: number;
+  earsMax?: number;
+  balance?: number;
 }
 export interface Memory {
   address: string;
@@ -333,6 +346,10 @@ export const defaults: Settings = {
   earsCeiling: 60,
   earsSafe: 20,
   earsSpike: true,
+  earsPause: true,
+  earsNight: true,
+  earsNightCeiling: 40,
+  earsProfiles: {},
   earsRest: false,
   earsRestMinutes: 20,
   earsRestDim: 50,
@@ -467,12 +484,32 @@ export function cleanSettings(raw: Partial<Settings>): Settings {
   if (!["never", "rare", "normal", "often"].includes(s.teaseRate)) s.teaseRate = "normal";
   s.balance = clamp(Math.round(Number(s.balance) || 0), -100, 100);
   s.earsSpike = s.earsSpike !== false;
+  s.earsPause = s.earsPause !== false;
+  s.earsNight = s.earsNight !== false;
+  s.earsNightCeiling = clamp(Math.round(Number(s.earsNightCeiling) || 40), 10, 95);
+  s.earsProfiles = cleanProfiles(s.earsProfiles);
   s.musicViz = s.musicViz !== false;
   s.weatherPlace =
     typeof s.weatherPlace === "string" && /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/.test(s.weatherPlace.trim())
       ? s.weatherPlace.trim()
       : "";
   return s;
+}
+/** At most 8 headphones, known keys only, values in range. */
+export function cleanProfiles(raw: unknown): Record<string, EarProfile> {
+  const out: Record<string, EarProfile> = {};
+  if (!raw || typeof raw !== "object") return out;
+  const range: Record<keyof EarProfile, [number, number]> = { earsCeiling: [10, 95], earsSafe: [0, 60], earsMax: [85, 120], balance: [-100, 100] };
+  for (const [name, p] of Object.entries(raw as Record<string, unknown>).slice(0, 8)) {
+    if (!name.trim() || !p || typeof p !== "object") continue;
+    const clean: EarProfile = {};
+    for (const k of Object.keys(range) as (keyof EarProfile)[]) {
+      const v = Number((p as Record<string, unknown>)[k]);
+      if ((p as Record<string, unknown>)[k] !== undefined && Number.isFinite(v)) clean[k] = clamp(Math.round(v), range[k][0], range[k][1]);
+    }
+    out[name.trim().slice(0, 60)] = clean;
+  }
+  return out;
 }
 export function category(app: string, s: Settings): Category {
   const a = app.toLowerCase();

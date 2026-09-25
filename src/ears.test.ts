@@ -257,3 +257,40 @@ describe("ears lines actually get said", () => {
     expect(said).toContain("earsHello");
   });
 });
+describe("weekly report and battery", () => {
+  it("on the first tick of a new week tells how the last one went, once", async () => {
+    const { weekStart, lastWeek } = await import("./ears");
+    const s = { ...defaults, ears: true } as Settings;
+    // Wednesday 2026-09-16 12:00: an hour of quiet listening each day until Sunday.
+    let log = emptyEars();
+    for (let d = 0; d < 5; d++) log = listen(60, hp(40), s, new Date(2026, 8, 16 + d, 12).getTime(), log).log;
+    const monday = new Date(2026, 8, 21, 9).getTime();
+    expect(weekStart(monday)).toBe("2026-09-21");
+    expect(lastWeek(log, monday).min).toBeGreaterThanOrEqual(299);
+    const r = earTick(log, hp(0, { playing: false }), s, monday, 2000);
+    const ev = r.events.find((e) => e.name === "earsWeek");
+    expect(ev?.vars?.h).toBe("5");
+    expect(earTick(r.log, hp(0, { playing: false }), s, monday + 2000, 2000).events.some((e) => e.name.startsWith("earsWeek"))).toBe(false);
+  });
+  it("too loud a week gets the other report", () => {
+    const s = { ...defaults, ears: true } as Settings;
+    let log = emptyEars();
+    for (let d = 0; d < 3; d++) log = listen(180, hp(100, { db: 0, left: 0, right: 0 }), s, new Date(2026, 8, 16 + d, 12).getTime(), log).log;
+    const r = earTick(log, hp(0, { playing: false }), s, new Date(2026, 8, 21, 9).getTime(), 2000);
+    expect(r.events.map((e) => e.name)).toContain("earsWeekOver");
+  });
+  it("the pet mentions a low battery at 20 % and 10 %, once per charge", () => {
+    const d = new Director({ ...defaults, ears: true } as Settings, { ...emptyMemory }, () => 0.5, newGame(T0));
+    const said: string[] = [];
+    let t = T0;
+    for (const pct of [50, 25, 20, 19, 15, 10, 9, 60, 18]) {
+      t += 40 * 60000;
+      d.bubble = undefined;
+      d.reaction = undefined;
+      d.battery(pct, "soundcore Space 2", t);
+      const r = d.reaction as { event?: string } | undefined;
+      if (r?.event) said.push(`${r.event}@${pct}`);
+    }
+    expect(said).toEqual(["earsBattery20@20", "earsBattery10@10", "earsBattery20@18"]);
+  });
+});
